@@ -2,6 +2,8 @@ const { Cart: CartService } = require('../services')
 const {
   saveCart: saveCartSchema,
   getCart: getCartSchema,
+  updateCart: updateCartSchema,
+  deleteCart: deleteCartSchema,
 } = require('../schemas')
 const Validator = require('../utils/validator')
 
@@ -77,6 +79,17 @@ const deleteCart = async (req, res) => {
   try {
     const { cartId } = req.query
 
+    const data = { cartId }
+
+    const { errors: validationErrors } = Validator.isSchemaValid({
+      data,
+      schema: deleteCartSchema,
+    })
+
+    if (validationErrors) {
+      return res.badRequest('field-validation', validationErrors)
+    }
+
     const { errors, doc } = await CartService.deleteCart(cartId)
     if (doc) {
       res.setHeader('message', 'successfully deleted')
@@ -84,7 +97,7 @@ const deleteCart = async (req, res) => {
     }
     return res.status(400).json(errors)
   } catch (error) {
-    return res, serverError(error)
+    return res.serverError(error)
   }
 }
 
@@ -102,6 +115,15 @@ const updateCart = async (req, res) => {
       publicId,
       concurrencyStamp,
       updatedBy,
+    }
+
+    const { errors } = Validator.isSchemaValid({
+      data,
+      schema: updateCartSchema,
+    })
+
+    if (errors) {
+      return res.badRequest('field-validation', errors)
     }
 
     const {

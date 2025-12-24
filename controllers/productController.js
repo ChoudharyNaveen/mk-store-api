@@ -1,5 +1,11 @@
 const { Product: ProductService } = require('../services')
-const { getProduct: getProductSchema } = require('../schemas')
+const {
+  getProduct: getProductSchema,
+  saveProduct: saveProductSchema,
+  updateProduct: updateProductSchema,
+  deleteProduct: deleteProductSchema,
+  getProductsGroupedByCategory: getProductsGroupedByCategorySchema,
+} = require('../schemas')
 const Validator = require('../utils/validator')
 
 const saveProduct = async (req, res) => {
@@ -11,6 +17,15 @@ const saveProduct = async (req, res) => {
 
     const imageFile = req.files['file'] ? req.files['file'][0] : null
     const data = { ...body, createdBy }
+
+    const { errors } = Validator.isSchemaValid({
+      data,
+      schema: saveProductSchema,
+    })
+
+    if (errors) {
+      return res.badRequest('field-validation', errors)
+    }
 
     const { errors: err, doc } = await ProductService.saveProduct({
       data,
@@ -42,6 +57,15 @@ const updateProduct = async (req, res) => {
       publicId,
       concurrencyStamp,
       updatedBy,
+    }
+
+    const { errors } = Validator.isSchemaValid({
+      data,
+      schema: updateProductSchema,
+    })
+
+    if (errors) {
+      return res.badRequest('field-validation', errors)
     }
 
     const {
@@ -123,6 +147,15 @@ const getProductsGroupedByCategory = async (req, res) => {
       pageSize,
     }
 
+    const { errors } = Validator.isSchemaValid({
+      data,
+      schema: getProductsGroupedByCategorySchema,
+    })
+
+    if (errors) {
+      return res.badRequest('field-validation', errors)
+    }
+
     const { doc } = await ProductService.getProductsGroupedByCategory(data)
 
     return res.getRequest( doc )
@@ -136,6 +169,17 @@ const deleteProduct = async (req, res) => {
   try {
     const { productId } = req.query
 
+    const data = { productId }
+
+    const { errors: validationErrors } = Validator.isSchemaValid({
+      data,
+      schema: deleteProductSchema,
+    })
+
+    if (validationErrors) {
+      return res.badRequest('field-validation', validationErrors)
+    }
+
     const { errors, doc } = await ProductService.deleteProduct(
       productId
     )
@@ -145,7 +189,7 @@ const deleteProduct = async (req, res) => {
     }
     return res.status(400).json(errors)
   } catch (error) {
-    return res, serverError(error)
+    return res.serverError(error)
   }
 }
 

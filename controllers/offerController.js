@@ -1,6 +1,8 @@
 const { Offer: OfferService } = require('../services')
 const {
   getOffer: getOfferSchema,
+  saveOffer: saveOfferSchema,
+  updateOffer: updateOfferSchema,
 } = require('../schemas')
 const Validator = require('../utils/validator')
 
@@ -13,6 +15,15 @@ const saveOffer = async (req, res) => {
 
     const imageFile = req.files['file'] ? req.files['file'][0] : null
     const data = { ...body, createdBy }
+
+    const { errors } = Validator.isSchemaValid({
+      data,
+      schema: saveOfferSchema,
+    })
+
+    if (errors) {
+      return res.badRequest('field-validation', errors)
+    }
 
     const { errors: err, doc } = await OfferService.saveOffer({
       data,
@@ -44,6 +55,15 @@ const updateOffer = async (req, res) => {
       publicId,
       concurrencyStamp,
       updatedBy,
+    }
+
+    const { errors } = Validator.isSchemaValid({
+      data,
+      schema: updateOfferSchema,
+    })
+
+    if (errors) {
+      return res.badRequest('field-validation', errors)
     }
 
     const {

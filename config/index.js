@@ -57,4 +57,14 @@ module.exports = {
   AZURE_BLOB_KEY: process.env.AZURE_BLOB_KEY,
   AZURE_BLOB_CONNECTION_STRING: process.env.AZURE_BLOB_CONNECTION_STRING,
   AZURE_CONTAINER_NAME: process.env.AZURE_CONTAINER_NAME,
+  AWS: {
+    REGION: process.env.AWS_REGION || 'us-east-1',
+    ACCESS_KEY_ID: process.env.AWS_ACCESS_KEY_ID,
+    SECRET_ACCESS_KEY: process.env.AWS_SECRET_ACCESS_KEY,
+    SNS: {
+      SMS_TYPE: process.env.AWS_SNS_SMS_TYPE || 'Transactional',
+    },
+    USE_MOCK_SMS: process.env.USE_MOCK_SMS === 'true' || false,
+    MOCK_OTP: process.env.MOCK_OTP || '654321',
+  },
 };

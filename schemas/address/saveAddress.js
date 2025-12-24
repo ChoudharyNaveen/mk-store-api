@@ -35,15 +35,15 @@ const addAddress = {
   },
   errorMessage: {
     required: {
-      houseNo: 'Parameter: house no is requried',
+      house_no: 'Parameter: house_no is required',
       streetDetails: 'Parameter: streetDetails is required',
-      landmark: 'Parameter: landmark is requried',
-      name: 'Parameter: name is requried',
-      mobileNumber: 'Parameter:mobileNumber is requried',
+      landmark: 'Parameter: landmark is required',
+      name: 'Parameter: name is required',
+      mobileNumber: 'Parameter: mobileNumber is required',
     },
     properties: {},
   },
-  required: ['houseNo', 'streetDetails', 'landmark', 'name', 'mobileNumber'],
+  required: ['house_no', 'streetDetails', 'landmark', 'name', 'mobileNumber'],
   additionalProperties: false,
 }
 

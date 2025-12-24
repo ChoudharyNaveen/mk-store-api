@@ -1,5 +1,9 @@
 const { SubCategory: SubCategoryService } = require('../services')
-const { getSubCategory: getSubCategorySchema } = require('../schemas')
+const {
+  getSubCategory: getSubCategorySchema,
+  saveSubCategory: saveSubCategorySchema,
+  updateSubCategory: updateSubCategorySchema,
+} = require('../schemas')
 const Validator = require('../utils/validator')
 
 const saveSubCategory = async (req, res) => {
@@ -11,6 +15,15 @@ const saveSubCategory = async (req, res) => {
 
     const imageFile = req.files['file'] ? req.files['file'][0] : null
     const data = { ...body, createdBy }
+
+    const { errors } = Validator.isSchemaValid({
+      data,
+      schema: saveSubCategorySchema,
+    })
+
+    if (errors) {
+      return res.badRequest('field-validation', errors)
+    }
 
     const { errors: err, doc } = await SubCategoryService.saveSubCategory({
       data,
@@ -42,6 +55,15 @@ const updateSubCategory = async (req, res) => {
       publicId,
       concurrencyStamp,
       updatedBy,
+    }
+
+    const { errors } = Validator.isSchemaValid({
+      data,
+      schema: updateSubCategorySchema,
+    })
+
+    if (errors) {
+      return res.badRequest('field-validation', errors)
     }
 
     const {

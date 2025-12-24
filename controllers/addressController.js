@@ -1,5 +1,9 @@
 const { Address: AddressService } = require('../services')
-const { getAddress: getAddressSchema } = require('../schemas')
+const {
+  getAddress: getAddressSchema,
+  saveAddress: saveAddressSchema,
+  updateAddress: updateAddressSchema,
+} = require('../schemas')
 const Validator = require('../utils/validator')
 
 const saveAddress = async (req, res) => {
@@ -10,6 +14,15 @@ const saveAddress = async (req, res) => {
     } = req
 
     const data = { ...body, createdBy }
+
+    const { errors } = Validator.isSchemaValid({
+      data,
+      schema: saveAddressSchema,
+    })
+
+    if (errors) {
+      return res.badRequest('field-validation', errors)
+    }
 
     const { errors: err, doc } = await AddressService.saveAddress(data)
     if (doc) {
@@ -36,6 +49,15 @@ const updateAddress = async (req, res) => {
       publicId,
       concurrencyStamp,
       updatedBy,
+    }
+
+    const { errors } = Validator.isSchemaValid({
+      data,
+      schema: updateAddressSchema,
+    })
+
+    if (errors) {
+      return res.badRequest('field-validation', errors)
     }
 
     const {

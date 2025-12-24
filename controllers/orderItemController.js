@@ -1,4 +1,8 @@
 const { OrderItem: OrderItemService } = require('../services')
+const {
+  getOrderItem: getOrderItemSchema,
+} = require('../schemas')
+const Validator = require('../utils/validator')
 
 const getOrderItem = async (req, res) => {
   try {
@@ -17,6 +21,15 @@ const getOrderItem = async (req, res) => {
       ...query,
       pageNumber,
       pageSize,
+    }
+
+    const { errors } = Validator.isSchemaValid({
+      data,
+      schema: getOrderItemSchema,
+    })
+
+    if (errors) {
+      return res.badRequest('field-validation', errors)
     }
 
     const { count, doc } = await OrderItemService.getOrderItem(data)

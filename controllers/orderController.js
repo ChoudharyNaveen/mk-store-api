@@ -1,4 +1,10 @@
 const { Order: OrderService } = require('../services')
+const {
+  placeOrder: placeOrderSchema,
+  getOrder: getOrderSchema,
+  updateOrder: updateOrderSchema,
+} = require('../schemas')
+const Validator = require('../utils/validator')
 
 const placeOrder = async (req, res) => {
   try {
@@ -8,6 +14,15 @@ const placeOrder = async (req, res) => {
     } = req
 
     const data = { ...body, createdBy }
+
+    const { errors } = Validator.isSchemaValid({
+      data,
+      schema: placeOrderSchema,
+    })
+
+    if (errors) {
+      return res.badRequest('field-validation', errors)
+    }
 
     const { doc, error } = await OrderService.placeOrder(data)
 
@@ -43,6 +58,15 @@ const getOrder = async (req, res) => {
       pageSize,
     }
 
+    const { errors } = Validator.isSchemaValid({
+      data,
+      schema: getOrderSchema,
+    })
+
+    if (errors) {
+      return res.badRequest('field-validation', errors)
+    }
+
     const { count, doc } = await OrderService.getOrder(data)
 
     return res.getRequest({ doc, count })
@@ -75,6 +99,15 @@ const updateOrder = async (req, res) => {
       publicId,
       concurrencyStamp,
       updatedBy,
+    }
+
+    const { errors } = Validator.isSchemaValid({
+      data,
+      schema: updateOrderSchema,
+    })
+
+    if (errors) {
+      return res.badRequest('field-validation', errors)
     }
 
     const {

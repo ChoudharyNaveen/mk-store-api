@@ -1,4 +1,10 @@
 const { Wishlist: WishlistService } = require('../services')
+const {
+  saveWishlist: saveWishlistSchema,
+  getWishlist: getWishlistSchema,
+  deleteWishlist: deleteWishlistSchema,
+} = require('../schemas')
+const Validator = require('../utils/validator')
 
 const saveWishlist = async (req, res) => {
   try {
@@ -8,6 +14,15 @@ const saveWishlist = async (req, res) => {
     } = req
 
     const data = { ...body, createdBy }
+
+    const { errors } = Validator.isSchemaValid({
+      data,
+      schema: saveWishlistSchema,
+    })
+
+    if (errors) {
+      return res.badRequest('field-validation', errors)
+    }
 
     const { errors: err, doc , isexists} = await WishlistService.saveWishlist(data)
     if (isexists) {
@@ -44,6 +59,15 @@ const getWishlist = async (req, res) => {
       createdBy
     }
 
+    const { errors } = Validator.isSchemaValid({
+      data,
+      schema: getWishlistSchema,
+    })
+
+    if (errors) {
+      return res.badRequest('field-validation', errors)
+    }
+
     const { count, doc } = await WishlistService.getWishlist(data)
 
     return res.getRequest({ doc, count })
@@ -56,6 +80,17 @@ const deleteWishlist = async (req, res) => {
   try {
     const { wishlistId } = req.query
 
+    const data = { wishlistId }
+
+    const { errors: validationErrors } = Validator.isSchemaValid({
+      data,
+      schema: deleteWishlistSchema,
+    })
+
+    if (validationErrors) {
+      return res.badRequest('field-validation', validationErrors)
+    }
+
     const { errors, doc } = await WishlistService.deleteWishlist(
       wishlistId
     )
@@ -65,7 +100,7 @@ const deleteWishlist = async (req, res) => {
     }
     return res.status(400).json(errors)
   } catch (error) {
-    return res, serverError(error)
+    return res.serverError(error)
   }
 }
 

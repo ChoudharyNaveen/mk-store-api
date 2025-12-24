@@ -15,6 +15,7 @@
   "license": "ISC",
   "author": "abdulhadi",
   "dependencies": {
+    "@aws-sdk/client-sns": "^3.700.0",
     "@azure/storage-blob": "^12.27.0",
     "ajv": "^8.17.1",
     "ajv-errors": "^3.0.0",

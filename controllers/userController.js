@@ -2,6 +2,7 @@ const { User: UserService } = require('../services')
 const {
   userSignUp: userSignUpSchema,
   userLogin: userLoginSchema,
+  updateUser: updateUserSchema,
 } = require('../schemas')
 const Validator = require('../utils/validator')
 const bcrypt = require('bcrypt')
@@ -13,6 +14,15 @@ const userSignUp = async (req, res) => {
   try {
     const { body } = req
     const data = { ...body }
+
+    const { errors } = Validator.isSchemaValid({
+      data,
+      schema: userSignUpSchema,
+    })
+
+    if (errors) {
+      return res.badRequest('field-validation', errors)
+    }
 
     const imageFile = req.files['file'] ? req.files['file'][0] : null
 
@@ -163,6 +173,15 @@ const updateUser = async (req, res) => {
       updatedBy,
     }
 
+    const { errors } = Validator.isSchemaValid({
+      data,
+      schema: updateUserSchema,
+    })
+
+    if (errors) {
+      return res.badRequest('field-validation', errors)
+    }
+
     const {
       errors: err,
       concurrencyError,
@@ -242,6 +261,15 @@ const customerSignUp = async (req, res) => {
   try {
     const { body } = req
     const data = { ...body }
+
+    const { errors } = Validator.isSchemaValid({
+      data,
+      schema: userSignUpSchema,
+    })
+
+    if (errors) {
+      return res.badRequest('field-validation', errors)
+    }
 
     const imageFile = req.files['file'] ? req.files['file'][0] : null
 

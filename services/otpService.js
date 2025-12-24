@@ -4,6 +4,7 @@ const Helper = require('../utils/helper')
 const crypto = require('crypto')
 const config = require('../config')
 const nodemailer = require('nodemailer')
+const { sendSMS } = require('../config/aws')
 
 const verifyOTP = async (payload) => {
   const { email, otp } = payload
@@ -221,9 +222,192 @@ const verifyOtpForNewUser = async (payload) => {
   }
 }
 
+const sendOTPToSMS = async (mobileNumber) => {
+  let transaction = null
+
+  // Use mock OTP if USE_MOCK_SMS is enabled, otherwise generate random OTP
+  const otp = config.AWS.USE_MOCK_SMS ? config.AWS.MOCK_OTP : Helper.generateOTP()
+  const message = `Your One-Time Password (OTP) for MK Online Store is ${otp}. This OTP is valid for the next 10 minutes. Please do not share this code with anyone.`
+
+  try {
+    const user = await UserModel.findOne({
+      where: { mobile_number: mobileNumber },
+    })
+
+    if (!user) {
+      await transaction.rollback()
+      return { message: 'failed', error: 'User not found' }
+    }
+
+    const smsResult = await sendSMS(mobileNumber, message)
+
+    if (!smsResult.success) {
+      return { message: 'failed', error: smsResult.error }
+    }
+
+    transaction = await sequelize.transaction()
+
+    const userId = user?.dataValues?.public_id
+
+    const otpEntry = await OTPModel.findOne({
+      where: { user_id: userId },
+    })
+
+    if (otpEntry) {
+      await OTPModel.update(
+        { otp: otp, status: 'ACTIVE', mobile_number: mobileNumber },
+        {
+          where: { user_id: userId },
+          transaction,
+        }
+      )
+    } else {
+      const otpData = {
+        user_id: userId,
+        otp: otp,
+        mobile_number: mobileNumber,
+        status: 'ACTIVE',
+      }
+      await OTPModel.create(otpData, { transaction })
+    }
+    await transaction.commit()
+    return { messageId: smsResult.messageId, success: true }
+  } catch (error) {
+    if (transaction) {
+      await transaction.rollback()
+    }
+    console.error('Error occurred:', error.message)
+    return { message: 'failed', error: error.message }
+  }
+}
+
+const verifyOTPBySMS = async (payload) => {
+  const { mobileNumber, otp } = payload
+
+  const transaction = await sequelize.transaction()
+
+  try {
+    const user = await UserModel.findOne({
+      where: { mobile_number: mobileNumber },
+    })
+
+    if (!user) {
+      await transaction.rollback()
+      return {
+        errors: [{ message: 'User not found. Please register first.', name: 'user' }],
+      }
+    }
+
+    const userId = user?.dataValues?.public_id
+
+    const otpResult = await OTPModel.findOne({
+      where: { user_id: userId },
+      lock: transaction.LOCK.UPDATE,
+    })
+
+    if (!otpResult || otpResult?.dataValues?.status === 'INACTIVE') {
+      await transaction.rollback()
+      return {
+        errors: [{ message: 'OTP not valid. Please try again', name: 'otp' }],
+      }
+    }
+
+    const { otp: otpResponse } = otpResult
+
+    if (otpResponse !== otp) {
+      await transaction.rollback()
+      return { errors: [{ message: 'Invalid OTP.', name: 'otp' }] }
+    }
+
+    await OTPModel.update(
+      { status: 'INACTIVE' },
+      { where: { user_id: userId }, transaction }
+    )
+    await transaction.commit()
+
+    return { doc: { message: 'OTP has been successfully verified.' } }
+  } catch (error) {
+    console.log(error)
+    await transaction.rollback()
+    return { errors: [{ message: 'transaction failed', name: 'transaction' }] }
+  }
+}
+
+const sendOTPToSMSForNewUser = async (mobileNumber) => {
+  let transaction = null
+
+  // Use mock OTP if USE_MOCK_SMS is enabled, otherwise generate random OTP
+  const otp = config.AWS.USE_MOCK_SMS ? config.AWS.MOCK_OTP : Helper.generateOTP()
+  const message = `Your One-Time Password (OTP) for MK Online Store registration is ${otp}. This OTP is valid for the next 10 minutes. Please do not share this code with anyone.`
+
+  try {
+    const smsResult = await sendSMS(mobileNumber, message)
+
+    if (!smsResult.success) {
+      return { message: 'failed', error: smsResult.error }
+    }
+
+    transaction = await sequelize.transaction()
+
+    const otpData = {
+      text: mobileNumber,
+      otp: otp,
+      mobile_number: mobileNumber,
+      type: 'initial-registration',
+      status: 'ACTIVE',
+    }
+
+    await OTPModel.create(otpData, { transaction })
+
+    await transaction.commit()
+    return { messageId: smsResult.messageId, success: true }
+  } catch (error) {
+    if (transaction) {
+      await transaction.rollback()
+    }
+    console.error('Error occurred:', error.message)
+    return { message: 'failed', error: error.message }
+  }
+}
+
+const verifyOTPForNewUserBySMS = async (payload) => {
+  const { mobileNumber, otp } = payload
+
+  try {
+    const otpResult = await OTPModel.findOne({
+      where: { text: mobileNumber, type: 'initial-registration' },
+    })
+
+    if (otpResult === null) {
+      return {
+        errors: [{ message: 'OTP not valid. Please try again', name: 'otp' }],
+      }
+    }
+
+    const { otp: otpResponse } = otpResult
+
+    if (otpResponse !== otp) {
+      return { errors: [{ message: 'Invalid OTP.', name: 'otp' }] }
+    }
+
+    await OTPModel.destroy({
+      where: { text: mobileNumber, type: 'initial-registration' },
+    })
+
+    return { doc: { message: 'OTP has been successfully verified.' } }
+  } catch (error) {
+    console.log(error)
+    return { errors: [{ message: 'transaction failed', name: 'transaction' }] }
+  }
+}
+
 module.exports = {
   verifyOTP,
   sendOTPToMail,
   sendOTPToMailForNewUser,
   verifyOtpForNewUser,
+  sendOTPToSMS,
+  verifyOTPBySMS,
+  sendOTPToSMSForNewUser,
+  verifyOTPForNewUserBySMS,
 }

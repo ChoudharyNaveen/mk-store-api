@@ -1,6 +1,8 @@
 const { Category: CategoryService } = require('../services')
 const {
   getCategory: getCategorySchema,
+  saveCategory: saveCategorySchema,
+  updateCategory: updateCategorySchema,
 } = require('../schemas')
 const Validator = require('../utils/validator')
 
@@ -13,6 +15,15 @@ const saveCategory = async (req, res) => {
 
     const imageFile = req.files['file'] ? req.files['file'][0] : null
     const data = { ...body, createdBy }
+
+    const { errors } = Validator.isSchemaValid({
+      data,
+      schema: saveCategorySchema,
+    })
+
+    if (errors) {
+      return res.badRequest('field-validation', errors)
+    }
 
     const { errors: err, doc } = await CategoryService.saveCategory({
       data,
@@ -44,6 +55,15 @@ const updateCategory = async (req, res) => {
       publicId,
       concurrencyStamp,
       updatedBy,
+    }
+
+    const { errors } = Validator.isSchemaValid({
+      data,
+      schema: updateCategorySchema,
+    })
+
+    if (errors) {
+      return res.badRequest('field-validation', errors)
     }
 
     const {
