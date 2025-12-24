@@ -1,28 +1,8 @@
 const { Order: OrderService } = require('../services')
-const {
-  placeOrder: placeOrderSchema,
-  getOrder: getOrderSchema,
-  updateOrder: updateOrderSchema,
-} = require('../schemas')
-const Validator = require('../utils/validator')
 
 const placeOrder = async (req, res) => {
   try {
-    const {
-      body,
-      user: { publicId: createdBy },
-    } = req
-
-    const data = { ...body, createdBy }
-
-    const { errors } = Validator.isSchemaValid({
-      data,
-      schema: placeOrderSchema,
-    })
-
-    if (errors) {
-      return res.badRequest('field-validation', errors)
-    }
+    const data = req.validatedData
 
     const { doc, error } = await OrderService.placeOrder(data)
 
@@ -41,31 +21,7 @@ const placeOrder = async (req, res) => {
 
 const getOrder = async (req, res) => {
   try {
-    const {
-      query: {
-        pageSize: pageSizeString,
-        pageNumber: pageNumberString,
-        ...query
-      },
-    } = req
-
-    const pageNumber = parseInt(pageNumberString || 1)
-    const pageSize = parseInt(pageSizeString || 10)
-
-    const data = {
-      ...query,
-      pageNumber,
-      pageSize,
-    }
-
-    const { errors } = Validator.isSchemaValid({
-      data,
-      schema: getOrderSchema,
-    })
-
-    if (errors) {
-      return res.badRequest('field-validation', errors)
-    }
+    const data = req.validatedData
 
     const { count, doc } = await OrderService.getOrder(data)
 
@@ -87,28 +43,7 @@ const getStatsOfOrdersCompleted = async (req, res) => {
 
 const updateOrder = async (req, res) => {
   try {
-    const {
-      body,
-      params: { publicId },
-      user: { publicId: updatedBy },
-      headers: { 'x-concurrencystamp': concurrencyStamp },
-    } = req
-
-    const data = {
-      ...body,
-      publicId,
-      concurrencyStamp,
-      updatedBy,
-    }
-
-    const { errors } = Validator.isSchemaValid({
-      data,
-      schema: updateOrderSchema,
-    })
-
-    if (errors) {
-      return res.badRequest('field-validation', errors)
-    }
+    const data = req.validatedData
 
     const {
       errors: err,
@@ -134,11 +69,11 @@ const updateOrder = async (req, res) => {
   }
 }
 
-const getTotalReturnsOfToday = async(req,res)=>{
+const getTotalReturnsOfToday = async (req, res) => {
   try {
-    const {error, data} = await OrderService.getTotalReturnsOfToday()
+    const { error, data } = await OrderService.getTotalReturnsOfToday()
     if (data) {
-      return res.getRequest({total:data})
+      return res.getRequest({ total: data })
     }
     return res.badRequest(error)
   } catch (error) {

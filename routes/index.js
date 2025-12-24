@@ -14,6 +14,8 @@ const wishlist = require('./wishlist')
 const cart = require('./cart')
 const order = require('./order')
 const orderItem = require('./orderItem')
+const vendor = require('./vendor')
+const branch = require('./branch')
 
 user(router)
 category(router)
@@ -28,5 +30,7 @@ wishlist(router)
 cart(router)
 order(router)
 orderItem(router)
+vendor(router)
+branch(router)
 
 module.exports = router

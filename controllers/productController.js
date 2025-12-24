@@ -1,31 +1,9 @@
 const { Product: ProductService } = require('../services')
-const {
-  getProduct: getProductSchema,
-  saveProduct: saveProductSchema,
-  updateProduct: updateProductSchema,
-  deleteProduct: deleteProductSchema,
-  getProductsGroupedByCategory: getProductsGroupedByCategorySchema,
-} = require('../schemas')
-const Validator = require('../utils/validator')
 
 const saveProduct = async (req, res) => {
   try {
-    const {
-      body,
-      user: { publicId: createdBy },
-    } = req
-
+    const data = req.validatedData
     const imageFile = req.files['file'] ? req.files['file'][0] : null
-    const data = { ...body, createdBy }
-
-    const { errors } = Validator.isSchemaValid({
-      data,
-      schema: saveProductSchema,
-    })
-
-    if (errors) {
-      return res.badRequest('field-validation', errors)
-    }
 
     const { errors: err, doc } = await ProductService.saveProduct({
       data,
@@ -43,30 +21,8 @@ const saveProduct = async (req, res) => {
 
 const updateProduct = async (req, res) => {
   try {
-    const {
-      body,
-      params: { publicId },
-      user: { publicId: updatedBy },
-      headers: { 'x-concurrencystamp': concurrencyStamp },
-    } = req
-
+    const data = req.validatedData
     const imageFile = req.files['file'] ? req.files['file'][0] : null
-
-    const data = {
-      ...body,
-      publicId,
-      concurrencyStamp,
-      updatedBy,
-    }
-
-    const { errors } = Validator.isSchemaValid({
-      data,
-      schema: updateProductSchema,
-    })
-
-    if (errors) {
-      return res.badRequest('field-validation', errors)
-    }
 
     const {
       errors: err,
@@ -94,31 +50,7 @@ const updateProduct = async (req, res) => {
 
 const getProduct = async (req, res) => {
   try {
-    const {
-      query: {
-        pageSize: pageSizeString,
-        pageNumber: pageNumberString,
-        ...query
-      },
-    } = req
-
-    const pageNumber = parseInt(pageNumberString || 1)
-    const pageSize = parseInt(pageSizeString || 10)
-
-    const data = {
-      ...query,
-      pageNumber,
-      pageSize,
-    }
-
-    const { errors } = Validator.isSchemaValid({
-      data,
-      schema: getProductSchema,
-    })
-
-    if (errors) {
-      return res.badRequest('field-validation', errors)
-    }
+    const data = req.validatedData
 
     const { count, doc } = await ProductService.getProduct(data)
 
@@ -130,35 +62,11 @@ const getProduct = async (req, res) => {
 
 const getProductsGroupedByCategory = async (req, res) => {
   try {
-    const {
-      query: {
-        pageSize: pageSizeString,
-        pageNumber: pageNumberString,
-        ...query
-      },
-    } = req
-
-    const pageNumber = parseInt(pageNumberString || 1)
-    const pageSize = parseInt(pageSizeString || 10)
-
-    const data = {
-      ...query,
-      pageNumber,
-      pageSize,
-    }
-
-    const { errors } = Validator.isSchemaValid({
-      data,
-      schema: getProductsGroupedByCategorySchema,
-    })
-
-    if (errors) {
-      return res.badRequest('field-validation', errors)
-    }
+    const data = req.validatedData
 
     const { doc } = await ProductService.getProductsGroupedByCategory(data)
 
-    return res.getRequest( doc )
+    return res.getRequest(doc)
   } catch (error) {
     console.log(error)
     return res.serverError(error)
@@ -167,22 +75,9 @@ const getProductsGroupedByCategory = async (req, res) => {
 
 const deleteProduct = async (req, res) => {
   try {
-    const { productId } = req.query
+    const { productId } = req.validatedData
 
-    const data = { productId }
-
-    const { errors: validationErrors } = Validator.isSchemaValid({
-      data,
-      schema: deleteProductSchema,
-    })
-
-    if (validationErrors) {
-      return res.badRequest('field-validation', validationErrors)
-    }
-
-    const { errors, doc } = await ProductService.deleteProduct(
-      productId
-    )
+    const { errors, doc } = await ProductService.deleteProduct(productId)
     if (doc) {
       res.setHeader('message', 'successfully deleted')
       return res.deleted()

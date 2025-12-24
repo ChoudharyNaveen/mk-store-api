@@ -4,6 +4,12 @@ const {
   updateCategory,
 } = require('../controllers/categoryController')
 const { isAuthenticated } = require('../middleware/auth')
+const validate = require('../middleware/validation')
+const {
+  saveCategory: saveCategorySchema,
+  getCategory: getCategorySchema,
+  updateCategory: updateCategorySchema,
+} = require('../schemas')
 const multer = require('multer')
 const upload = multer()
 
@@ -67,6 +73,7 @@ module.exports = (router) => {
     '/save-category',
     isAuthenticated,
     upload.fields([{ name: 'file', maxCount: 1 }]),
+    validate(saveCategorySchema),
     saveCategory
   )
 
@@ -120,7 +127,7 @@ module.exports = (router) => {
    *                 count:
    *                   type: integer
    */
-  router.get('/get-category', isAuthenticated, getCategory)
+  router.get('/get-category', isAuthenticated, validate(getCategorySchema), getCategory)
 
   /**
    * @swagger
@@ -178,6 +185,7 @@ module.exports = (router) => {
     '/update-category/:publicId',
     isAuthenticated,
     upload.fields([{ name: 'file', maxCount: 1 }]),
+    validate(updateCategorySchema),
     updateCategory
   )
 }

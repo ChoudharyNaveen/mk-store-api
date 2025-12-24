@@ -1,28 +1,8 @@
 const { Address: AddressService } = require('../services')
-const {
-  getAddress: getAddressSchema,
-  saveAddress: saveAddressSchema,
-  updateAddress: updateAddressSchema,
-} = require('../schemas')
-const Validator = require('../utils/validator')
 
 const saveAddress = async (req, res) => {
   try {
-    const {
-      body,
-      user: { publicId: createdBy },
-    } = req
-
-    const data = { ...body, createdBy }
-
-    const { errors } = Validator.isSchemaValid({
-      data,
-      schema: saveAddressSchema,
-    })
-
-    if (errors) {
-      return res.badRequest('field-validation', errors)
-    }
+    const data = req.validatedData
 
     const { errors: err, doc } = await AddressService.saveAddress(data)
     if (doc) {
@@ -37,34 +17,13 @@ const saveAddress = async (req, res) => {
 
 const updateAddress = async (req, res) => {
   try {
-    const {
-      body,
-      params: { publicId },
-      user: { publicId: updatedBy },
-      headers: { 'x-concurrencystamp': concurrencyStamp },
-    } = req
-
-    const data = {
-      ...body,
-      publicId,
-      concurrencyStamp,
-      updatedBy,
-    }
-
-    const { errors } = Validator.isSchemaValid({
-      data,
-      schema: updateAddressSchema,
-    })
-
-    if (errors) {
-      return res.badRequest('field-validation', errors)
-    }
+    const data = req.validatedData
 
     const {
       errors: err,
       concurrencyError,
       doc,
-    } = await AddressService.updateAddress( data)
+    } = await AddressService.updateAddress(data)
 
     if (concurrencyError) {
       return res.concurrencyError()
@@ -86,31 +45,7 @@ const updateAddress = async (req, res) => {
 
 const getAddress = async (req, res) => {
   try {
-    const {
-      query: {
-        pageSize: pageSizeString,
-        pageNumber: pageNumberString,
-        ...query
-      },
-    } = req
-
-    const pageNumber = parseInt(pageNumberString || 1)
-    const pageSize = parseInt(pageSizeString || 10)
-
-    const data = {
-      ...query,
-      pageNumber,
-      pageSize,
-    }
-
-    const { errors } = Validator.isSchemaValid({
-      data,
-      schema: getAddressSchema,
-    })
-
-    if (errors) {
-      return res.badRequest('field-validation', errors)
-    }
+    const data = req.validatedData
 
     const { count, doc } = await AddressService.getAddress(data)
 

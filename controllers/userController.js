@@ -1,10 +1,4 @@
 const { User: UserService } = require('../services')
-const {
-  userSignUp: userSignUpSchema,
-  userLogin: userLoginSchema,
-  updateUser: updateUserSchema,
-} = require('../schemas')
-const Validator = require('../utils/validator')
 const bcrypt = require('bcrypt')
 const config = require('../config/index')
 const jwt = require('jsonwebtoken')
@@ -12,17 +6,7 @@ const Helper = require('../utils/helper')
 
 const userSignUp = async (req, res) => {
   try {
-    const { body } = req
-    const data = { ...body }
-
-    const { errors } = Validator.isSchemaValid({
-      data,
-      schema: userSignUpSchema,
-    })
-
-    if (errors) {
-      return res.badRequest('field-validation', errors)
-    }
+    const data = req.validatedData || req.body
 
     const imageFile = req.files['file'] ? req.files['file'][0] : null
 
@@ -43,17 +27,7 @@ const userSignUp = async (req, res) => {
 
 const riderLogin = async (req, res) => {
   try {
-    const { body } = req
-
-    const data = { ...body }
-    const { errors } = Validator.isSchemaValid({
-      data,
-      schema: userLoginSchema,
-    })
-
-    if (errors) {
-      return res.badRequest('field-validation', errors)
-    }
+    const data = req.validatedData || req.body
 
     var userData = await UserService.findUserByEmailOrMobile(data)
 
@@ -94,17 +68,7 @@ const riderLogin = async (req, res) => {
 
 const userLogin = async (req, res) => {
   try {
-    const { body } = req
-
-    const data = { ...body }
-    const { errors } = Validator.isSchemaValid({
-      data,
-      schema: userLoginSchema,
-    })
-
-    if (errors) {
-      return res.badRequest('field-validation', errors)
-    }
+    const data = req.validatedData || req.body
 
     var userData = await UserService.findUserByEmailOrMobile(data)
 
@@ -157,30 +121,8 @@ const getTotalUsers = async (req, res) => {
 
 const updateUser = async (req, res) => {
   try {
-    const {
-      body,
-      params: { publicId },
-      user: { publicId: updatedBy },
-      headers: { 'x-concurrencystamp': concurrencyStamp },
-    } = req
-
+    const data = req.validatedData
     const imageFile = req.files['file'] ? req.files['file'][0] : null
-
-    const data = {
-      ...body,
-      publicId,
-      concurrencyStamp,
-      updatedBy,
-    }
-
-    const { errors } = Validator.isSchemaValid({
-      data,
-      schema: updateUserSchema,
-    })
-
-    if (errors) {
-      return res.badRequest('field-validation', errors)
-    }
 
     const {
       errors: err,
@@ -207,17 +149,7 @@ const updateUser = async (req, res) => {
 
 const adminLogin = async (req, res) => {
   try {
-    const { body } = req
-
-    const data = { ...body }
-    const { errors } = Validator.isSchemaValid({
-      data,
-      schema: userLoginSchema,
-    })
-
-    if (errors) {
-      return res.badRequest('field-validation', errors)
-    }
+    const data = req.validatedData || req.body
 
     var userData = await UserService.findUserByEmail(data)
 
@@ -259,17 +191,7 @@ const adminLogin = async (req, res) => {
 
 const customerSignUp = async (req, res) => {
   try {
-    const { body } = req
-    const data = { ...body }
-
-    const { errors } = Validator.isSchemaValid({
-      data,
-      schema: userSignUpSchema,
-    })
-
-    if (errors) {
-      return res.badRequest('field-validation', errors)
-    }
+    const data = req.validatedData || req.body
 
     const imageFile = req.files['file'] ? req.files['file'][0] : null
 
@@ -288,6 +210,53 @@ const customerSignUp = async (req, res) => {
   }
 }
 
+const updateUserProfile = async (req, res) => {
+  try {
+    const data = req.validatedData
+    const imageFile = req.files['file'] ? req.files['file'][0] : null
+
+    const {
+      errors: err,
+      concurrencyError,
+      doc,
+    } = await UserService.updateUserProfile({ data, imageFile })
+
+    if (concurrencyError) {
+      return res.concurrencyError()
+    }
+    if (doc) {
+      const { concurrencyStamp: stamp } = doc
+      res.setHeader('x-concurrencystamp', stamp)
+      res.setHeader('message', 'Profile updated successfully. Profile status set to COMPLETE.')
+
+      return res.updated()
+    }
+
+    return res.status(400).json(err)
+  } catch (error) {
+    return res.serverError(error)
+  }
+}
+
+const createVendorAdmin = async (req, res) => {
+  try {
+    const data = req.validatedData
+
+    const imageFile = req.files['file'] ? req.files['file'][0] : null
+
+    const { errors: err, doc } = await UserService.createVendorAdmin({ data, imageFile })
+
+    if (doc) {
+      return res.postSuccessfully({ message: 'Vendor admin created successfully', doc })
+    }
+
+    return res.status(400).json({ error: err })
+  } catch (error) {
+    console.log(error)
+    return res.serverError(error)
+  }
+}
+
 module.exports = {
   userSignUp,
   userLogin,
@@ -295,5 +264,7 @@ module.exports = {
   updateUser,
   adminLogin,
   customerSignUp,
-  riderLogin
+  riderLogin,
+  updateUserProfile,
+  createVendorAdmin,
 }

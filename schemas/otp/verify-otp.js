@@ -1,29 +1,14 @@
-const verifyOtp = {
-  title: 'verification form',
-  description: 'Defines the structure for HTTP POST request body',
-  type: 'object',
-  properties: {
-    email: {
-      type: 'string',
-      description: 'email of the user',
-    },
-    otp: {
-      type: 'string',
-      description: 'OTP',
-    },
-  },
-  errorMessage: {
-    required: {
-      email: 'Parameter: email is required in the body.',
-      otp: 'Parameter: otp is required in the body.',
-    },
-    properties: {
-      email: 'Parameter: email should be valid.',
-      otp: 'Parameter: otp should be valid.',
-    },
-  },
-  required: ['email', 'otp'],
-  additionalProperties: false,
-}
+const Joi = require('joi')
+
+const verifyOtp = Joi.object({
+  email: Joi.string().required().messages({
+    'any.required': 'Parameter: email is required in the body.',
+    'string.empty': 'Parameter: email should be valid.',
+  }),
+  otp: Joi.string().required().messages({
+    'any.required': 'Parameter: otp is required in the body.',
+    'string.empty': 'Parameter: otp should be valid.',
+  }),
+}).unknown(false)
 
 module.exports = verifyOtp

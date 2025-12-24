@@ -1,29 +1,9 @@
 const { SubCategory: SubCategoryService } = require('../services')
-const {
-  getSubCategory: getSubCategorySchema,
-  saveSubCategory: saveSubCategorySchema,
-  updateSubCategory: updateSubCategorySchema,
-} = require('../schemas')
-const Validator = require('../utils/validator')
 
 const saveSubCategory = async (req, res) => {
   try {
-    const {
-      body,
-      user: { publicId: createdBy },
-    } = req
-
+    const data = req.validatedData
     const imageFile = req.files['file'] ? req.files['file'][0] : null
-    const data = { ...body, createdBy }
-
-    const { errors } = Validator.isSchemaValid({
-      data,
-      schema: saveSubCategorySchema,
-    })
-
-    if (errors) {
-      return res.badRequest('field-validation', errors)
-    }
 
     const { errors: err, doc } = await SubCategoryService.saveSubCategory({
       data,
@@ -41,30 +21,8 @@ const saveSubCategory = async (req, res) => {
 
 const updateSubCategory = async (req, res) => {
   try {
-    const {
-      body,
-      params: { publicId },
-      user: { publicId: updatedBy },
-      headers: { 'x-concurrencystamp': concurrencyStamp },
-    } = req
-
+    const data = req.validatedData
     const imageFile = req.files['file'] ? req.files['file'][0] : null
-
-    const data = {
-      ...body,
-      publicId,
-      concurrencyStamp,
-      updatedBy,
-    }
-
-    const { errors } = Validator.isSchemaValid({
-      data,
-      schema: updateSubCategorySchema,
-    })
-
-    if (errors) {
-      return res.badRequest('field-validation', errors)
-    }
 
     const {
       errors: err,
@@ -92,31 +50,7 @@ const updateSubCategory = async (req, res) => {
 
 const getSubCategory = async (req, res) => {
   try {
-    const {
-      query: {
-        pageSize: pageSizeString,
-        pageNumber: pageNumberString,
-        ...query
-      },
-    } = req
-
-    const pageNumber = parseInt(pageNumberString || 1)
-    const pageSize = parseInt(pageSizeString || 10)
-
-    const data = {
-      ...query,
-      pageNumber,
-      pageSize,
-    }
-
-    const { errors } = Validator.isSchemaValid({
-      data,
-      schema: getSubCategorySchema,
-    })
-
-    if (errors) {
-      return res.badRequest('field-validation', errors)
-    }
+    const data = req.validatedData
 
     const { count, doc } = await SubCategoryService.getSubCategory(data)
 

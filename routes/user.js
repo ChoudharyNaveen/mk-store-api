@@ -5,11 +5,21 @@ const {
   updateUser,
   adminLogin,
   customerSignUp,
-  riderLogin
+  riderLogin,
+  updateUserProfile,
+  createVendorAdmin,
 } = require('../controllers/userController')
 const multer = require('multer')
 const upload = multer()
 const { isAuthenticated } = require('../middleware/auth')
+const validate = require('../middleware/validation')
+const {
+  userSignUp: userSignUpSchema,
+  userLogin: userLoginSchema,
+  updateUser: updateUserSchema,
+  updateUserProfile: updateUserProfileSchema,
+  createVendorAdmin: createVendorAdminSchema,
+} = require('../schemas')
 
 module.exports = (router) => {
   /**
@@ -100,6 +110,7 @@ module.exports = (router) => {
   router.post(
     '/rider-sign-up',
     upload.fields([{ name: 'file', maxCount: 1 }]),
+    validate(userSignUpSchema),
     userSignUp
   )
 
@@ -174,7 +185,7 @@ module.exports = (router) => {
    *                   type: string
    *                   example: "Invalid Credentials"
    */
-  router.post('/rider-login', riderLogin)
+  router.post('/rider-login', validate(userLoginSchema), riderLogin)
 
   /**
    * @swagger
@@ -236,7 +247,7 @@ module.exports = (router) => {
    *       401:
    *         description: Invalid credentials
    */
-  router.post('/user-login', userLogin)
+  router.post('/user-login', validate(userLoginSchema), userLogin)
 
   /**
    * @swagger
@@ -333,6 +344,7 @@ module.exports = (router) => {
     '/update-user/:publicId',
     isAuthenticated,
     upload.fields([{ name: 'file', maxCount: 1 }]),
+    validate(updateUserSchema),
     updateUser
   )
 
@@ -391,7 +403,7 @@ module.exports = (router) => {
    *       401:
    *         description: Invalid credentials
    */
-  router.post('/admin-login', adminLogin)
+  router.post('/admin-login', validate(userLoginSchema), adminLogin)
 
   /**
    * @swagger
@@ -463,6 +475,176 @@ module.exports = (router) => {
   router.post(
     '/customer-sign-up',
     upload.fields([{ name: 'file', maxCount: 1 }]),
+    validate(userSignUpSchema),
     customerSignUp
+  )
+
+  /**
+   * @swagger
+   * /update-user-profile/{publicId}:
+   *   patch:
+   *     summary: Update user profile and mark as complete (requires name and email)
+   *     tags: [Users]
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: path
+   *         name: publicId
+   *         required: true
+   *         schema:
+   *           type: string
+   *         description: User public ID
+   *         example: "uuid-here"
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         multipart/form-data:
+   *           schema:
+   *             type: object
+   *             required:
+   *               - name
+   *               - email
+   *             properties:
+   *               name:
+   *                 type: string
+   *                 example: "John Doe"
+   *               email:
+   *                 type: string
+   *                 format: email
+   *                 example: "john.doe@example.com"
+   *               date_of_birth:
+   *                 type: string
+   *                 format: date
+   *                 example: "1990-01-01"
+   *               gender:
+   *                 type: string
+   *                 enum: [MALE, FEMALE, OTHER]
+   *                 example: "MALE"
+   *               file:
+   *                 type: string
+   *                 format: binary
+   *                 description: Profile image file
+   *     responses:
+   *       200:
+   *         description: Profile updated successfully and marked as COMPLETE
+   *         headers:
+   *           x-concurrencystamp:
+   *             schema:
+   *               type: string
+   *           message:
+   *             schema:
+   *               type: string
+   *             description: Success message
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 success:
+   *                   type: boolean
+   *                   example: true
+   *       400:
+   *         description: Validation error or missing required fields
+   */
+  router.patch(
+    '/update-user-profile/:publicId',
+    isAuthenticated,
+    upload.fields([{ name: 'file', maxCount: 1 }]),
+    validate(updateUserProfileSchema),
+    updateUserProfile
+  )
+
+  /**
+   * @swagger
+   * /create-vendor-admin:
+   *   post:
+   *     summary: Create a vendor admin user
+   *     tags: [Users]
+   *     security:
+   *       - bearerAuth: []
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         multipart/form-data:
+   *           schema:
+   *             type: object
+   *             required:
+   *               - vendorId
+   *               - name
+   *               - mobile_number
+   *               - email
+   *               - password
+   *             properties:
+   *               vendorId:
+   *                 type: string
+   *                 description: Public ID of the vendor
+   *                 example: "uuid-vendor-id"
+   *               name:
+   *                 type: string
+   *                 example: "Admin Name"
+   *               mobile_number:
+   *                 type: string
+   *                 example: "+1234567890"
+   *               email:
+   *                 type: string
+   *                 format: email
+   *                 example: "admin@vendor.com"
+   *               password:
+   *                 type: string
+   *                 format: password
+   *                 minLength: 6
+   *                 example: "SecurePassword123"
+   *               date_of_birth:
+   *                 type: string
+   *                 format: date
+   *                 example: "1990-01-01"
+   *               gender:
+   *                 type: string
+   *                 enum: [MALE, FEMALE]
+   *                 example: "MALE"
+   *               status:
+   *                 type: string
+   *                 enum: [ACTIVE, INACTIVE]
+   *                 example: ACTIVE
+   *               file:
+   *                 type: string
+   *                 format: binary
+   *                 description: Profile image file
+   *     responses:
+   *       200:
+   *         description: Vendor admin created successfully
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 success:
+   *                   type: boolean
+   *                   example: true
+   *                 message:
+   *                   type: string
+   *                   example: "Vendor admin created successfully"
+   *                 doc:
+   *                   type: object
+   *       400:
+   *         description: Validation error or vendor already has an admin
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 error:
+   *                   type: object
+   *                   properties:
+   *                     message:
+   *                       type: string
+   *                       example: "Vendor already has an admin assigned"
+   */
+  router.post(
+    '/create-vendor-admin',
+    isAuthenticated,
+    upload.fields([{ name: 'file', maxCount: 1 }]),
+    validate(createVendorAdminSchema),
+    createVendorAdmin
   )
 }

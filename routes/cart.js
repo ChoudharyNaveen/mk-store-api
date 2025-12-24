@@ -5,6 +5,13 @@ const {
   updateCart,
 } = require('../controllers/cartController')
 const { isAuthenticated } = require('../middleware/auth')
+const validate = require('../middleware/validation')
+const {
+  saveCart: saveCartSchema,
+  getCart: getCartSchema,
+  deleteCart: deleteCartSchema,
+  updateCart: updateCartSchema,
+} = require('../schemas')
 
 module.exports = (router) => {
   /**
@@ -58,7 +65,7 @@ module.exports = (router) => {
    *       400:
    *         description: Validation error or item already in cart
    */
-  router.post('/add-to-cart', isAuthenticated, saveCart)
+  router.post('/add-to-cart', isAuthenticated, validate(saveCartSchema), saveCart)
 
   /**
    * @swagger
@@ -116,7 +123,7 @@ module.exports = (router) => {
    *                   type: integer
    *                   example: 5
    */
-  router.get('/get-cart', isAuthenticated, getCart)
+  router.get('/get-cart', isAuthenticated, validate(getCartSchema), getCart)
 
   /**
    * @swagger
@@ -152,7 +159,7 @@ module.exports = (router) => {
    *       400:
    *         description: Error deleting cart item
    */
-  router.delete('/delete-cart', isAuthenticated, deleteCart)
+  router.delete('/delete-cart', isAuthenticated, validate(deleteCartSchema), deleteCart)
 
   /**
    * @swagger
@@ -209,5 +216,5 @@ module.exports = (router) => {
    *       400:
    *         description: Validation error
    */
-  router.patch('/update-cart/:publicId', isAuthenticated, updateCart)
+  router.patch('/update-cart/:publicId', isAuthenticated, validate(updateCartSchema), updateCart)
 }

@@ -14,6 +14,16 @@ module.exports = (sequelize, DataTypes) => {
         index: true,
         unique: true,
       },
+      branch_id: {
+        type: DataTypes.UUID,
+        allowNull: false,
+        index: true,
+      },
+      vendor_id: {
+        type: DataTypes.UUID,
+        allowNull: false,
+        index: true,
+      },
       title: {
         type: DataTypes.STRING,
         allowNull: false,
@@ -95,6 +105,16 @@ module.exports = (sequelize, DataTypes) => {
       foreignKey: 'public_id',
       sourceKey: 'sub_category_id',
       as: 'subCategory',
+    })
+    product.belongsTo(models.branch, {
+      foreignKey: 'branch_id',
+      targetKey: 'public_id',
+      as: 'branch',
+    })
+    product.belongsTo(models.vendor, {
+      foreignKey: 'vendor_id',
+      targetKey: 'public_id',
+      as: 'vendor',
     })
   }
 

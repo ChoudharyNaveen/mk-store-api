@@ -1,33 +1,17 @@
-const addToCart = {
-  title: 'Add cart form',
-  description: 'Defines the structure for HTTP POST request body',
-  type: 'object',
-  properties: {
-    productId: {
-      type: 'string',
-      description: 'product id',
-    },
-    quantity: {
-      type: 'integer',
-      description: 'quantity',
-    },
-    createdBy: {
-      type: 'string',
-      description: 'badges created by',
-    },
-  },
-  errorMessage: {
-    required: {
-      productId: 'Parameter: productId is requried',
-      quantity: 'Parameter: quantity is required',
-    },
-    properties: {},
-  },
-  required: [
-    'productId',
-    'quantity',
-  ],
-  additionalProperties: false,
-}
+const Joi = require('joi')
 
-module.exports = addToCart
+const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
+
+const saveCart = Joi.object({
+  productId: Joi.string().required().messages({
+    'any.required': 'Parameter: productId is requried',
+    'string.empty': 'Parameter: productId is requried',
+  }),
+  quantity: Joi.number().integer().required().messages({
+    'any.required': 'Parameter: quantity is required',
+    'number.base': 'Parameter: quantity is required',
+  }),
+  createdBy: Joi.string().pattern(uuidPattern).optional(),
+}).unknown(false)
+
+module.exports = saveCart

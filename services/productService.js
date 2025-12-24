@@ -5,6 +5,7 @@ const {
   cart: CartModel,
   orderItem: OrderItemModel,
   wishlist: WishlistModel,
+  branch: BranchModel,
   sequelize,
 } = require('../database')
 const { v4: uuidV4 } = require('uuid')
@@ -14,8 +15,25 @@ const { uploadFile } = require('../config/azure')
 const saveProduct = async ({ data, imageFile }) => {
   let transaction = null
   try {
-    const { createdBy, ...datas } = data
+    const { createdBy, branchId, ...datas } = data
     transaction = await sequelize.transaction()
+
+    // Verify branch exists and get vendor_id
+    if (branchId) {
+      const branch = await BranchModel.findOne({
+        where: { public_id: branchId },
+      })
+
+      if (!branch) {
+        await transaction.rollback()
+        return { errors: { message: 'Branch not found' } }
+      }
+
+      // Set vendor_id from branch
+      datas.vendorId = branch.vendor_id
+      datas.branchId = branchId
+    }
+
     const publicId = uuidV4()
     const concurrencyStamp = uuidV4()
 

@@ -1,29 +1,9 @@
 const { Offer: OfferService } = require('../services')
-const {
-  getOffer: getOfferSchema,
-  saveOffer: saveOfferSchema,
-  updateOffer: updateOfferSchema,
-} = require('../schemas')
-const Validator = require('../utils/validator')
 
 const saveOffer = async (req, res) => {
   try {
-    const {
-      body,
-      user: { publicId: createdBy },
-    } = req
-
+    const data = req.validatedData
     const imageFile = req.files['file'] ? req.files['file'][0] : null
-    const data = { ...body, createdBy }
-
-    const { errors } = Validator.isSchemaValid({
-      data,
-      schema: saveOfferSchema,
-    })
-
-    if (errors) {
-      return res.badRequest('field-validation', errors)
-    }
 
     const { errors: err, doc } = await OfferService.saveOffer({
       data,
@@ -41,30 +21,8 @@ const saveOffer = async (req, res) => {
 
 const updateOffer = async (req, res) => {
   try {
-    const {
-      body,
-      params: { publicId },
-      user: { publicId: updatedBy },
-      headers: { 'x-concurrencystamp': concurrencyStamp },
-    } = req
-
+    const data = req.validatedData
     const imageFile = req.files['file'] ? req.files['file'][0] : null
-
-    const data = {
-      ...body,
-      publicId,
-      concurrencyStamp,
-      updatedBy,
-    }
-
-    const { errors } = Validator.isSchemaValid({
-      data,
-      schema: updateOfferSchema,
-    })
-
-    if (errors) {
-      return res.badRequest('field-validation', errors)
-    }
 
     const {
       errors: err,
@@ -92,31 +50,7 @@ const updateOffer = async (req, res) => {
 
 const getOffer = async (req, res) => {
   try {
-    const {
-      query: {
-        pageSize: pageSizeString,
-        pageNumber: pageNumberString,
-        ...query
-      },
-    } = req
-
-    const pageNumber = parseInt(pageNumberString || 1)
-    const pageSize = parseInt(pageSizeString || 10)
-
-    const data = {
-      ...query,
-      pageNumber,
-      pageSize,
-    }
-
-    const { errors } = Validator.isSchemaValid({
-      data,
-      schema: getOfferSchema,
-    })
-
-    if (errors) {
-      return res.badRequest('field-validation', errors)
-    }
+    const data = req.validatedData
 
     const { count, doc } = await OfferService.getOffer(data)
 

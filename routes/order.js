@@ -6,6 +6,12 @@ const {
  getTotalReturnsOfToday
 } = require('../controllers/orderController')
 const { isAuthenticated } = require('../middleware/auth')
+const validate = require('../middleware/validation')
+const {
+  placeOrder: placeOrderSchema,
+  getOrder: getOrderSchema,
+  updateOrder: updateOrderSchema,
+} = require('../schemas')
 
 module.exports = (router) => {
   /**
@@ -78,6 +84,7 @@ module.exports = (router) => {
   router.post(
     '/place-order',
     isAuthenticated,
+    validate(placeOrderSchema),
     placeOrder
   )
 
@@ -139,7 +146,7 @@ module.exports = (router) => {
    *                 count:
    *                   type: integer
    */
-  router.get('/get-order', isAuthenticated, getOrder)
+  router.get('/get-order', isAuthenticated, validate(getOrderSchema), getOrder)
 
   /**
    * @swagger
@@ -220,6 +227,7 @@ module.exports = (router) => {
   router.patch(
     '/update-order/:publicId',
     isAuthenticated,
+    validate(updateOrderSchema),
     updateOrder
   )
 

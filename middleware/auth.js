@@ -15,7 +15,8 @@ const isAuthenticated = async (req, res, next) => {
     const user = jwt.decode(token)
     let userDetails = {}
     userDetails = await UserService.getUserById({ publicId: user.publicId })
-    const tokenSecret = config.jwt.token_secret + userDetails.doc.password
+    const password = userDetails.doc.password || userDetails.doc.concurrencyStamp
+    const tokenSecret = config.jwt.token_secret + password;
     jwt.verify(token, tokenSecret)
 
     req.user = userDetails.doc

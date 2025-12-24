@@ -13,6 +13,11 @@ module.exports = (sequelize, DataTypes) => {
         allowNull: false,
         unique: true,
       },
+      branch_id: {
+        type: DataTypes.UUID,
+        allowNull: false,
+        index: true,
+      },
       total_amount: {
         type: DataTypes.FLOAT,
         allowNull: false,
@@ -76,6 +81,11 @@ module.exports = (sequelize, DataTypes) => {
       foreignKey: 'public_id',
       sourceKey: 'rider_id',
       as: 'riderDetails',
+    })
+    order.belongsTo(models.branch, {
+      foreignKey: 'branch_id',
+      targetKey: 'public_id',
+      as: 'branch',
     })
   }
 

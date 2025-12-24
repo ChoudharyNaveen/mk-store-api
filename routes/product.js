@@ -6,6 +6,14 @@ const {
   deleteProduct
 } = require('../controllers/productController')
 const { isAuthenticated } = require('../middleware/auth')
+const validate = require('../middleware/validation')
+const {
+  saveProduct: saveProductSchema,
+  getProduct: getProductSchema,
+  updateProduct: updateProductSchema,
+  getProductsGroupedByCategory: getProductsGroupedByCategorySchema,
+  deleteProduct: deleteProductSchema,
+} = require('../schemas')
 const multer = require('multer')
 const upload = multer()
 
@@ -82,6 +90,7 @@ module.exports = (router) => {
     '/save-product',
     isAuthenticated,
     upload.fields([{ name: 'file', maxCount: 1 }]),
+    validate(saveProductSchema),
     saveProduct
   )
 
@@ -136,7 +145,7 @@ module.exports = (router) => {
    *                   type: integer
    *                   example: 50
    */
-  router.get('/get-product', isAuthenticated, getProduct)
+  router.get('/get-product', isAuthenticated, validate(getProductSchema), getProduct)
 
   /**
    * @swagger
@@ -196,6 +205,7 @@ module.exports = (router) => {
     '/update-product/:publicId',
     isAuthenticated,
     upload.fields([{ name: 'file', maxCount: 1 }]),
+    validate(updateProductSchema),
     updateProduct
   )
 
@@ -235,6 +245,7 @@ module.exports = (router) => {
   router.get(
     '/get-products-by-category',
     isAuthenticated,
+    validate(getProductsGroupedByCategorySchema),
     getProductsGroupedByCategory
   )
 
@@ -272,5 +283,5 @@ module.exports = (router) => {
    *       400:
    *         description: Error deleting product
    */
-  router.delete('/delete-product', isAuthenticated, deleteProduct)
+  router.delete('/delete-product', isAuthenticated, validate(deleteProductSchema), deleteProduct)
 }

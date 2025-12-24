@@ -1,15 +1,4 @@
-const Ajv = require('ajv')
-const Helper = require('./helper')
-
-const ajv = new Ajv({
-  verbose: true,
-  allErrors: true,
-  //jsonPointers: true,
-  $data: true,
-})
-
-require('ajv-errors')(ajv, { singleError: true })
-require('ajv-keywords')(ajv)
+const Joi = require('joi')
 
 const isValidUuid = (uuid) => {
   /**
@@ -25,53 +14,36 @@ const isValidUuid = (uuid) => {
 }
 
 const isSchemaValid = ({ schema, data }) => {
-  const validator = ajv.compile(schema)
-  const isValid = validator(data)
-  const errors = []
-
-  if (!isValid) {
-    validator.errors.forEach((error) => {
-      const {
-        message,
-        params: { errors: paramErrors },
-      } = error
-
-      let errorDetails
-
-      let errorParams
-
-      if (paramErrors && paramErrors.length) {
-        errorParams = { ...paramErrors[0] }
-      } else {
-        errorParams = error
-      }
-      const {
-        params: { missingProperty: name, additionalProperty },
-        dataPath,
-      } = errorParams
-
-      if (name) {
-        errorDetails = {
-          name,
-          message,
-        }
-      } else {
-        errorDetails = {
-          name:
-            Helper.sanitizeStr(/[#_.'"/\\]/g, dataPath, '') ||
-            additionalProperty ||
-            'type',
-          message,
-        }
-      }
-
-      errors.push(errorDetails)
+  try {
+    const { error, value } = schema.validate(data, {
+      abortEarly: false,
+      stripUnknown: true,
+      errors: {
+        wrap: {
+          label: false,
+        },
+      },
     })
 
-    return { errors }
-  }
+    if (error) {
+      const errors = error.details.map((detail) => {
+        const fieldName = detail.path.join('.') || detail.context?.label || 'unknown'
+        return {
+          name: fieldName,
+          message: detail.message,
+        }
+      })
 
-  return {}
+      return { errors }
+    }
+
+    return {}
+  } catch (err) {
+    console.error('Validation error:', err)
+    return {
+      errors: [{ name: 'validation', message: 'Validation failed' }],
+    }
+  }
 }
 
 module.exports = {

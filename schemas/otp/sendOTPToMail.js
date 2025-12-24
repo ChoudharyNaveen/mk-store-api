@@ -1,25 +1,11 @@
-const sendOTPToMail = {
-  title: 'send OTP to mail',
-  description: 'Defines the structure for HTTP POST request body',
-  type: 'object',
-  properties: {
-    userEmail: {
-      type: 'string',
-      description: 'email of the user',
-      format: 'email',
-    },
-  },
-  errorMessage: {
-    required: {
-      userEmail: 'Parameter: userEmail is required in the body.',
-    },
-    properties: {
-      userEmail: 'Parameter: userEmail should be a valid email address.',
-    },
-  },
-  required: ['userEmail'],
-  additionalProperties: false,
-}
+const Joi = require('joi')
+
+const sendOTPToMail = Joi.object({
+  userEmail: Joi.string().email().required().messages({
+    'any.required': 'Parameter: userEmail is required in the body.',
+    'string.email': 'Parameter: userEmail should be a valid email address.',
+    'string.empty': 'Parameter: userEmail is required in the body.',
+  }),
+}).unknown(false)
 
 module.exports = sendOTPToMail
-

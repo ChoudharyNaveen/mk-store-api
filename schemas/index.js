@@ -10,6 +10,8 @@ const cart = require('./cart')
 const wishlist = require('./wishlist')
 const order = require('./order')
 const orderItem = require('./orderItem')
+const vendor = require('./vendor')
+const branch = require('./branch')
 
 module.exports = {
   ...user,
@@ -24,4 +26,6 @@ module.exports = {
   ...wishlist,
   ...order,
   ...orderItem,
+  ...vendor,
+  ...branch,
 }

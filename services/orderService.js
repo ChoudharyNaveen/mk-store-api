@@ -7,6 +7,7 @@ const {
   user: UserModel,
   offer: OfferModel,
   role:RoleModel,
+  branch: BranchModel,
   sequelize,
 } = require('../database')
 const { v4: uuidV4 } = require('uuid')
@@ -19,6 +20,7 @@ const placeOrder = async (data) => {
   try {
     const {
       createdBy,
+      branchId,
       houseNo,
       streetDetails,
       landmark,
@@ -28,6 +30,21 @@ const placeOrder = async (data) => {
       ...datas
     } = data
     transaction = await sequelize.transaction()
+
+    // Verify branch exists
+    if (!branchId) {
+      await transaction.rollback()
+      return { error: 'branchId is required' }
+    }
+
+    const branch = await BranchModel.findOne({
+      where: { public_id: branchId },
+    })
+
+    if (!branch) {
+      await transaction.rollback()
+      return { error: 'Branch not found' }
+    }
 
     const cartItems = await CartModel.findAll({
       where: {
@@ -151,6 +168,7 @@ const placeOrder = async (data) => {
       publicId: orderPublicId,
       totalAmount: totalAmount,
       addressId: address.dataValues.public_id,
+      branchId: branchId,
       status: 'PENDING',
       paymentStatus: 'UNPAID',
       concurrencyStamp: orderConcurrencyStamp,

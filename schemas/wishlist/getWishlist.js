@@ -1,39 +1,20 @@
-const getWishlist = {
-  title: 'get wishlist list',
-  description: 'Defines the structure for HTTP GET request query',
-  type: 'object',
-  properties: {
-    pageSize: {
-      type: 'integer',
-      description: 'Number of results per page',
-      enum: [10, 20, 30, 40, 50, 100, 500],
-    },
-    pageNumber: {
-      type: 'integer',
-      description: 'Page number to retrieve',
-      minimum: 1,
-    },
-    createdBy: {
-      type: 'string',
-      description: 'user id',
-      pattern: '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$',
-    },
-  },
-  required: ['pageSize', 'pageNumber', 'createdBy'],
-  additionalProperties: false,
-  errorMessage: {
-    required: {
-      pageSize: 'Parameter: pageSize is required in query.',
-      pageNumber: 'Parameter: pageNumber is required in query.',
-      createdBy: 'Parameter: createdBy is required.',
-    },
-    properties: {
-      pageSize: 'Parameter: pageSize should be valid.',
-      pageNumber: 'Parameter: pageNumber should be valid.',
-      createdBy: 'Parameter: createdBy should be a valid UUID',
-    },
-  },
-}
+const Joi = require('joi')
+
+const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
+
+const getWishlist = Joi.object({
+  pageSize: Joi.number().integer().valid(10, 20, 30, 40, 50, 100, 500).required().messages({
+    'any.required': 'Parameter: pageSize is required in query.',
+    'any.only': 'Parameter: pageSize should be valid.',
+  }),
+  pageNumber: Joi.number().integer().min(1).required().messages({
+    'any.required': 'Parameter: pageNumber is required in query.',
+    'number.min': 'Parameter: pageNumber should be valid.',
+  }),
+  createdBy: Joi.string().pattern(uuidPattern).required().messages({
+    'any.required': 'Parameter: createdBy is required.',
+    'string.pattern.base': 'Parameter: createdBy should be a valid UUID',
+  }),
+}).unknown(false)
 
 module.exports = getWishlist
-

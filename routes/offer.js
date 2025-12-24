@@ -4,6 +4,12 @@ const {
   updateOffer,
 } = require('../controllers/offerController')
 const { isAuthenticated } = require('../middleware/auth')
+const validate = require('../middleware/validation')
+const {
+  saveOffer: saveOfferSchema,
+  getOffer: getOfferSchema,
+  updateOffer: updateOfferSchema,
+} = require('../schemas')
 const multer = require('multer')
 const upload = multer()
 
@@ -78,6 +84,7 @@ module.exports = (router) => {
     '/save-offer',
     isAuthenticated,
     upload.fields([{ name: 'file', maxCount: 1 }]),
+    validate(saveOfferSchema),
     saveOffer
   )
 
@@ -145,7 +152,7 @@ module.exports = (router) => {
    *                 count:
    *                   type: integer
    */
-  router.get('/get-offer', isAuthenticated, getOffer)
+  router.get('/get-offer', isAuthenticated, validate(getOfferSchema), getOffer)
 
   /**
    * @swagger
@@ -210,6 +217,7 @@ module.exports = (router) => {
     '/update-offer/:publicId',
     isAuthenticated,
     upload.fields([{ name: 'file', maxCount: 1 }]),
+    validate(updateOfferSchema),
     updateOffer
   )
 }

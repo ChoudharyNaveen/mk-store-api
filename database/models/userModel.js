@@ -16,7 +16,7 @@ module.exports = (sequelize, DataTypes) => {
       },
       name: {
         type: DataTypes.STRING,
-        allowNull: false,
+        allowNull: true,
       },
       mobile_number: {
         type: DataTypes.STRING,
@@ -24,15 +24,20 @@ module.exports = (sequelize, DataTypes) => {
       },
       email: {
         type: DataTypes.STRING,
-        allowNull: false,
+        allowNull: true,
       },
       password: {
         type: DataTypes.STRING,
-        allowNull: false,
+        allowNull: true,
       },
       role_id: {
         type: DataTypes.UUID,
         allowNull: false,
+      },
+      vendor_id: {
+        type: DataTypes.UUID,
+        allowNull: true,
+        index: true,
       },
       image: {
         type: DataTypes.STRING,
@@ -51,6 +56,12 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.STRING,
         enum: ['ACTIVE', 'INACTIVE'],
         defaultValue: 'ACTIVE',
+        index: true,
+      },
+      profile_status: {
+        type: DataTypes.STRING,
+        enum: ['INCOMPLETE', 'COMPLETE'],
+        defaultValue: 'INCOMPLETE',
         index: true,
       },
       concurrency_stamp: {
@@ -77,6 +88,17 @@ module.exports = (sequelize, DataTypes) => {
       foreignKey: 'public_id',
       sourceKey: 'role_id',
       as: 'role',
+    })
+    user.belongsTo(models.vendor, {
+      foreignKey: 'vendor_id',
+      targetKey: 'public_id',
+      as: 'vendor',
+    })
+    // Mapping table relationship
+    user.hasMany(models.vendor_user, {
+      foreignKey: 'user_id',
+      sourceKey: 'public_id',
+      as: 'vendorMappings',
     })
   }
 

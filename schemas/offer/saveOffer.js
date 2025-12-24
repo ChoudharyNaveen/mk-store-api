@@ -1,55 +1,31 @@
-const saveOffer = {
-  title: 'Add offer form',
-  description: 'Defines the structure for HTTP POST request body',
-  type: 'object',
-  properties: {
-    title: {
-      type: 'string',
-      description: 'title of the offer',
-    },
-    description: {
-      type: 'string',
-      description: 'description of the offer',
-    },
-    discountPercentage: {
-      type: 'number',
-      description: 'discount percentage',
-      minimum: 0,
-      maximum: 100,
-    },
-    startDate: {
-      type: 'string',
-      description: 'start date',
-      format: 'date-time',
-    },
-    endDate: {
-      type: 'string',
-      description: 'end date',
-      format: 'date-time',
-    },
-    status: {
-      type: 'string',
-      description: 'status of the offer',
-      enum: ['ACTIVE', 'INACTIVE'],
-    },
-    createdBy: {
-      type: 'string',
-      description: 'offer created by',
-    },
-  },
-  errorMessage: {
-    required: {
-      title: 'Parameter: title is required',
-      description: 'Parameter: description is required',
-      discountPercentage: 'Parameter: discountPercentage is required',
-      startDate: 'Parameter: startDate is required',
-      endDate: 'Parameter: endDate is required',
-    },
-    properties: {},
-  },
-  required: ['title', 'description', 'discountPercentage', 'startDate', 'endDate'],
-  additionalProperties: false,
-}
+const Joi = require('joi')
+
+const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
+
+const saveOffer = Joi.object({
+  title: Joi.string().required().messages({
+    'any.required': 'Parameter: title is required',
+    'string.empty': 'Parameter: title is required',
+  }),
+  description: Joi.string().required().messages({
+    'any.required': 'Parameter: description is required',
+    'string.empty': 'Parameter: description is required',
+  }),
+  discountPercentage: Joi.number().min(0).max(100).required().messages({
+    'any.required': 'Parameter: discountPercentage is required',
+    'number.min': 'Parameter: discountPercentage must be between 0 and 100',
+    'number.max': 'Parameter: discountPercentage must be between 0 and 100',
+  }),
+  startDate: Joi.date().iso().required().messages({
+    'any.required': 'Parameter: startDate is required',
+    'date.base': 'Parameter: startDate must be a valid date',
+  }),
+  endDate: Joi.date().iso().required().messages({
+    'any.required': 'Parameter: endDate is required',
+    'date.base': 'Parameter: endDate must be a valid date',
+  }),
+  status: Joi.string().valid('ACTIVE', 'INACTIVE').optional(),
+  createdBy: Joi.string().pattern(uuidPattern).optional(),
+}).unknown(false)
 
 module.exports = saveOffer
-

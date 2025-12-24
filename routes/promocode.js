@@ -4,6 +4,12 @@ const {
   updatePromocode,
 } = require('../controllers/promocodeController')
 const { isAuthenticated } = require('../middleware/auth')
+const validate = require('../middleware/validation')
+const {
+  savePromocode: savePromocodeSchema,
+  getPromocode: getPromocodeSchema,
+  updatePromocode: updatePromocodeSchema,
+} = require('../schemas')
 
 module.exports = (router) => {
   /**
@@ -78,7 +84,7 @@ module.exports = (router) => {
    *       400:
    *         description: Validation error
    */
-  router.post('/save-Promocode', isAuthenticated, savePromocode)
+  router.post('/save-Promocode', isAuthenticated, validate(savePromocodeSchema), savePromocode)
 
   /**
    * @swagger
@@ -142,7 +148,7 @@ module.exports = (router) => {
    *                 count:
    *                   type: integer
    */
-  router.get('/get-Promocode', isAuthenticated, getPromocode)
+  router.get('/get-Promocode', isAuthenticated, validate(getPromocodeSchema), getPromocode)
 
   /**
    * @swagger
@@ -201,5 +207,5 @@ module.exports = (router) => {
    *                   type: boolean
    *                   example: true
    */
-  router.patch('/update-Promocode/:publicId', isAuthenticated, updatePromocode)
+  router.patch('/update-Promocode/:publicId', isAuthenticated, validate(updatePromocodeSchema), updatePromocode)
 }

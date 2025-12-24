@@ -4,6 +4,12 @@ const {
   updateAddress,
 } = require('../controllers/addressController')
 const { isAuthenticated } = require('../middleware/auth')
+const validate = require('../middleware/validation')
+const {
+  saveAddress: saveAddressSchema,
+  getAddress: getAddressSchema,
+  updateAddress: updateAddressSchema,
+} = require('../schemas')
 
 module.exports = (router) => {
   /**
@@ -75,6 +81,7 @@ module.exports = (router) => {
   router.post(
     '/save-address',
     isAuthenticated,
+    validate(saveAddressSchema),
     saveAddress
   )
 
@@ -132,7 +139,7 @@ module.exports = (router) => {
    *                 count:
    *                   type: integer
    */
-  router.get('/get-address', isAuthenticated, getAddress)
+  router.get('/get-address', isAuthenticated, validate(getAddressSchema), getAddress)
 
   /**
    * @swagger
@@ -191,6 +198,7 @@ module.exports = (router) => {
   router.patch(
     '/update-address/:publicId',
     isAuthenticated,
+    validate(updateAddressSchema),
     updateAddress
   )
 }
