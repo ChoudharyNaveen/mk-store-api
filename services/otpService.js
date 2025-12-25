@@ -1,4 +1,10 @@
-const { otp: OTPModel, user: UserModel, role: RoleModel, user_roles_mappings: UserRolesMappingModel, sequelize, Sequelize: { Op } } = require('../database')
+const { otp: OTPModel,
+  user: UserModel,
+  role: RoleModel,
+  user_roles_mappings: UserRolesMappingModel,
+  vendor: VendorModel,
+  sequelize,
+} = require('../database')
 const Helper = require('../utils/helper')
 const config = require('../config')
 const { sendSMS } = require('../config/aws')

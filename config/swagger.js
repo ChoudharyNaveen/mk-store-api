@@ -14,12 +14,8 @@ const options = {
     },
     servers: [
       {
-        url: 'http://localhost:4000/api',
+        url: '/api',
         description: 'Development server',
-      },
-      {
-        url: 'https://api.mkstore.com/api',
-        description: 'Production server',
       },
     ],
     components: {
