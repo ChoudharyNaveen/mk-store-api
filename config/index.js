@@ -3,12 +3,12 @@ const path = require('path');
 require('dotenv').config({
   path: path.resolve(
     process.cwd(),
-    `.env.${process.env.NODE_ENV || 'development'}`
+    `.env.${process.env.NODE_ENV || 'production'}`
   ),
 });
 
-// Get the current environment, default to 'development'
-const env = process.env.NODE_ENV || 'development';
+// Get the current environment, default to 'production' for Plesk compatibility
+const env = process.env.NODE_ENV || 'production';
 
 // All configuration reads from .env file
 module.exports = {

@@ -1,3 +1,5 @@
+process.env.NODE_ENV = process.env.NODE_ENV || 'production';
+
 const express = require('express')
 const cors = require('cors')
 const compression = require('compression')
@@ -9,13 +11,11 @@ const routes = require('./routes')
 const indexRouter = require('./routes/indexRouter')
 const { cronJobForUpdatingOfferStatus } = require('./services/offerService')
 
-const {
-  SERVER: { port },
-} = require('./config')
+const port = process.env.PORT;
 
 const server = express()
-const app = server.listen(port, async () => {
-  console.log(`🚀 Server ready at http://localhost:${port}`)
+const app = server.listen(port, '127.0.0.1', () => {
+  console.log(`Server running on ${port} in ${process.env.NODE_ENV}`);
 })
 try {
   server.enable('trust proxy')

@@ -4,12 +4,9 @@
   "description": "ecommerce-application-backend",
   "main": "server.js",
   "scripts": {
-    "dev": "cross-env NODE_ENV=development nodemon server.js",
-    "start": "cross-env NODE_ENV=production npx sequelize db:migrate && cross-env NODE_ENV=production node server.js",
-    "start:development": "cross-env NODE_ENV=development npx sequelize db:migrate && cross-env NODE_ENV=development node server.js",
-    "start:staging": "cross-env NODE_ENV=staging npx sequelize db:migrate && cross-env NODE_ENV=staging node server.js",
-    "start:production": "cross-env NODE_ENV=production npx sequelize db:migrate && cross-env NODE_ENV=production node server.js",
-    "test": "cross-env NODE_ENV=test node server.js"
+    "start": "node server.js",
+    "migrate": "npx sequelize db:migrate",
+    "dev": "cross-env NODE_ENV=development nodemon server.js"
   },
   "repository": "git+https://github.com/BrotocodeTech/mk-store-backend.git",
   "license": "ISC",
