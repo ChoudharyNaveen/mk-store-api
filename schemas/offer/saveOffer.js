@@ -25,7 +25,7 @@ const saveOffer = Joi.object({
     'date.base': 'Parameter: endDate must be a valid date',
   }),
   status: Joi.string().valid('ACTIVE', 'INACTIVE').optional(),
-  createdBy: Joi.string().pattern(uuidPattern).optional(),
+  createdBy: Joi.number().integer().optional(),
 }).unknown(false)
 
 module.exports = saveOffer

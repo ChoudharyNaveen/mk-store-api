@@ -7,12 +7,10 @@ const savePromocode = async (data) => {
   try {
     const { createdBy, ...datas } = data
     transaction = await sequelize.transaction()
-    const publicId = uuidV4()
     const concurrencyStamp = uuidV4()
 
     const doc = {
       ...datas,
-      publicId,
       concurrencyStamp,
       createdBy,
     }
@@ -33,13 +31,13 @@ const savePromocode = async (data) => {
 
 const updatePromocode = async (data) => {
   let transaction = null
-  const { publicId, ...datas } = data
+  const { id, ...datas } = data
   const { concurrencyStamp, updatedBy } = datas
 
   try {
     transaction = await sequelize.transaction()
     const response = await PromocodeModel.findOne({
-      where: { public_id: publicId },
+      where: { id: id },
     })
 
     if (response) {
@@ -53,7 +51,7 @@ const updatePromocode = async (data) => {
         }
 
         await PromocodeModel.update(doc, {
-          where: { public_id: publicId },
+          where: { id: id },
           transaction,
         })
         await transaction.commit()

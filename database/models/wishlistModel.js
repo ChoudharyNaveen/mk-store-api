@@ -8,14 +8,8 @@ module.exports = (sequelize, DataTypes) => {
         primaryKey: true,
         type: DataTypes.INTEGER,
       },
-      public_id: {
-        type: DataTypes.UUID,
-        allowNull: false,
-        index: true,
-        unique: true,
-      },
       product_id: {
-        type: DataTypes.UUID,
+        type: DataTypes.INTEGER,
         allowNull: false,
       },
       status: {
@@ -30,10 +24,10 @@ module.exports = (sequelize, DataTypes) => {
         allowNull: false,
       },
       created_by: {
-        type: DataTypes.UUID,
+        type: DataTypes.INTEGER,
       },
       updated_by: {
-        type: DataTypes.UUID,
+        type: DataTypes.INTEGER,
       },
     },
     {
@@ -44,10 +38,15 @@ module.exports = (sequelize, DataTypes) => {
   )
 
   wishlist.associate = (models) => {
-    wishlist.hasOne(models.product, {
-      foreignKey: 'public_id',
-      sourceKey: 'product_id',
+    wishlist.belongsTo(models.product, {
+      foreignKey: 'product_id',
+      targetKey: 'id',
       as: 'productDetails',
+    })
+    wishlist.belongsTo(models.user, {
+      foreignKey: 'created_by',
+      targetKey: 'id',
+      as: 'user',
     })
   }
 

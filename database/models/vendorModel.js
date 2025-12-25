@@ -8,12 +8,6 @@ module.exports = (sequelize, DataTypes) => {
         primaryKey: true,
         type: DataTypes.INTEGER,
       },
-      public_id: {
-        type: DataTypes.UUID,
-        allowNull: false,
-        index: true,
-        unique: true,
-      },
       name: {
         type: DataTypes.STRING,
         allowNull: false,
@@ -26,6 +20,12 @@ module.exports = (sequelize, DataTypes) => {
       mobile_number: {
         type: DataTypes.STRING,
         allowNull: false,
+      },
+      code: {
+        type: DataTypes.STRING,
+        allowNull: true,
+        unique: true,
+        index: true,
       },
       address: {
         type: DataTypes.TEXT,
@@ -43,10 +43,10 @@ module.exports = (sequelize, DataTypes) => {
         allowNull: false,
       },
       created_by: {
-        type: DataTypes.UUID,
+        type: DataTypes.INTEGER,
       },
       updated_by: {
-        type: DataTypes.UUID,
+        type: DataTypes.INTEGER,
       },
     },
     {
@@ -59,29 +59,29 @@ module.exports = (sequelize, DataTypes) => {
   vendor.associate = (models) => {
     vendor.hasMany(models.branch, {
       foreignKey: 'vendor_id',
-      sourceKey: 'public_id',
+      sourceKey: 'id',
       as: 'branches',
     })
-    vendor.hasMany(models.user, {
-      foreignKey: 'vendor_id',
-      sourceKey: 'public_id',
-      as: 'users',
-    })
     // Mapping table relationships
-    vendor.hasMany(models.vendor_user, {
+    vendor.hasMany(models.user_roles_mappings, {
       foreignKey: 'vendor_id',
-      sourceKey: 'public_id',
-      as: 'vendorUsers',
+      sourceKey: 'id',
+      as: 'userRoleMappings',
     })
     vendor.hasMany(models.category, {
       foreignKey: 'vendor_id',
-      sourceKey: 'public_id',
+      sourceKey: 'id',
       as: 'categories',
     })
     vendor.hasMany(models.product, {
       foreignKey: 'vendor_id',
-      sourceKey: 'public_id',
+      sourceKey: 'id',
       as: 'products',
+    })
+    vendor.belongsTo(models.user, {
+      foreignKey: 'created_by',
+      targetKey: 'id',
+      as: 'createdByUser',
     })
   }
 

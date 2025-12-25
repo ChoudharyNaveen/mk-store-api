@@ -1,36 +1,25 @@
 module.exports = {
-  up: (queryInterface, Sequelize) =>
-    queryInterface.createTable('subCategory', {
+  up: async (queryInterface, Sequelize) => {
+    await queryInterface.createTable('role', {
       id: {
         allowNull: false,
         autoIncrement: true,
         primaryKey: true,
         type: Sequelize.INTEGER,
       },
-      public_id: {
-        type: Sequelize.UUID,
+      name: {
+        type: Sequelize.STRING,
+        allowNull: false,
         unique: true,
       },
-      sub_category_name: {
-        type: Sequelize.STRING,
-        allowNull: false,
-      },
       description: {
-        type: Sequelize.TEXT,
-        allowNull: false,
-      },
-      image: {
         type: Sequelize.STRING,
-        allowNull: false,
-      },
-      category_id: {
-        type: Sequelize.UUID,
         allowNull: false,
       },
       status: {
         type: Sequelize.ENUM('ACTIVE', 'INACTIVE'),
-        index: true,
         defaultValue: 'ACTIVE',
+        allowNull: false,
       },
       concurrency_stamp: {
         type: Sequelize.UUID,
@@ -38,21 +27,30 @@ module.exports = {
         allowNull: false,
       },
       created_by: {
-        type: Sequelize.UUID,
+        type: Sequelize.INTEGER,
+        allowNull: true,
       },
       updated_by: {
-        type: Sequelize.UUID,
+        type: Sequelize.INTEGER,
+        allowNull: true,
       },
       created_at: {
         allowNull: false,
         type: Sequelize.DATE,
-        defaultValue: Sequelize.NOW,
+        defaultValue: Sequelize.literal('CURRENT_TIMESTAMP'),
       },
       updated_at: {
         allowNull: false,
         type: Sequelize.DATE,
-        defaultValue: Sequelize.NOW,
+        defaultValue: Sequelize.literal('CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP'),
       },
-    }),
-  down: (queryInterface) => queryInterface.dropTable('subCategory'),
+    })
+
+    await queryInterface.addIndex('role', ['status'])
+  },
+
+  down: async (queryInterface) => {
+    await queryInterface.dropTable('role')
+  },
 }
+

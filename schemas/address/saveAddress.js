@@ -24,7 +24,7 @@ const saveAddress = Joi.object({
     'string.empty': 'Parameter: mobileNumber is required',
   }),
   status: Joi.string().valid('ACTIVE', 'INACTIVE').optional(),
-  createdBy: Joi.string().pattern(uuidPattern).optional(),
+  createdBy: Joi.number().integer().optional(),
 }).unknown(false)
 
 module.exports = saveAddress

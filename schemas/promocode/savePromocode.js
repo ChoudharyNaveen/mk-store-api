@@ -28,7 +28,7 @@ const savePromocode = Joi.object({
     'string.empty': 'Parameter: endDate is requried',
   }),
   status: Joi.string().valid('ACTIVE', 'INACTIVE').optional(),
-  createdBy: Joi.string().pattern(uuidPattern).optional(),
+  createdBy: Joi.number().integer().optional(),
 }).unknown(false)
 
 module.exports = savePromocode

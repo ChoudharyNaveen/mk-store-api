@@ -69,9 +69,10 @@ module.exports = (router) => {
    *                 doc:
    *                   type: object
    *                   properties:
-   *                     publicId:
-   *                       type: string
-   *                     orderNumber:
+   *                     id:
+   *                       type: integer
+   *                       example: 1
+   *                     branch_id:
    *                       type: string
    *                     totalAmount:
    *                       type: number
@@ -132,9 +133,10 @@ module.exports = (router) => {
    *                   items:
    *                     type: object
    *                     properties:
-   *                       publicId:
-   *                         type: string
-   *                       orderNumber:
+   *                       id:
+   *                         type: integer
+   *                         example: 1
+   *                       branch_id:
    *                         type: string
    *                       totalAmount:
    *                         type: number
@@ -181,7 +183,7 @@ module.exports = (router) => {
 
   /**
    * @swagger
-   * /update-order/{publicId}:
+   * /update-order/{id}:
    *   patch:
    *     summary: Update order status
    *     tags: [Orders]
@@ -189,11 +191,11 @@ module.exports = (router) => {
    *       - bearerAuth: []
    *     parameters:
    *       - in: path
-   *         name: publicId
+   *         name: id
    *         required: true
    *         schema:
-   *           type: string
-   *         description: Order public ID
+   *           type: integer
+   *         description: Order ID
    *     requestBody:
    *       required: true
    *       content:
@@ -225,7 +227,7 @@ module.exports = (router) => {
    *                   example: true
    */
   router.patch(
-    '/update-order/:publicId',
+    '/update-order/:id',
     isAuthenticated,
     validate(updateOrderSchema),
     updateOrder

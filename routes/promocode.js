@@ -131,8 +131,9 @@ module.exports = (router) => {
    *                   items:
    *                     type: object
    *                     properties:
-   *                       publicId:
-   *                         type: string
+   *                       id:
+   *                         type: integer
+   *                         example: 1
    *                       code:
    *                         type: string
    *                       discount:
@@ -152,7 +153,7 @@ module.exports = (router) => {
 
   /**
    * @swagger
-   * /update-Promocode/{publicId}:
+   * /update-Promocode/{id}:
    *   patch:
    *     summary: Update a promocode
    *     tags: [Promocodes]
@@ -160,11 +161,11 @@ module.exports = (router) => {
    *       - bearerAuth: []
    *     parameters:
    *       - in: path
-   *         name: publicId
+   *         name: id
    *         required: true
    *         schema:
-   *           type: string
-   *         description: Promocode public ID
+   *           type: integer
+   *         description: Promocode ID
    *     requestBody:
    *       required: true
    *       content:
@@ -207,5 +208,5 @@ module.exports = (router) => {
    *                   type: boolean
    *                   example: true
    */
-  router.patch('/update-Promocode/:publicId', isAuthenticated, validate(updatePromocodeSchema), updatePromocode)
+  router.patch('/update-Promocode/:id', isAuthenticated, validate(updatePromocodeSchema), updatePromocode)
 }

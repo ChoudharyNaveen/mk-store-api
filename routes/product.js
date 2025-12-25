@@ -77,9 +77,10 @@ module.exports = (router) => {
    *                 doc:
    *                   type: object
    *                   properties:
-   *                     publicId:
-   *                       type: string
-   *                     name:
+   *                     id:
+   *                       type: integer
+   *                       example: 1
+   *                     title:
    *                       type: string
    *                     price:
    *                       type: number
@@ -133,9 +134,10 @@ module.exports = (router) => {
    *                   items:
    *                     type: object
    *                     properties:
-   *                       publicId:
-   *                         type: string
-   *                       name:
+   *                       id:
+   *                         type: integer
+   *                         example: 1
+   *                       title:
    *                         type: string
    *                       price:
    *                         type: number
@@ -149,7 +151,7 @@ module.exports = (router) => {
 
   /**
    * @swagger
-   * /update-product/{publicId}:
+   * /update-product/{id}:
    *   patch:
    *     summary: Update a product
    *     tags: [Products]
@@ -157,11 +159,11 @@ module.exports = (router) => {
    *       - bearerAuth: []
    *     parameters:
    *       - in: path
-   *         name: publicId
+   *         name: id
    *         required: true
    *         schema:
-   *           type: string
-   *         description: Product public ID
+   *           type: integer
+   *         description: Product ID
    *     requestBody:
    *       required: true
    *       content:
@@ -202,7 +204,7 @@ module.exports = (router) => {
    *                   example: true
    */
   router.patch(
-    '/update-product/:publicId',
+    '/update-product/:id',
     isAuthenticated,
     upload.fields([{ name: 'file', maxCount: 1 }]),
     validate(updateProductSchema),
@@ -235,9 +237,10 @@ module.exports = (router) => {
    *                     items:
    *                       type: object
    *                       properties:
-   *                         publicId:
-   *                           type: string
-   *                         name:
+   *                         id:
+   *                           type: integer
+   *                           example: 1
+   *                         title:
    *                           type: string
    *                         price:
    *                           type: number

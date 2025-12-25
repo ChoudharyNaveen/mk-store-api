@@ -12,7 +12,7 @@ const saveCategory = async ({ data, imageFile }) => {
     // Verify branch exists and get vendor_id
     if (branchId) {
       const branch = await BranchModel.findOne({
-        where: { public_id: branchId },
+        where: { id: branchId },
       })
 
       if (!branch) {
@@ -25,26 +25,28 @@ const saveCategory = async ({ data, imageFile }) => {
       datas.branchId = branchId
     }
 
-    const publicId = uuidV4()
     const concurrencyStamp = uuidV4()
 
     let imageUrl = null
 
     const doc = {
       ...datas,
-      publicId,
       concurrencyStamp,
       createdBy,
     }
 
-    if (imageFile) {
-      const blobName = `category-${publicId}-${Date.now()}.jpg`
-      imageUrl = await uploadFile(imageFile, blobName)
-    }
-    doc.image = imageUrl
     const cat = await CategoryModel.create(Helper.convertCamelToSnake(doc), {
       transaction,
     })
+
+    if (imageFile) {
+      const blobName = `category-${cat.id}-${Date.now()}.jpg`
+      imageUrl = await uploadFile(imageFile, blobName)
+      await CategoryModel.update({ image: imageUrl }, {
+        where: { id: cat.id },
+        transaction,
+      })
+    }
     await transaction.commit()
     return { doc: { cat } }
   } catch (error) {
@@ -58,13 +60,13 @@ const saveCategory = async ({ data, imageFile }) => {
 
 const updateCategory = async ({ data, imageFile }) => {
   let transaction = null
-  const { publicId, ...datas } = data
+  const { id, ...datas } = data
   const { concurrencyStamp, updatedBy } = datas
 
   try {
     transaction = await sequelize.transaction()
     const response = await CategoryModel.findOne({
-      where: { public_id: publicId },
+      where: { id: id },
     })
 
     if (response) {
@@ -77,12 +79,12 @@ const updateCategory = async ({ data, imageFile }) => {
           concurrency_stamp: newConcurrencyStamp,
         }
         if (imageFile) {
-          const blobName = `category-${publicId}-${Date.now()}.jpg`
+          const blobName = `category-${id}-${Date.now()}.jpg`
           const imageUrl = await uploadFile(imageFile, blobName)
           doc.image = imageUrl
         }
         await CategoryModel.update(doc, {
-          where: { public_id: publicId },
+          where: { id: id },
           transaction,
         })
         await transaction.commit()

@@ -17,7 +17,7 @@ const savePromocode = async (req, res) => {
 
 const updatePromocode = async (req, res) => {
   try {
-    const data = req.validatedData
+    const data = { ...req.validatedData, id: req.params.id }
 
     const {
       errors: err,

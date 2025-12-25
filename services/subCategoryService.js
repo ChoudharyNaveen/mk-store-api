@@ -8,26 +8,28 @@ const saveSubCategory = async ({ data, imageFile }) => {
   try {
     const { createdBy, ...datas } = data
     transaction = await sequelize.transaction()
-    const publicId = uuidV4()
     const concurrencyStamp = uuidV4()
 
     let imageUrl = null
 
     const doc = {
       ...datas,
-      publicId,
       concurrencyStamp,
       createdBy,
     }
 
-    if (imageFile) {
-      const blobName = `subCategory-${publicId}-${Date.now()}.jpg`
-      imageUrl = await uploadFile(imageFile, blobName)
-    }
-    doc.image = imageUrl
     const cat = await SubCategoryModel.create(Helper.convertCamelToSnake(doc), {
       transaction,
     })
+
+    if (imageFile) {
+      const blobName = `subCategory-${cat.id}-${Date.now()}.jpg`
+      imageUrl = await uploadFile(imageFile, blobName)
+      await SubCategoryModel.update({ image: imageUrl }, {
+        where: { id: cat.id },
+        transaction,
+      })
+    }
     await transaction.commit()
     return { doc: { cat } }
   } catch (error) {
@@ -41,13 +43,13 @@ const saveSubCategory = async ({ data, imageFile }) => {
 
 const updateSubCategory = async ({ data, imageFile }) => {
   let transaction = null
-  const { publicId, ...datas } = data
+  const { id, ...datas } = data
   const { concurrencyStamp, updatedBy } = datas
 
   try {
     transaction = await sequelize.transaction()
     const response = await SubCategoryModel.findOne({
-      where: { public_id: publicId },
+      where: { id: id },
     })
 
     if (response) {
@@ -60,12 +62,12 @@ const updateSubCategory = async ({ data, imageFile }) => {
           concurrency_stamp: newConcurrencyStamp,
         }
         if (imageFile) {
-          const blobName = `subCategory-${publicId}-${Date.now()}.jpg`
+          const blobName = `subCategory-${id}-${Date.now()}.jpg`
           const imageUrl = await uploadFile(imageFile, blobName)
           doc.image = imageUrl
         }
         await SubCategoryModel.update(doc, {
-          where: { public_id: publicId },
+          where: { id: id },
           transaction,
         })
         await transaction.commit()

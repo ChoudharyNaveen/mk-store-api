@@ -49,9 +49,10 @@ module.exports = (router) => {
    *                 doc:
    *                   type: object
    *                   properties:
-   *                     publicId:
-   *                       type: string
-   *                     productId:
+   *                     id:
+   *                       type: integer
+   *                       example: 1
+   *                     product_id:
    *                       type: string
    *       400:
    *         description: Validation error or item already in wishlist
@@ -102,9 +103,10 @@ module.exports = (router) => {
    *                   items:
    *                     type: object
    *                     properties:
-   *                       publicId:
-   *                         type: string
-   *                       productId:
+   *                       id:
+   *                         type: integer
+   *                         example: 1
+   *                       product_id:
    *                         type: string
    *                       product:
    *                         type: object

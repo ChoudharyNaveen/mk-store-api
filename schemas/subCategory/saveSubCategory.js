@@ -11,11 +11,11 @@ const saveSubCategory = Joi.object({
     'any.required': 'Parameter: description is required',
     'string.empty': 'Parameter: description is required',
   }),
-  categoryId: Joi.string().pattern(uuidPattern).required().messages({
+  categoryId: Joi.number().integer().required().messages({
     'any.required': 'Parameter: categoryId is required',
   }),
   status: Joi.string().valid('ACTIVE', 'INACTIVE').optional(),
-  createdBy: Joi.string().pattern(uuidPattern).optional(),
+  createdBy: Joi.number().integer().optional(),
 }).unknown(false)
 
 module.exports = saveSubCategory

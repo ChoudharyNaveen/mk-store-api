@@ -1,11 +1,11 @@
-const { otp: OTPModel, user: UserModel, role: RoleModel, sequelize } = require('../database')
+const { otp: OTPModel, user: UserModel, role: RoleModel, user_roles_mappings: UserRolesMappingModel, sequelize, Sequelize: { Op } } = require('../database')
 const Helper = require('../utils/helper')
 const config = require('../config')
 const { sendSMS } = require('../config/aws')
 const { v4: uuidV4 } = require('uuid')
 const jwt = require('jsonwebtoken')
 
-const sendOtpSMSForUser = async (mobileNumber) => {
+const sendOtpSMSForUser = async (mobileNumber, vendorId) => {
   let transaction = null
 
   // Use mock OTP if USE_MOCK_SMS is enabled, otherwise generate random OTP
@@ -15,15 +15,25 @@ const sendOtpSMSForUser = async (mobileNumber) => {
   try {
     transaction = await sequelize.transaction()
 
-    // Check if user exists
+    // Check if user exists for this vendor by checking mobile_number and user_roles_mappings
     let user = await UserModel.findOne({
-      where: { mobile_number: mobileNumber },
+      where: {
+        mobile_number: mobileNumber,
+      }
     })
 
-    // If user doesn't exist, create a new user with only mobile_number
+    const vendor = await VendorModel.findOne({
+      where: { id: vendorId },
+    })
+
+    if (!vendor) {
+      return { message: 'failed', error: 'Vendor not found' }
+    }
+
+    // If user doesn't exist for this vendor, create a new user
     if (!user) {
       const userRole = await RoleModel.findOne({
-        where: { name: 'user' },
+        where: { name: 'USER' },
       })
 
       if (!userRole) {
@@ -31,17 +41,27 @@ const sendOtpSMSForUser = async (mobileNumber) => {
         return { message: 'failed', error: 'User role not found' }
       }
 
-      const public_id = uuidV4()
       const concurrency_stamp = uuidV4()
 
       const newUser = await UserModel.create(
         {
-          public_id,
           concurrency_stamp,
           mobile_number: mobileNumber,
-          role_id: userRole.dataValues.public_id,
           profile_status: 'INCOMPLETE',
           status: 'ACTIVE',
+        },
+        { transaction }
+      )
+
+      // Create user_roles_mappings entry
+      const mappingConcurrencyStamp = uuidV4()
+      await UserRolesMappingModel.create(
+        {
+          vendor_id: vendorId,
+          user_id: newUser.id,
+          role_id: userRole.id,
+          status: 'ACTIVE',
+          concurrency_stamp: mappingConcurrencyStamp,
         },
         { transaction }
       )
@@ -57,7 +77,7 @@ const sendOtpSMSForUser = async (mobileNumber) => {
       return { message: 'failed', error: smsResult.error }
     }
 
-    const userId = user.dataValues.public_id
+    const userId = user.id
 
     // Create or update OTP entry
     const otpEntry = await OTPModel.findOne({
@@ -94,14 +114,30 @@ const sendOtpSMSForUser = async (mobileNumber) => {
 }
 
 const verifyOtpSMSForUser = async (payload) => {
-  const { mobileNumber, otp } = payload
+  const { mobileNumber, otp, vendorId } = payload
 
   const transaction = await sequelize.transaction()
 
   try {
     const user = await UserModel.findOne({
-      where: { mobile_number: mobileNumber },
-      include: [{ model: RoleModel, as: 'role' }],
+      where: {
+        mobile_number: mobileNumber,
+      },
+      include: [
+        {
+          model: UserRolesMappingModel,
+          as: 'roleMappings',
+          where: {
+            vendor_id: vendorId,
+            status: 'ACTIVE',
+          },
+          required: true,
+          include: [{
+            model: RoleModel,
+            as: 'role',
+          }],
+        },
+      ],
     })
 
     if (!user) {
@@ -111,7 +147,7 @@ const verifyOtpSMSForUser = async (payload) => {
       }
     }
 
-    const userId = user.dataValues.public_id
+    const userId = user.id
 
     const otpResult = await OTPModel.findOne({
       where: { user_id: userId },
@@ -140,9 +176,24 @@ const verifyOtpSMSForUser = async (payload) => {
 
     await transaction.commit()
 
-    // Return user data for login (without password)
+    // Extract only required fields and role name from user_roles_mappings
     const userData = Helper.convertSnakeToCamel(user.dataValues)
-    
+    const roleMapping = user.dataValues.roleMappings && user.dataValues.roleMappings[0]
+    const roleData = roleMapping && roleMapping.role ? Helper.convertSnakeToCamel(roleMapping.role.dataValues) : null
+    const mappingData = roleMapping ? Helper.convertSnakeToCamel(roleMapping.dataValues) : null
+
+    // Prepare user response with only required fields
+    const userResponse = {
+      id: userData.id,
+      name: userData.name || null,
+      mobileNumber: userData.mobileNumber,
+      email: userData.email || null,
+      status: userData.status,
+      profileStatus: userData.profileStatus,
+      roleName: roleData ? roleData.name : null,
+      vendorId: mappingData ? mappingData.vendorId : null,
+    }
+
     // Generate JWT token
     // Use password if available, otherwise use concurrency_stamp for token secret
     const password = userData.password || userData.concurrencyStamp
@@ -152,13 +203,10 @@ const verifyOtpSMSForUser = async (payload) => {
       expiresIn: config.jwt.token_life,
     })
 
-    userData.access_token = token
-    delete userData.password
-
     return {
       doc: {
         message: 'OTP verified successfully. User logged in.',
-        user: userData,
+        user: userResponse,
         token: token,
       },
     }

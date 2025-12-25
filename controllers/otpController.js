@@ -2,9 +2,9 @@ const { Otp: OtpService } = require('../services')
 
 const sendOtpSMSForUser = async (req, res) => {
   try {
-    const { mobileNumber } = req.validatedData
+    const { mobileNumber, vendorId } = req.validatedData
 
-    const result = await OtpService.sendOtpSMSForUser(mobileNumber)
+    const result = await OtpService.sendOtpSMSForUser(mobileNumber, vendorId)
     if (result && result.success) {
       return res.status(200).json({ message: 'SMS sent successfully' })
     }
@@ -17,8 +17,8 @@ const sendOtpSMSForUser = async (req, res) => {
 
 const verifyOtpSMSForUser = async (req, res) => {
   try {
-    const { mobileNumber, otp } = req.validatedData
-    const data = { mobileNumber, otp }
+    const { mobileNumber, otp, vendorId } = req.validatedData
+    const data = { mobileNumber, otp, vendorId }
 
     const { errors: err, doc } = await OtpService.verifyOtpSMSForUser(data)
 

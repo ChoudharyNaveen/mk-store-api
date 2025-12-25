@@ -3,19 +3,23 @@ const bcrypt = require('bcrypt')
 const config = require('../config/index')
 const jwt = require('jsonwebtoken')
 const Helper = require('../utils/helper')
+const { user_roles_mappings: UserRolesMappingModel, role: RoleModel } = require('../database')
 
-const userSignUp = async (req, res) => {
+// Create Super Admin
+const createSuperAdmin = async (req, res) => {
   try {
     const data = req.validatedData || req.body
-
     const imageFile = req.files['file'] ? req.files['file'][0] : null
 
-    const { errors: err, doc } = await UserService.userSignUp({
+    const { errors: err, doc } = await UserService.createSuperAdmin({
       data,
       imageFile,
     })
     if (doc) {
-      return res.postRequest(doc)
+      return res.postSuccessfully({
+        message: 'Super admin created successfully',
+        doc,
+      })
     }
 
     return res.status(400).json({ error: err })
@@ -25,103 +29,124 @@ const userSignUp = async (req, res) => {
   }
 }
 
-const riderLogin = async (req, res) => {
+// Auth Login (similar to verifyOtpSms but with email/password)
+const authLogin = async (req, res) => {
   try {
-    const data = req.validatedData || req.body
+    const { email, password } = req.body
 
-    var userData = await UserService.findUserByEmailOrMobile(data)
-
-    if (!userData) {
-      return res
-        .status(401)
-        .send({ success: false, message: 'Invalid Credentials' })
-    }
-
-    userData = Helper.convertSnakeToCamel(userData.dataValues)
-
-    const passwordMatch = await bcrypt.compare(data.password, userData.password)
-    if (!passwordMatch) {
-      return res.status(401).send({
-        success: false,
-        message: 'Incorrect Password. Please check and try again',
+    if (!email || !password) {
+      return res.status(400).json({
+        errors: [{ message: 'Email and password are required', name: 'validation' }],
       })
     }
 
-    const tokenSecret = config.jwt.token_secret + userData.password
+    // Find user by email
+    const user = await UserService.findUserByEmail({ email })
+
+    if (!user) {
+      return res.status(401).json({
+        errors: [{ message: 'User not found. Please sign up first.', name: 'user' }],
+      })
+    }
+
+    const userData = Helper.convertSnakeToCamel(user.dataValues)
+
+    // Check if user has password
+    if (!userData.password) {
+      return res.status(401).json({
+        errors: [{ message: 'Invalid credentials', name: 'password' }],
+      })
+    }
+
+    // Verify password
+    const passwordMatch = await bcrypt.compare(password, userData.password)
+    if (!passwordMatch) {
+      return res.status(401).json({
+        errors: [{ message: 'Invalid credentials', name: 'password' }],
+      })
+    }
+
+    // Get role mappings and role information
+    const roleMappings = await UserRolesMappingModel.findAll({
+      where: {
+        user_id: userData.id,
+        status: 'ACTIVE',
+      },
+      include: [
+        {
+          model: RoleModel,
+          as: 'role',
+        },
+      ],
+    })
+
+    // Extract role and vendor information
+    const roleMapping = roleMappings && roleMappings[0]
+    const roleData = roleMapping && roleMapping.role
+      ? Helper.convertSnakeToCamel(roleMapping.role.dataValues)
+      : null
+    const mappingData = roleMapping
+      ? Helper.convertSnakeToCamel(roleMapping.dataValues)
+      : null
+
+    // Prepare user response (similar to verifyOtpSms response)
+    const userResponse = {
+      id: userData.id,
+      name: userData.name || null,
+      mobileNumber: userData.mobileNumber,
+      email: userData.email || null,
+      status: userData.status,
+      profileStatus: userData.profileStatus,
+      roleName: roleData ? roleData.name : null,
+      vendorId: mappingData ? mappingData.vendorId : null,
+    }
+
+    // Generate JWT token (same as verifyOtpSms)
+    const passwordForToken = userData.password || userData.concurrencyStamp
+    const tokenSecret = config.jwt.token_secret + passwordForToken
 
     const token = jwt.sign(userData, tokenSecret, {
       expiresIn: config.jwt.token_life,
     })
 
-    userData.access_token = token
-    delete userData.password
-
-    res.setHeader('token', token)
-    return res.getRequest(userData)
-  } catch (error) {
-    console.log(error)
-    return {
-      errors: [{ name: 'transaction', message: 'Invalid transaction' }],
-    }
-  }
-}
-
-const userLogin = async (req, res) => {
-  try {
-    const data = req.validatedData || req.body
-
-    var userData = await UserService.findUserByEmailOrMobile(data)
-
-    if (!userData) {
-      return res
-        .status(401)
-        .send({ success: false, message: 'Invalid Credentials' })
-    }
-
-    userData = Helper.convertSnakeToCamel(userData.dataValues)
-
-    const passwordMatch = await bcrypt.compare(data.password, userData.password)
-    if (!passwordMatch) {
-      return res.status(401).send({
-        success: false,
-        message: 'Incorrect Password. Please check and try again',
-      })
-    }
-
-    const tokenSecret = config.jwt.token_secret + userData.password
-
-    const token = jwt.sign(userData, tokenSecret, {
-      expiresIn: config.jwt.token_life,
+    // Return same response format as verifyOtpSms
+    return res.status(200).json({
+      doc: {
+        message: 'Login successful. User authenticated.',
+        user: userResponse,
+        token: token,
+      },
     })
-
-    userData.access_token = token
-    delete userData.password
-
-    res.setHeader('token', token)
-    return res.getRequest(userData)
   } catch (error) {
     console.log(error)
-    return {
-      errors: [{ name: 'transaction', message: 'Invalid transaction' }],
-    }
-  }
-}
-
-const getTotalUsers = async (req, res) => {
-  try {
-    const result = await UserService.getTotalUsers()
-    if (result) {
-      return res.getRequest(result)
-    }
-    return res.badRequest()
-  } catch (error) {
     return res.serverError(error)
   }
 }
 
-const updateUser = async (req, res) => {
+// Create Vendor Admin
+const createVendorAdmin = async (req, res) => {
   try {
     const data = req.validatedData
+
+    const imageFile = req.files['file'] ? req.files['file'][0] : null
+
+    const { errors: err, doc } = await UserService.createVendorAdmin({ data, imageFile })
+
+    if (doc) {
+      return res.postSuccessfully({ message: 'Vendor admin created successfully', doc })
+    }
+
+    return res.status(400).json({ error: err })
+  } catch (error) {
+    console.log(error)
+    return res.serverError(error)
+  }
+}
+
+// Update User
+const updateUser = async (req, res) => {
+  try {
+    const data = { ...req.validatedData, id: req.params.id }
     const imageFile = req.files['file'] ? req.files['file'][0] : null
 
     const {
@@ -147,124 +172,9 @@ const updateUser = async (req, res) => {
   }
 }
 
-const adminLogin = async (req, res) => {
-  try {
-    const data = req.validatedData || req.body
-
-    var userData = await UserService.findUserByEmail(data)
-
-    if (!userData) {
-      return res
-        .status(401)
-        .send({ success: false, message: 'InValid Credentials' })
-    }
-
-    if (userData?.role?.dataValues?.name !== 'admin') {
-      return res.status(401).send({ success: false, message: 'Access Denied' })
-    }
-    userData = Helper.convertSnakeToCamel(userData.dataValues)
-    const passwordMatch = await bcrypt.compare(data.password, userData.password)
-    if (!passwordMatch) {
-      return res.status(401).send({
-        success: false,
-        message: 'Incorrect Password. Please check and try again',
-      })
-    }
-    const tokenSecret = config.jwt.token_secret + userData.password
-    const refreshTokenSecret =
-      config.jwt.refresh_token_secret + userData.password
-    const token = jwt.sign(userData, tokenSecret, {
-      expiresIn: config.jwt.token_life,
-    })
-    userData.access_token = token
-    delete userData.password
-
-    res.setHeader('token', token)
-    return res.getRequest(userData)
-  } catch (error) {
-    console.log(error)
-    return {
-      errors: [{ name: 'transaction', message: 'InValid transaction' }],
-    }
-  }
-}
-
-const customerSignUp = async (req, res) => {
-  try {
-    const data = req.validatedData || req.body
-
-    const imageFile = req.files['file'] ? req.files['file'][0] : null
-
-    const { errors: err, doc } = await UserService.customerSignUp({
-      data,
-      imageFile,
-    })
-    if (doc) {
-      return res.postRequest(doc)
-    }
-
-    return res.status(400).json({ error: err })
-  } catch (error) {
-    console.log(error)
-    return res.serverError(error)
-  }
-}
-
-const updateUserProfile = async (req, res) => {
-  try {
-    const data = req.validatedData
-    const imageFile = req.files['file'] ? req.files['file'][0] : null
-
-    const {
-      errors: err,
-      concurrencyError,
-      doc,
-    } = await UserService.updateUserProfile({ data, imageFile })
-
-    if (concurrencyError) {
-      return res.concurrencyError()
-    }
-    if (doc) {
-      const { concurrencyStamp: stamp } = doc
-      res.setHeader('x-concurrencystamp', stamp)
-      res.setHeader('message', 'Profile updated successfully. Profile status set to COMPLETE.')
-
-      return res.updated()
-    }
-
-    return res.status(400).json(err)
-  } catch (error) {
-    return res.serverError(error)
-  }
-}
-
-const createVendorAdmin = async (req, res) => {
-  try {
-    const data = req.validatedData
-
-    const imageFile = req.files['file'] ? req.files['file'][0] : null
-
-    const { errors: err, doc } = await UserService.createVendorAdmin({ data, imageFile })
-
-    if (doc) {
-      return res.postSuccessfully({ message: 'Vendor admin created successfully', doc })
-    }
-
-    return res.status(400).json({ error: err })
-  } catch (error) {
-    console.log(error)
-    return res.serverError(error)
-  }
-}
-
 module.exports = {
-  userSignUp,
-  userLogin,
-  getTotalUsers,
-  updateUser,
-  adminLogin,
-  customerSignUp,
-  riderLogin,
-  updateUserProfile,
+  createSuperAdmin,
+  authLogin,
   createVendorAdmin,
+  updateUser,
 }

@@ -7,13 +7,9 @@ module.exports = {
         primaryKey: true,
         type: Sequelize.INTEGER,
       },
-      public_id: {
-        type: Sequelize.UUID,
-        unique: true,
-      },
       name: {
         type: Sequelize.STRING,
-        allowNull: false,
+        allowNull: true,
       },
       mobile_number: {
         type: Sequelize.STRING,
@@ -21,15 +17,11 @@ module.exports = {
       },
       email: {
         type: Sequelize.STRING,
-        allowNull: false,
+        allowNull: true,
       },
       password: {
         type: Sequelize.STRING,
-        allowNull: false,
-      },
-      role_id: {
-        type: Sequelize.UUID,
-        allowNull: false,
+        allowNull: true,
       },
       image: {
         type: Sequelize.STRING,
@@ -40,12 +32,18 @@ module.exports = {
         allowNull: true,
       },
       gender: {
-        type: Sequelize.ENUM('MALE', 'FEMALE'),
+        type: Sequelize.ENUM('MALE', 'FEMALE', 'OTHER'),
         allowNull: true,
       },
       status: {
         type: Sequelize.ENUM('ACTIVE', 'INACTIVE'),
         defaultValue: 'ACTIVE',
+        allowNull: false,
+      },
+      profile_status: {
+        type: Sequelize.ENUM('INCOMPLETE', 'COMPLETE'),
+        defaultValue: 'INCOMPLETE',
+        allowNull: false,
       },
       concurrency_stamp: {
         type: Sequelize.UUID,
@@ -53,26 +51,32 @@ module.exports = {
         allowNull: false,
       },
       created_by: {
-        type: Sequelize.UUID,
+        type: Sequelize.INTEGER,
+        allowNull: true,
       },
       updated_by: {
-        type: Sequelize.UUID,
+        type: Sequelize.INTEGER,
+        allowNull: true,
       },
       created_at: {
         allowNull: false,
         type: Sequelize.DATE,
-        defaultValue: Sequelize.NOW,
+        defaultValue: Sequelize.literal('CURRENT_TIMESTAMP'),
       },
       updated_at: {
         allowNull: false,
         type: Sequelize.DATE,
-        defaultValue: Sequelize.NOW,
+        defaultValue: Sequelize.literal('CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP'),
       },
     })
-    await queryInterface.addIndex('user', ['public_id'])
+
     await queryInterface.addIndex('user', ['status'])
+    await queryInterface.addIndex('user', ['mobile_number'])
+    await queryInterface.addIndex('user', ['email'])
   },
+
   down: async (queryInterface) => {
     await queryInterface.dropTable('user')
   },
 }
+

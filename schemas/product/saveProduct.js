@@ -15,17 +15,16 @@ const saveProduct = Joi.object({
     'any.required': 'Parameter: price is required',
     'number.min': 'Parameter: price must be greater than or equal to 0',
   }),
-  categoryId: Joi.string().pattern(uuidPattern).required().messages({
+  categoryId: Joi.number().integer().required().messages({
     'any.required': 'Parameter: categoryId is required',
   }),
-  branchId: Joi.string().pattern(uuidPattern).required().messages({
+  branchId: Joi.number().integer().required().messages({
     'any.required': 'Parameter: branchId is required',
-    'string.pattern.base': 'Parameter: branchId should be a valid UUID',
   }),
-  subCategoryId: Joi.string().pattern(uuidPattern).optional(),
-  vendorId: Joi.string().pattern(uuidPattern).optional(),
+  subCategoryId: Joi.number().integer().optional(),
+  vendorId: Joi.number().integer().optional(),
   status: Joi.string().valid('ACTIVE', 'INACTIVE').optional(),
-  createdBy: Joi.string().pattern(uuidPattern).optional(),
+  createdBy: Joi.number().integer().optional(),
 }).unknown(false)
 
 module.exports = saveProduct

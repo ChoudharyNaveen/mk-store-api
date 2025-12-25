@@ -17,7 +17,7 @@ const saveAddress = async (req, res) => {
 
 const updateAddress = async (req, res) => {
   try {
-    const data = req.validatedData
+    const data = { ...req.validatedData, id: req.params.id }
 
     const {
       errors: err,

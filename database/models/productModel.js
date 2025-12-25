@@ -8,19 +8,13 @@ module.exports = (sequelize, DataTypes) => {
         primaryKey: true,
         type: DataTypes.INTEGER,
       },
-      public_id: {
-        type: DataTypes.UUID,
-        allowNull: false,
-        index: true,
-        unique: true,
-      },
       branch_id: {
-        type: DataTypes.UUID,
+        type: DataTypes.INTEGER,
         allowNull: false,
         index: true,
       },
       vendor_id: {
-        type: DataTypes.UUID,
+        type: DataTypes.INTEGER,
         allowNull: false,
         index: true,
       },
@@ -41,11 +35,11 @@ module.exports = (sequelize, DataTypes) => {
         allowNull: false,
       },
       category_id: {
-        type: DataTypes.UUID,
+        type: DataTypes.INTEGER,
         allowNull: false,
       },
       sub_category_id: {
-        type: DataTypes.UUID,
+        type: DataTypes.INTEGER,
         allowNull: false,
       },
       description: {
@@ -82,10 +76,10 @@ module.exports = (sequelize, DataTypes) => {
         allowNull: false,
       },
       created_by: {
-        type: DataTypes.UUID,
+        type: DataTypes.INTEGER,
       },
       updated_by: {
-        type: DataTypes.UUID,
+        type: DataTypes.INTEGER,
       },
     },
     {
@@ -96,25 +90,45 @@ module.exports = (sequelize, DataTypes) => {
   )
 
   product.associate = (models) => {
-    product.hasOne(models.category, {
-      foreignKey: 'public_id',
-      sourceKey: 'category_id',
+    product.belongsTo(models.category, {
+      foreignKey: 'category_id',
+      targetKey: 'id',
       as: 'category',
     })
-    product.hasOne(models.subCategory, {
-      foreignKey: 'public_id',
-      sourceKey: 'sub_category_id',
+    product.belongsTo(models.subCategory, {
+      foreignKey: 'sub_category_id',
+      targetKey: 'id',
       as: 'subCategory',
     })
     product.belongsTo(models.branch, {
       foreignKey: 'branch_id',
-      targetKey: 'public_id',
+      targetKey: 'id',
       as: 'branch',
     })
     product.belongsTo(models.vendor, {
       foreignKey: 'vendor_id',
-      targetKey: 'public_id',
+      targetKey: 'id',
       as: 'vendor',
+    })
+    product.belongsTo(models.user, {
+      foreignKey: 'created_by',
+      targetKey: 'id',
+      as: 'createdByUser',
+    })
+    product.hasMany(models.cart, {
+      foreignKey: 'product_id',
+      sourceKey: 'id',
+      as: 'cartItems',
+    })
+    product.hasMany(models.wishlist, {
+      foreignKey: 'product_id',
+      sourceKey: 'id',
+      as: 'wishlistItems',
+    })
+    product.hasMany(models.orderItem, {
+      foreignKey: 'product_id',
+      sourceKey: 'id',
+      as: 'orderItems',
     })
   }
 

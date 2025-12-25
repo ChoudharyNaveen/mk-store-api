@@ -17,7 +17,7 @@ const saveVendor = async (req, res) => {
 
 const updateVendor = async (req, res) => {
   try {
-    const data = req.validatedData
+    const data = { ...req.validatedData, id: req.params.id }
 
     const {
       errors: err,
@@ -55,8 +55,25 @@ const getVendor = async (req, res) => {
   }
 }
 
+const getVendorByCode = async (req, res) => {
+  try {
+    const { code } = req.validatedData
+
+    const { errors: err, doc } = await VendorService.getVendorByCode(code)
+
+    if (err) {
+      return res.status(404).json(err)
+    }
+
+    return res.getRequest({ doc })
+  } catch (error) {
+    return res.serverError(error)
+  }
+}
+
 module.exports = {
   saveVendor,
   updateVendor,
   getVendor,
+  getVendorByCode,
 }

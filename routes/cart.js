@@ -56,10 +56,12 @@ module.exports = (router) => {
    *                 doc:
    *                   type: object
    *                   properties:
-   *                     publicId:
-   *                       type: string
-   *                     productId:
-   *                       type: string
+   *                     id:
+   *                       type: integer
+   *                       example: 1
+   *                     product_id:
+   *                       type: integer
+   *                       example: 1
    *                     quantity:
    *                       type: integer
    *       400:
@@ -106,11 +108,13 @@ module.exports = (router) => {
    *                   items:
    *                     type: object
    *                     properties:
-   *                       publicId:
-   *                         type: string
-   *                       productId:
-   *                         type: string
-   *                       product:
+   *                       id:
+   *                         type: integer
+   *                         example: 1
+   *                       product_id:
+   *                         type: integer
+   *                         example: 1
+   *                       productDetails:
    *                         type: object
    *                         properties:
    *                           name:
@@ -163,7 +167,7 @@ module.exports = (router) => {
 
   /**
    * @swagger
-   * /update-cart/{publicId}:
+   * /update-cart/{id}:
    *   patch:
    *     summary: Update cart item quantity
    *     tags: [Cart]
@@ -171,11 +175,11 @@ module.exports = (router) => {
    *       - bearerAuth: []
    *     parameters:
    *       - in: path
-   *         name: publicId
+   *         name: id
    *         required: true
    *         schema:
-   *           type: string
-   *         description: Cart item public ID
+   *           type: integer
+   *         description: Cart item ID
    *       - in: header
    *         name: x-concurrencystamp
    *         schema:
@@ -216,5 +220,5 @@ module.exports = (router) => {
    *       400:
    *         description: Validation error
    */
-  router.patch('/update-cart/:publicId', isAuthenticated, validate(updateCartSchema), updateCart)
+  router.patch('/update-cart/:id', isAuthenticated, validate(updateCartSchema), updateCart)
 }

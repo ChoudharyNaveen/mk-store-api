@@ -14,13 +14,13 @@ const isAuthenticated = async (req, res, next) => {
     var token = accessToken.replace('Bearer ', '')
     const user = jwt.decode(token)
     let userDetails = {}
-    userDetails = await UserService.getUserById({ publicId: user.publicId })
+    userDetails = await UserService.getUserById({ id: user.id })
     const password = userDetails.doc.password || userDetails.doc.concurrencyStamp
     const tokenSecret = config.jwt.token_secret + password;
     jwt.verify(token, tokenSecret)
 
     req.user = userDetails.doc
-    req.user.userId = userDetails.doc.publicId
+    req.user.userId = userDetails.doc.id
     next()
   } catch (error) {
     console.log('auth error', error)

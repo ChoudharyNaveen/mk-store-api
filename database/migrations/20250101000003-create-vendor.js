@@ -1,40 +1,38 @@
 module.exports = {
-  up: (queryInterface, Sequelize) =>
-    queryInterface.createTable('address', {
+  up: async (queryInterface, Sequelize) => {
+    await queryInterface.createTable('vendor', {
       id: {
         allowNull: false,
         autoIncrement: true,
         primaryKey: true,
         type: Sequelize.INTEGER,
       },
-      public_id: {
-        type: Sequelize.UUID,
-        unique: true,
-      },
-      house_no: {
-        type: Sequelize.STRING,
-        allowNull: false,
-      },
-      street_details: {
-        type: Sequelize.STRING,
-        allowNull: false,
-      },
-      landmark: {
-        type: Sequelize.STRING,
-        allowNull: false,
-      },
       name: {
         type: Sequelize.STRING,
         allowNull: false,
+      },
+      email: {
+        type: Sequelize.STRING,
+        allowNull: false,
+        unique: true,
       },
       mobile_number: {
         type: Sequelize.STRING,
         allowNull: false,
       },
+      code: {
+        type: Sequelize.STRING,
+        allowNull: true,
+        unique: true,
+      },
+      address: {
+        type: Sequelize.TEXT,
+        allowNull: true,
+      },
       status: {
         type: Sequelize.ENUM('ACTIVE', 'INACTIVE'),
-        index: true,
         defaultValue: 'ACTIVE',
+        allowNull: false,
       },
       concurrency_stamp: {
         type: Sequelize.UUID,
@@ -42,21 +40,31 @@ module.exports = {
         allowNull: false,
       },
       created_by: {
-        type: Sequelize.UUID,
+        type: Sequelize.INTEGER,
+        allowNull: true,
       },
       updated_by: {
-        type: Sequelize.UUID,
+        type: Sequelize.INTEGER,
+        allowNull: true,
       },
       created_at: {
         allowNull: false,
         type: Sequelize.DATE,
-        defaultValue: Sequelize.NOW,
+        defaultValue: Sequelize.literal('CURRENT_TIMESTAMP'),
       },
       updated_at: {
         allowNull: false,
         type: Sequelize.DATE,
-        defaultValue: Sequelize.NOW,
+        defaultValue: Sequelize.literal('CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP'),
       },
-    }),
-  down: (queryInterface) => queryInterface.dropTable('address'),
+    })
+
+    await queryInterface.addIndex('vendor', ['status'])
+    await queryInterface.addIndex('vendor', ['code'])
+  },
+
+  down: async (queryInterface) => {
+    await queryInterface.dropTable('vendor')
+  },
 }
+

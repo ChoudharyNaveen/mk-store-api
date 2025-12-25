@@ -52,9 +52,10 @@ module.exports = (router) => {
    *                   items:
    *                     type: object
    *                     properties:
-   *                       publicId:
-   *                         type: string
-   *                       orderId:
+   *                       id:
+   *                         type: integer
+   *                         example: 1
+   *                       order_id:
    *                         type: string
    *                       productId:
    *                         type: string

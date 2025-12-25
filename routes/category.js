@@ -62,9 +62,10 @@ module.exports = (router) => {
    *                 doc:
    *                   type: object
    *                   properties:
-   *                     publicId:
-   *                       type: string
-   *                     name:
+   *                     id:
+   *                       type: integer
+   *                       example: 1
+   *                     title:
    *                       type: string
    *       400:
    *         description: Validation error
@@ -116,9 +117,10 @@ module.exports = (router) => {
    *                   items:
    *                     type: object
    *                     properties:
-   *                       publicId:
-   *                         type: string
-   *                       name:
+   *                       id:
+   *                         type: integer
+   *                         example: 1
+   *                       title:
    *                         type: string
    *                       description:
    *                         type: string
@@ -131,7 +133,7 @@ module.exports = (router) => {
 
   /**
    * @swagger
-   * /update-category/{publicId}:
+   * /update-category/{id}:
    *   patch:
    *     summary: Update a category
    *     tags: [Categories]
@@ -139,11 +141,11 @@ module.exports = (router) => {
    *       - bearerAuth: []
    *     parameters:
    *       - in: path
-   *         name: publicId
+   *         name: id
    *         required: true
    *         schema:
-   *           type: string
-   *         description: Category public ID
+   *           type: integer
+   *         description: Category ID
    *     requestBody:
    *       required: true
    *       content:
@@ -182,7 +184,7 @@ module.exports = (router) => {
    *                   example: true
    */
   router.patch(
-    '/update-category/:publicId',
+    '/update-category/:id',
     isAuthenticated,
     upload.fields([{ name: 'file', maxCount: 1 }]),
     validate(updateCategorySchema),

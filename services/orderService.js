@@ -38,7 +38,7 @@ const placeOrder = async (data) => {
     }
 
     const branch = await BranchModel.findOne({
-      where: { public_id: branchId },
+      where: { id: branchId },
     })
 
     if (!branch) {
@@ -74,7 +74,7 @@ const placeOrder = async (data) => {
       totalAmount += subtotal
 
       const product = await ProductModel.findOne({
-        where: { public_id: item.product_id },
+        where: { id: item.product_id },
       })
 
       if (quantity > product.dataValues.quantity) {
@@ -88,14 +88,12 @@ const placeOrder = async (data) => {
       await ProductModel.update(
         { quantity: productQuanityRemaining, concurrency_stamp: uuidV4() },
         {
-          where: { public_id: product.dataValues.public_id },
+          where: { id: product.id },
           transaction,
         }
       )
 
       orderItemsData.push({
-        public_id: uuidV4(),
-        concurrency_stamp: uuidV4(),
         product_id: item.product_id,
         quantity,
         price_at_purchase: price,
@@ -136,11 +134,9 @@ const placeOrder = async (data) => {
 
     //create address
     if (houseNo && streetDetails && landmark && name && mobileNumber) {
-      const addressPublicId = uuidV4()
       const addressConcurrencyStamp = uuidV4()
 
       const doc = {
-        publicId: addressPublicId,
         concurrencyStamp: addressConcurrencyStamp,
         houseNo,
         streetDetails,
@@ -160,14 +156,12 @@ const placeOrder = async (data) => {
       transaction,
     })
 
-    //create 0rder
-    const orderPublicId = uuidV4()
+    //create order
     const orderConcurrencyStamp = uuidV4()
 
     const orderDoc = {
-      publicId: orderPublicId,
       totalAmount: totalAmount,
-      addressId: address.dataValues.public_id,
+      addressId: address.id,
       branchId: branchId,
       status: 'PENDING',
       paymentStatus: 'UNPAID',
@@ -185,9 +179,8 @@ const placeOrder = async (data) => {
     //create order item
     for (const item of orderItemsData) {
       const itemDoc = {
-        publicId: uuidV4(),
         concurrencyStamp: uuidV4(),
-        orderId: orderPublicId,
+        orderId: newOrder.id,
         productId: item.product_id,
         quantity: item.quantity,
         priceAtPurchase: item.price_at_purchase,
@@ -213,7 +206,7 @@ const placeOrder = async (data) => {
     await transaction.commit()
     return {
       doc: {
-        order_id: newOrder.public_id,
+        order_id: newOrder.id,
         total_amount: newOrder.total_amount,
         item_count: orderItemsData.length,
       },
@@ -308,18 +301,18 @@ const getStatsOfOrdersCompleted = async () => {
 
 const updateOrder = async (data) => {
   let transaction = null
-  const { publicId, ...datas } = data
+  const { id, ...datas } = data
   const { concurrencyStamp, updatedBy } = datas
 
   try {
     transaction = await sequelize.transaction()
     const response = await OrderModel.findOne({
-      where: { public_id: publicId },
+      where: { id: id },
     })
 
     if (response) {
       const riderExist = await UserModel.findOne({
-        where: {public_id: updatedBy},
+        where: {id: updatedBy},
         include:[
           {
             model:RoleModel, as: 'role'
@@ -340,7 +333,7 @@ const updateOrder = async (data) => {
         }
 
         await OrderModel.update(doc, {
-          where: { public_id: publicId },
+          where: { id: id },
           transaction,
         })
         await transaction.commit()

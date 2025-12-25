@@ -69,8 +69,9 @@ module.exports = (router) => {
    *                 doc:
    *                   type: object
    *                   properties:
-   *                     publicId:
-   *                       type: string
+   *                     id:
+   *                       type: integer
+   *                       example: 1
    *                     house_no:
    *                       type: string
    *                     streetDetails:
@@ -124,8 +125,9 @@ module.exports = (router) => {
    *                   items:
    *                     type: object
    *                     properties:
-   *                       publicId:
-   *                         type: string
+   *                       id:
+   *                         type: integer
+   *                         example: 1
    *                       house_no:
    *                         type: string
    *                       streetDetails:
@@ -143,7 +145,7 @@ module.exports = (router) => {
 
   /**
    * @swagger
-   * /update-address/{publicId}:
+   * /update-address/{id}:
    *   patch:
    *     summary: Update an address
    *     tags: [Addresses]
@@ -151,11 +153,11 @@ module.exports = (router) => {
    *       - bearerAuth: []
    *     parameters:
    *       - in: path
-   *         name: publicId
+   *         name: id
    *         required: true
    *         schema:
-   *           type: string
-   *         description: Address public ID
+   *           type: integer
+   *         description: Address ID
    *     requestBody:
    *       required: true
    *       content:
@@ -196,7 +198,7 @@ module.exports = (router) => {
    *                   example: true
    */
   router.patch(
-    '/update-address/:publicId',
+    '/update-address/:id',
     isAuthenticated,
     validate(updateAddressSchema),
     updateAddress

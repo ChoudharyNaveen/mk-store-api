@@ -8,12 +8,6 @@ module.exports = (sequelize, DataTypes) => {
         primaryKey: true,
         type: DataTypes.INTEGER,
       },
-      public_id: {
-        type: DataTypes.UUID,
-        allowNull: false,
-        index: true,
-        unique: true,
-      },
       sub_category_name: {
         type: DataTypes.STRING,
         allowNull: false,
@@ -27,7 +21,7 @@ module.exports = (sequelize, DataTypes) => {
         allowNull: false,
       },
       category_id: {
-        type: DataTypes.UUID,
+        type: DataTypes.INTEGER,
         allowNull: false,
       },
       status: {
@@ -42,10 +36,10 @@ module.exports = (sequelize, DataTypes) => {
         allowNull: false,
       },
       created_by: {
-        type: DataTypes.UUID,
+        type: DataTypes.INTEGER,
       },
       updated_by: {
-        type: DataTypes.UUID,
+        type: DataTypes.INTEGER,
       },
     },
     {
@@ -55,10 +49,15 @@ module.exports = (sequelize, DataTypes) => {
     }
   )
   subCategory.associate = (models) => {
-    subCategory.hasOne(models.category, {
-      foreignKey: 'public_id',
-      sourceKey: 'category_id',
+    subCategory.belongsTo(models.category, {
+      foreignKey: 'category_id',
+      targetKey: 'id',
       as: 'category',
+    })
+    subCategory.hasMany(models.product, {
+      foreignKey: 'sub_category_id',
+      sourceKey: 'id',
+      as: 'products',
     })
   }
 

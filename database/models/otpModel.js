@@ -15,7 +15,7 @@ module.exports = (sequelize, DataTypes) => {
         index: true,
       },
       user_id: {
-        type: DataTypes.UUID,
+        type: DataTypes.INTEGER,
         allowNull: true,
         index: true,
       },
@@ -42,9 +42,10 @@ module.exports = (sequelize, DataTypes) => {
   )
 
   otp.associate = (models) => {
-    otp.hasOne(models.user, {
-      foreignKey: 'public_id',
-      sourceKey: 'user_id',
+    otp.belongsTo(models.user, {
+      foreignKey: 'user_id',
+      targetKey: 'id',
+      as: 'user',
     })
   }
 

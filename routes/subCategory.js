@@ -120,9 +120,10 @@ module.exports = (router) => {
    *                   items:
    *                     type: object
    *                     properties:
-   *                       publicId:
-   *                         type: string
-   *                       name:
+   *                       id:
+   *                         type: integer
+   *                         example: 1
+   *                       title:
    *                         type: string
    *                       categoryId:
    *                         type: string
@@ -133,7 +134,7 @@ module.exports = (router) => {
 
   /**
    * @swagger
-   * /update-sub-category/{publicId}:
+   * /update-sub-category/{id}:
    *   patch:
    *     summary: Update a subcategory
    *     tags: [SubCategories]
@@ -141,11 +142,11 @@ module.exports = (router) => {
    *       - bearerAuth: []
    *     parameters:
    *       - in: path
-   *         name: publicId
+   *         name: id
    *         required: true
    *         schema:
-   *           type: string
-   *         description: Subcategory public ID
+   *           type: integer
+   *         description: Subcategory ID
    *     requestBody:
    *       required: true
    *       content:
@@ -183,7 +184,7 @@ module.exports = (router) => {
    *                   example: true
    */
   router.patch(
-    '/update-sub-category/:publicId',
+    '/update-sub-category/:id',
     isAuthenticated,
     upload.fields([{ name: 'file', maxCount: 1 }]),
     validate(updateSubCategorySchema),

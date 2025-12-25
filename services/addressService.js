@@ -11,12 +11,10 @@ const saveAddress = async (data) => {
   try {
     const { createdBy, ...datas } = data
     transaction = await sequelize.transaction()
-    const publicId = uuidV4()
     const concurrencyStamp = uuidV4()
 
     const doc = {
       ...datas,
-      publicId,
       concurrencyStamp,
       createdBy,
     }
@@ -36,13 +34,13 @@ const saveAddress = async (data) => {
 
 const updateAddress = async ( data) => {
   let transaction = null
-  const { publicId, ...datas } = data
+  const { id, ...datas } = data
   const { concurrencyStamp, updatedBy } = datas
 
   try {
     transaction = await sequelize.transaction()
     const response = await AddressModel.findOne({
-      where: { public_id: publicId },
+      where: { id: id },
     })
 
     if (response) {
@@ -56,7 +54,7 @@ const updateAddress = async ( data) => {
         }
 
         await AddressModel.update(doc, {
-          where: { public_id: publicId },
+          where: { id: id },
           transaction,
         })
         await transaction.commit()

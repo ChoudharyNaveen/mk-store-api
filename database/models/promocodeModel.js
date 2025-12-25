@@ -8,12 +8,6 @@ module.exports = (sequelize, DataTypes) => {
         primaryKey: true,
         type: DataTypes.INTEGER,
       },
-      public_id: {
-        type: DataTypes.UUID,
-        allowNull: false,
-        index: true,
-        unique: true,
-      },
       type: {
         type: DataTypes.STRING,
         allowNull: false,
@@ -50,10 +44,10 @@ module.exports = (sequelize, DataTypes) => {
         allowNull: false,
       },
       created_by: {
-        type: DataTypes.UUID,
+        type: DataTypes.INTEGER,
       },
       updated_by: {
-        type: DataTypes.UUID,
+        type: DataTypes.INTEGER,
       },
     },
     {
@@ -62,6 +56,14 @@ module.exports = (sequelize, DataTypes) => {
       timestamps: true,
     }
   )
+
+  promocode.associate = (models) => {
+    promocode.belongsTo(models.user, {
+      foreignKey: 'created_by',
+      targetKey: 'id',
+      as: 'createdByUser',
+    })
+  }
 
   return promocode
 }

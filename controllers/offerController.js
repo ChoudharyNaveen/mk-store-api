@@ -21,7 +21,7 @@ const saveOffer = async (req, res) => {
 
 const updateOffer = async (req, res) => {
   try {
-    const data = req.validatedData
+    const data = { ...req.validatedData, id: req.params.id }
     const imageFile = req.files['file'] ? req.files['file'][0] : null
 
     const {

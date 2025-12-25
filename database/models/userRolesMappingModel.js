@@ -1,6 +1,6 @@
 module.exports = (sequelize, DataTypes) => {
-  const vendorUser = sequelize.define(
-    'vendor_user',
+  const userRolesMapping = sequelize.define(
+    'user_roles_mappings',
     {
       id: {
         allowNull: false,
@@ -8,24 +8,18 @@ module.exports = (sequelize, DataTypes) => {
         primaryKey: true,
         type: DataTypes.INTEGER,
       },
-      public_id: {
-        type: DataTypes.UUID,
-        allowNull: false,
-        index: true,
-        unique: true,
-      },
       vendor_id: {
-        type: DataTypes.UUID,
-        allowNull: false,
+        type: DataTypes.INTEGER,
+        allowNull: true, // Made optional
         index: true,
       },
       user_id: {
-        type: DataTypes.UUID,
+        type: DataTypes.INTEGER,
         allowNull: false,
         index: true,
       },
       role_id: {
-        type: DataTypes.UUID,
+        type: DataTypes.INTEGER,
         allowNull: false,
         index: true,
       },
@@ -41,10 +35,10 @@ module.exports = (sequelize, DataTypes) => {
         allowNull: false,
       },
       created_by: {
-        type: DataTypes.UUID,
+        type: DataTypes.INTEGER,
       },
       updated_by: {
-        type: DataTypes.UUID,
+        type: DataTypes.INTEGER,
       },
     },
     {
@@ -54,24 +48,25 @@ module.exports = (sequelize, DataTypes) => {
     }
   )
 
-  vendorUser.associate = (models) => {
-    vendorUser.belongsTo(models.vendor, {
+  userRolesMapping.associate = (models) => {
+    userRolesMapping.belongsTo(models.vendor, {
       foreignKey: 'vendor_id',
-      targetKey: 'public_id',
+      targetKey: 'id',
       as: 'vendor',
+      required: false, // Optional relationship
     })
-    vendorUser.belongsTo(models.user, {
+    userRolesMapping.belongsTo(models.user, {
       foreignKey: 'user_id',
-      targetKey: 'public_id',
+      targetKey: 'id',
       as: 'user',
     })
-    vendorUser.belongsTo(models.role, {
+    userRolesMapping.belongsTo(models.role, {
       foreignKey: 'role_id',
-      targetKey: 'public_id',
+      targetKey: 'id',
       as: 'role',
     })
   }
 
-  return vendorUser
+  return userRolesMapping
 }
 

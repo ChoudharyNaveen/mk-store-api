@@ -1,16 +1,21 @@
-const { branch: BranchModel, vendor: VendorModel, sequelize } = require('../database')
+const {
+  branch: BranchModel,
+  vendor: VendorModel,
+  sequelize,
+  Sequelize: { Op },
+} = require('../database')
 const { v4: uuidV4 } = require('uuid')
 const Helper = require('../utils/helper')
 
 const saveBranch = async ({ data }) => {
   let transaction = null
   try {
-    const { createdBy, vendorId, ...datas } = data
+    const { createdBy, vendorId, code, ...datas } = data
     transaction = await sequelize.transaction()
 
     // Verify vendor exists
     const vendor = await VendorModel.findOne({
-      where: { public_id: vendorId },
+      where: { id: vendorId },
     })
 
     if (!vendor) {
@@ -18,13 +23,25 @@ const saveBranch = async ({ data }) => {
       return { errors: { message: 'Vendor not found' } }
     }
 
-    const publicId = uuidV4()
+    // Check if branch code is provided and if it already exists
+    if (code) {
+      const existingBranch = await BranchModel.findOne({
+        where: { code: code },
+        transaction,
+      })
+
+      if (existingBranch) {
+        await transaction.rollback()
+        return { errors: { message: 'Branch code already exists. Please use a different code.' } }
+      }
+    }
+
     const concurrencyStamp = uuidV4()
 
     const doc = {
       ...datas,
       vendorId,
-      publicId,
+      code: code || null,
       concurrencyStamp,
       createdBy,
     }
@@ -39,14 +56,20 @@ const saveBranch = async ({ data }) => {
     if (transaction) {
       await transaction.rollback()
     }
+    // Handle unique constraint violation from database
+    if (error.name === 'SequelizeUniqueConstraintError') {
+      if (error.errors && error.errors.some((e) => e.path === 'code')) {
+        return { errors: { message: 'Branch code already exists. Please use a different code.' } }
+      }
+    }
     return { errors: { message: 'failed to save branch' } }
   }
 }
 
 const updateBranch = async ({ data }) => {
   let transaction = null
-  const { publicId, ...datas } = data
-  const { concurrencyStamp, updatedBy, vendorId } = datas
+  const { id, ...datas } = data
+  const { concurrencyStamp, updatedBy, vendorId, code } = datas
 
   try {
     transaction = await sequelize.transaction()
@@ -54,7 +77,7 @@ const updateBranch = async ({ data }) => {
     // If vendorId is being updated, verify it exists
     if (vendorId) {
       const vendor = await VendorModel.findOne({
-        where: { public_id: vendorId },
+        where: { id: vendorId },
       })
       if (!vendor) {
         await transaction.rollback()
@@ -62,8 +85,21 @@ const updateBranch = async ({ data }) => {
       }
     }
 
+    // Check if branch code is being updated and if it already exists
+    if (code) {
+      const existingBranch = await BranchModel.findOne({
+        where: { code: code, id: { [Op.ne]: id } },
+        transaction,
+      })
+
+      if (existingBranch) {
+        await transaction.rollback()
+        return { errors: { message: 'Branch code already exists. Please use a different code.' } }
+      }
+    }
+
     const response = await BranchModel.findOne({
-      where: { public_id: publicId },
+      where: { id: id },
     })
 
     if (response) {
@@ -76,7 +112,7 @@ const updateBranch = async ({ data }) => {
           concurrency_stamp: newConcurrencyStamp,
         }
         await BranchModel.update(doc, {
-          where: { public_id: publicId },
+          where: { id: id },
           transaction,
         })
         await transaction.commit()
@@ -90,6 +126,12 @@ const updateBranch = async ({ data }) => {
     console.log(error)
     if (transaction) {
       await transaction.rollback()
+    }
+    // Handle unique constraint violation from database
+    if (error.name === 'SequelizeUniqueConstraintError') {
+      if (error.errors && error.errors.some((e) => e.path === 'code')) {
+        return { errors: { message: 'Branch code already exists. Please use a different code.' } }
+      }
     }
     return { errors: { message: 'transaction failed' } }
   }
@@ -114,7 +156,7 @@ const getBranch = async (payload) => {
       {
         model: VendorModel,
         as: 'vendor',
-        attributes: ['public_id', 'name', 'email'],
+        attributes: ['id', 'name', 'email'],
       },
     ],
   })

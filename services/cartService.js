@@ -12,7 +12,6 @@ const saveCart = async (data) => {
   try {
     const { createdBy, productId, ...datas } = data
     transaction = await sequelize.transaction()
-    const publicId = uuidV4()
     const concurrencyStamp = uuidV4()
 
     const isExists = await CartModel.findOne({
@@ -25,7 +24,6 @@ const saveCart = async (data) => {
 
     const doc = {
       ...datas,
-      publicId,
       productId,
       concurrencyStamp,
       createdBy,
@@ -82,7 +80,7 @@ const getCartOfUser = async (payload) => {
 const deleteCart = async (cartId) => {
   try {
     const del = await CartModel.destroy({
-      where: { public_id: cartId },
+      where: { id: cartId },
     })
     return { doc: { message: 'successfully deleted cart' } }
   } catch (error) {
@@ -93,19 +91,19 @@ const deleteCart = async (cartId) => {
 
 const updateCart = async (data) => {
   let transaction = null
-  const { publicId, quantity, ...datas } = data
+  const { id, quantity, ...datas } = data
   const { concurrencyStamp, updatedBy } = datas
 
   try {
     transaction = await sequelize.transaction()
     const response = await CartModel.findOne({
-      where: { public_id: publicId },
+      where: { id: id },
     })
 
     if (response) {
       if (quantity === 0) {
         await CartModel.destroy({
-          where: { public_id: publicId },
+          where: { id: id },
         })
         return { cartZero: 'item removed from cart' }
       }
@@ -119,7 +117,7 @@ const updateCart = async (data) => {
         }
 
         await CartModel.update(doc, {
-          where: { public_id: publicId },
+          where: { id: id },
           transaction,
         })
         await transaction.commit()

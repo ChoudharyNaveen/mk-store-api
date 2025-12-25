@@ -11,12 +11,11 @@ const saveCategory = Joi.object({
     'any.required': 'Parameter: description is required',
     'string.empty': 'Parameter: description is required',
   }),
-  branchId: Joi.string().pattern(uuidPattern).required().messages({
+  branchId: Joi.number().integer().required().messages({
     'any.required': 'Parameter: branchId is required',
-    'string.pattern.base': 'Parameter: branchId should be a valid UUID',
   }),
   status: Joi.string().valid('ACTIVE', 'INACTIVE').optional(),
-  createdBy: Joi.string().pattern(uuidPattern).optional(),
+  createdBy: Joi.number().integer().optional(),
 }).unknown(false)
 
 module.exports = saveCategory

@@ -11,9 +11,8 @@ const getWishlist = Joi.object({
     'any.required': 'Parameter: pageNumber is required in query.',
     'number.min': 'Parameter: pageNumber should be valid.',
   }),
-  createdBy: Joi.string().pattern(uuidPattern).required().messages({
+  createdBy: Joi.number().integer().required().messages({
     'any.required': 'Parameter: createdBy is required.',
-    'string.pattern.base': 'Parameter: createdBy should be a valid UUID',
   }),
 }).unknown(false)
 

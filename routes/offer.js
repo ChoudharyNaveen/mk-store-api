@@ -133,8 +133,9 @@ module.exports = (router) => {
    *                   items:
    *                     type: object
    *                     properties:
-   *                       publicId:
-   *                         type: string
+   *                       id:
+   *                         type: integer
+   *                         example: 1
    *                       title:
    *                         type: string
    *                       discount:
@@ -156,7 +157,7 @@ module.exports = (router) => {
 
   /**
    * @swagger
-   * /update-offer/{publicId}:
+   * /update-offer/{id}:
    *   patch:
    *     summary: Update an offer
    *     tags: [Offers]
@@ -164,11 +165,11 @@ module.exports = (router) => {
    *       - bearerAuth: []
    *     parameters:
    *       - in: path
-   *         name: publicId
+   *         name: id
    *         required: true
    *         schema:
-   *           type: string
-   *         description: Offer public ID
+   *           type: integer
+   *         description: Offer ID
    *     requestBody:
    *       required: true
    *       content:
@@ -214,7 +215,7 @@ module.exports = (router) => {
    *                   example: true
    */
   router.patch(
-    '/update-offer/:publicId',
+    '/update-offer/:id',
     isAuthenticated,
     upload.fields([{ name: 'file', maxCount: 1 }]),
     validate(updateOfferSchema),

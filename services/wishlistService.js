@@ -11,7 +11,6 @@ const saveWishlist = async (data) => {
   try {
     const { createdBy,productId, ...datas } = data
     transaction = await sequelize.transaction()
-    const publicId = uuidV4()
     const concurrencyStamp = uuidV4()
 
     const isExists = await WishlistModel.findOne({
@@ -24,7 +23,6 @@ const saveWishlist = async (data) => {
 
     const doc = {
       ...datas,
-      publicId,
       productId,
       concurrencyStamp,
       createdBy,
@@ -77,7 +75,7 @@ const getWishlist = async (payload) => {
 const deleteWishlist = async (wishlistId) => {
   try {
     const del = await WishlistModel.destroy({
-      where: { public_id: wishlistId },
+      where: { id: wishlistId },
     })
     return { doc: { message: 'successfully deleted wishlist' } }
   } catch (error) {

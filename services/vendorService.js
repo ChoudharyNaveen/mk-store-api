@@ -1,8 +1,9 @@
 const {
   vendor: VendorModel,
+  branch: BranchModel,
   user: UserModel,
   role: RoleModel,
-  vendor_user: VendorUserModel,
+  user_roles_mappings: UserRolesMappingModel,
   sequelize,
 } = require('../database')
 const { v4: uuidV4 } = require('uuid')
@@ -11,27 +12,108 @@ const Helper = require('../utils/helper')
 const saveVendor = async ({ data }) => {
   let transaction = null
   try {
-    const { createdBy, ...datas } = data
+    const {
+      createdBy,
+      code,
+      branchName,
+      branchCode,
+      addressLine1,
+      addressLine2,
+      street,
+      city,
+      state,
+      pincode,
+      latitude,
+      longitude,
+      branchPhone,
+      branchEmail,
+      branchStatus,
+      ...vendorDatas
+    } = data
     transaction = await sequelize.transaction()
-    const publicId = uuidV4()
+
+    // Check if vendor code is provided and if it already exists
+    if (code) {
+      const existingVendor = await VendorModel.findOne({
+        where: { code: code },
+        transaction,
+      })
+
+      if (existingVendor) {
+        await transaction.rollback()
+        return { errors: { message: 'Vendor code already exists. Please use a different code.' } }
+      }
+    }
+
+    // Check if branch code is provided and if it already exists
+    if (branchCode) {
+      const existingBranch = await BranchModel.findOne({
+        where: { code: branchCode },
+        transaction,
+      })
+
+      if (existingBranch) {
+        await transaction.rollback()
+        return { errors: { message: 'Branch code already exists. Please use a different code.' } }
+      }
+    }
+
     const concurrencyStamp = uuidV4()
 
-    const doc = {
-      ...datas,
-      publicId,
+    const vendorDoc = {
+      ...vendorDatas,
+      code: code || null,
       concurrencyStamp,
       createdBy,
     }
 
-    const vendor = await VendorModel.create(Helper.convertCamelToSnake(doc), {
+    const vendor = await VendorModel.create(Helper.convertCamelToSnake(vendorDoc), {
       transaction,
     })
+
+    // Create branch for the vendor
+    const branchConcurrencyStamp = uuidV4()
+    const branchDoc = {
+      vendorId: vendor.id,
+      name: branchName,
+      code: branchCode || null,
+      addressLine1: addressLine1 || null,
+      addressLine2: addressLine2 || null,
+      street: street || null,
+      city: city || null,
+      state: state || null,
+      pincode: pincode || null,
+      latitude: latitude || null,
+      longitude: longitude || null,
+      phone: branchPhone || null,
+      email: branchEmail || null,
+      status: branchStatus || 'ACTIVE',
+      concurrencyStamp: branchConcurrencyStamp,
+      createdBy,
+    }
+
+    const branch = await BranchModel.create(Helper.convertCamelToSnake(branchDoc), {
+      transaction,
+    })
+
     await transaction.commit()
-    return { doc: { vendor } }
+    return { doc: { vendor, branch } }
   } catch (error) {
     console.log(error)
     if (transaction) {
       await transaction.rollback()
+    }
+    // Handle unique constraint violation from database
+    if (error.name === 'SequelizeUniqueConstraintError') {
+      if (error.errors && error.errors.some((e) => e.path === 'code' && e.instance?.tableName === 'vendor')) {
+        return { errors: { message: 'Vendor code already exists. Please use a different code.' } }
+      }
+      if (error.errors && error.errors.some((e) => e.path === 'code' && e.instance?.tableName === 'branch')) {
+        return { errors: { message: 'Branch code already exists. Please use a different code.' } }
+      }
+      if (error.errors && error.errors.some((e) => e.path === 'email')) {
+        return { errors: { message: 'Vendor email already exists. Please use a different email.' } }
+      }
     }
     return { errors: { message: 'failed to save vendor' } }
   }
@@ -39,13 +121,13 @@ const saveVendor = async ({ data }) => {
 
 const updateVendor = async ({ data }) => {
   let transaction = null
-  const { publicId, ...datas } = data
+  const { id, ...datas } = data
   const { concurrencyStamp, updatedBy } = datas
 
   try {
     transaction = await sequelize.transaction()
     const response = await VendorModel.findOne({
-      where: { public_id: publicId },
+      where: { id: id },
     })
 
     if (response) {
@@ -58,7 +140,7 @@ const updateVendor = async ({ data }) => {
           concurrency_stamp: newConcurrencyStamp,
         }
         await VendorModel.update(doc, {
-          where: { public_id: publicId },
+          where: { id: id },
           transaction,
         })
         await transaction.commit()
@@ -102,10 +184,27 @@ const getVendor = async (payload) => {
   return { count: 0, doc: [] }
 }
 
+const getVendorByCode = async (code) => {
+  try {
+    const vendor = await VendorModel.findOne({
+      where: { code: code },
+    })
+
+    if (!vendor) {
+      return { errors: { message: 'Vendor not found' } }
+    }
+
+    return { doc: vendor.dataValues }
+  } catch (error) {
+    console.log(error)
+    return { errors: { message: 'failed to get vendor by code' } }
+  }
+}
+
 const getVendorWithUsers = async (vendorId) => {
   try {
     const adminRole = await RoleModel.findOne({
-      where: { name: 'admin' },
+      where: { name: 'VENDOR_ADMIN' },
     })
     const riderRole = await RoleModel.findOne({
       where: { name: 'rider' },
@@ -116,16 +215,15 @@ const getVendorWithUsers = async (vendorId) => {
     }
 
     const vendor = await VendorModel.findOne({
-      where: { public_id: vendorId },
+      where: { id: vendorId },
       include: [
         {
-          model: VendorUserModel,
-          as: 'vendorUsers',
+          model: UserRolesMappingModel,
+          as: 'userRoleMappings',
           include: [
             {
               model: UserModel,
               as: 'user',
-              include: [{ model: RoleModel, as: 'role' }],
             },
             {
               model: RoleModel,
@@ -141,11 +239,11 @@ const getVendorWithUsers = async (vendorId) => {
     }
 
     // Separate admin and riders
-    const adminMapping = vendor.vendorUsers.find(
-      (vu) => vu.role_id === adminRole.dataValues.public_id && vu.status === 'ACTIVE'
+    const adminMapping = vendor.userRoleMappings.find(
+      (urm) => urm.role_id === adminRole.id && urm.status === 'ACTIVE'
     )
-    const riderMappings = vendor.vendorUsers.filter(
-      (vu) => vu.role_id === riderRole.dataValues.public_id && vu.status === 'ACTIVE'
+    const riderMappings = vendor.userRoleMappings.filter(
+      (urm) => urm.role_id === riderRole.id && urm.status === 'ACTIVE'
     )
 
     const result = {
@@ -165,6 +263,7 @@ module.exports = {
   saveVendor,
   updateVendor,
   getVendor,
+  getVendorByCode,
   getVendorWithUsers,
 }
 

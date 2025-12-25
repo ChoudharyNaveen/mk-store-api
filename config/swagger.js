@@ -76,6 +76,8 @@ const options = {
     tags: [
       { name: 'Authentication', description: 'User authentication endpoints' },
       { name: 'Users', description: 'User management endpoints' },
+      { name: 'Vendors', description: 'Vendor management endpoints' },
+      { name: 'Branches', description: 'Branch management endpoints' },
       { name: 'Categories', description: 'Category management endpoints' },
       { name: 'SubCategories', description: 'SubCategory management endpoints' },
       { name: 'Products', description: 'Product management endpoints' },

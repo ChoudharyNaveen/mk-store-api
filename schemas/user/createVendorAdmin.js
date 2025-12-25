@@ -1,9 +1,8 @@
 const Joi = require('joi')
 
 const createVendorAdmin = Joi.object({
-  vendorId: Joi.string().required().messages({
+  vendorId: Joi.number().integer().required().messages({
     'any.required': 'Parameter: vendorId is required',
-    'string.empty': 'Parameter: vendorId is required',
   }),
   name: Joi.string().required().messages({
     'any.required': 'Parameter: name is required',

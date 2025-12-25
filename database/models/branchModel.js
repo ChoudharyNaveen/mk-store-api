@@ -8,14 +8,8 @@ module.exports = (sequelize, DataTypes) => {
         primaryKey: true,
         type: DataTypes.INTEGER,
       },
-      public_id: {
-        type: DataTypes.UUID,
-        allowNull: false,
-        index: true,
-        unique: true,
-      },
       vendor_id: {
-        type: DataTypes.UUID,
+        type: DataTypes.INTEGER,
         allowNull: false,
         index: true,
       },
@@ -23,9 +17,45 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.STRING,
         allowNull: false,
       },
-      address: {
-        type: DataTypes.TEXT,
-        allowNull: false,
+      code: {
+        type: DataTypes.STRING,
+        allowNull: true,
+        unique: true,
+        index: true,
+      },
+      address_line1: {
+        type: DataTypes.STRING,
+        allowNull: true,
+      },
+      address_line2: {
+        type: DataTypes.STRING,
+        allowNull: true,
+      },
+      street: {
+        type: DataTypes.STRING,
+        allowNull: true,
+      },
+      city: {
+        type: DataTypes.STRING,
+        allowNull: true,
+      },
+      state: {
+        type: DataTypes.STRING,
+        allowNull: true,
+        index: true,
+      },
+      pincode: {
+        type: DataTypes.STRING,
+        allowNull: true,
+        index: true,
+      },
+      latitude: {
+        type: DataTypes.DECIMAL(10, 8),
+        allowNull: true,
+      },
+      longitude: {
+        type: DataTypes.DECIMAL(11, 8),
+        allowNull: true,
       },
       phone: {
         type: DataTypes.STRING,
@@ -47,10 +77,12 @@ module.exports = (sequelize, DataTypes) => {
         allowNull: false,
       },
       created_by: {
-        type: DataTypes.UUID,
+        type: DataTypes.INTEGER,
+        allowNull: true,
       },
       updated_by: {
-        type: DataTypes.UUID,
+        type: DataTypes.INTEGER,
+        allowNull: true,
       },
     },
     {
@@ -63,22 +95,27 @@ module.exports = (sequelize, DataTypes) => {
   branch.associate = (models) => {
     branch.belongsTo(models.vendor, {
       foreignKey: 'vendor_id',
-      targetKey: 'public_id',
+      targetKey: 'id',
       as: 'vendor',
+    })
+    branch.belongsTo(models.user, {
+      foreignKey: 'created_by',
+      targetKey: 'id',
+      as: 'createdByUser',
     })
     branch.hasMany(models.category, {
       foreignKey: 'branch_id',
-      sourceKey: 'public_id',
+      sourceKey: 'id',
       as: 'categories',
     })
     branch.hasMany(models.product, {
       foreignKey: 'branch_id',
-      sourceKey: 'public_id',
+      sourceKey: 'id',
       as: 'products',
     })
     branch.hasMany(models.order, {
       foreignKey: 'branch_id',
-      sourceKey: 'public_id',
+      sourceKey: 'id',
       as: 'orders',
     })
   }
