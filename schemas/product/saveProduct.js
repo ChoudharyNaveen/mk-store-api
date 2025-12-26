@@ -18,13 +18,19 @@ const saveProduct = Joi.object({
   categoryId: Joi.number().integer().required().messages({
     'any.required': 'Parameter: categoryId is required',
   }),
+  subCategoryId: Joi.number().integer().optional(),
+  vendorId: Joi.number().integer().required().messages({
+    'any.required': 'Parameter: vendorId is required',
+  }),
   branchId: Joi.number().integer().required().messages({
     'any.required': 'Parameter: branchId is required',
   }),
-  subCategoryId: Joi.number().integer().optional(),
-  vendorId: Joi.number().integer().optional(),
   status: Joi.string().valid('ACTIVE', 'INACTIVE').optional(),
   createdBy: Joi.number().integer().optional(),
+  sellingPrice: Joi.number().min(0).required().messages({
+    'any.required': 'Parameter: sellingPrice is required',
+    'number.min': 'Parameter: sellingPrice must be greater than or equal to 0',
+  }),
 }).unknown(false)
 
 module.exports = saveProduct

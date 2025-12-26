@@ -15,7 +15,11 @@ const isValidUuid = (uuid) => {
 
 const isSchemaValid = ({ schema, data }) => {
   try {
-    const { error, value } = schema.validate(data, {
+    // Override .unknown(false) by creating a new schema that allows unknown fields
+    // This prevents errors when extra fields are present in the request
+    const schemaWithUnknownAllowed = schema.unknown(true)
+    
+    const { error, value } = schemaWithUnknownAllowed.validate(data, {
       abortEarly: false,
       stripUnknown: true,
       errors: {

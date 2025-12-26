@@ -33,6 +33,7 @@ const saveCategory = async ({ data, imageFile }) => {
       ...datas,
       concurrencyStamp,
       createdBy,
+      image:'NA'
     }
 
     const cat = await CategoryModel.create(Helper.convertCamelToSnake(doc), {

@@ -14,6 +14,9 @@ const saveCategory = Joi.object({
   branchId: Joi.number().integer().required().messages({
     'any.required': 'Parameter: branchId is required',
   }),
+  vendorId: Joi.number().integer().required().messages({
+    'any.required': 'Parameter: vendorId is required',
+  }),
   status: Joi.string().valid('ACTIVE', 'INACTIVE').optional(),
   createdBy: Joi.number().integer().optional(),
 }).unknown(false)

@@ -1,4 +1,4 @@
-const { subCategory: SubCategoryModel,category: CategoryModel, sequelize } = require('../database')
+const { subCategory: SubCategoryModel, category: CategoryModel, sequelize } = require('../database')
 const { v4: uuidV4 } = require('uuid')
 const Helper = require('../utils/helper')
 const { uploadFile } = require('../config/azure')
@@ -16,6 +16,7 @@ const saveSubCategory = async ({ data, imageFile }) => {
       ...datas,
       concurrencyStamp,
       createdBy,
+      image: 'NA'
     }
 
     const cat = await SubCategoryModel.create(Helper.convertCamelToSnake(doc), {
@@ -97,10 +98,10 @@ const getSubCategory = async (payload) => {
 
   const response = await SubCategoryModel.findAndCountAll({
     where: { ...where },
-    include:[
-        {
-            model:CategoryModel, as: 'category'
-        }
+    include: [
+      {
+        model: CategoryModel, as: 'category'
+      }
     ],
     order,
     limit,

@@ -42,6 +42,7 @@ const saveProduct = async ({ data, imageFile }) => {
       ...datas,
       concurrencyStamp,
       createdBy,
+      image:'NA'
     }
 
     const cat = await ProductModel.create(Helper.convertCamelToSnake(doc), {

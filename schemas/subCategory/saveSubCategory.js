@@ -1,11 +1,9 @@
 const Joi = require('joi')
 
-const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
-
 const saveSubCategory = Joi.object({
   title: Joi.string().required().messages({
-    'any.required': 'Parameter: title is required',
-    'string.empty': 'Parameter: title is required',
+    'any.required': 'Parameter: subCategoryName is required',
+    'string.empty': 'Parameter: subCategoryName is required',
   }),
   description: Joi.string().required().messages({
     'any.required': 'Parameter: description is required',

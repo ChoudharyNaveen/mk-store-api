@@ -8,7 +8,7 @@ module.exports = (sequelize, DataTypes) => {
         primaryKey: true,
         type: DataTypes.INTEGER,
       },
-      sub_category_name: {
+      title: {
         type: DataTypes.STRING,
         allowNull: false,
       },

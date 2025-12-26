@@ -33,33 +33,51 @@ module.exports = (router) => {
    *           schema:
    *             type: object
    *             required:
-   *               - name
+   *               - title
+   *               - description
    *               - price
    *               - categoryId
+   *               - vendorId
+   *               - branchId
    *             properties:
-   *               name:
+   *               title:
    *                 type: string
    *                 example: "Wireless Headphones"
+   *                 description: Product title (required)
    *               description:
    *                 type: string
    *                 example: "High-quality wireless headphones with noise cancellation"
+   *                 description: Product description (required)
    *               price:
    *                 type: number
-   *                 format: float
-   *                 example: 99.99
+   *                 format: integer
+   *                 example: 9999
+   *                 description: Product price in cents (required)
    *               categoryId:
-   *                 type: string
-   *                 example: "category-uuid"
-   *               subCategoryId:
-   *                 type: string
-   *                 example: "subcategory-uuid"
-   *               stock:
    *                 type: integer
-   *                 example: 100
+   *                 example: 1
+   *                 description: Category ID (required)
+   *               subCategoryId:
+   *                 type: integer
+   *                 example: 1
+   *                 description: Subcategory ID (optional)
+   *               vendorId:
+   *                 type: integer
+   *                 example: 1
+   *                 description: Vendor ID (required)
+   *               branchId:
+   *                 type: integer
+   *                 example: 1
+   *                 description: Branch ID (required)
+   *               status:
+   *                 type: string
+   *                 enum: [ACTIVE, INACTIVE]
+   *                 example: ACTIVE
+   *                 description: Product status (optional, defaults to ACTIVE)
    *               file:
    *                 type: string
    *                 format: binary
-   *                 description: Product image file
+   *                 description: Product image file (required)
    *     responses:
    *       200:
    *         description: Product created successfully
@@ -164,26 +182,70 @@ module.exports = (router) => {
    *         schema:
    *           type: integer
    *         description: Product ID
+   *       - in: header
+   *         name: x-concurrencystamp
+   *         required: true
+   *         schema:
+   *           type: string
+   *           format: uuid
+   *         description: Concurrency stamp for optimistic locking
    *     requestBody:
    *       required: true
    *       content:
    *         multipart/form-data:
    *           schema:
    *             type: object
+   *             required:
+   *               - updatedBy
+   *               - concurrencyStamp
    *             properties:
-   *               name:
+   *               title:
    *                 type: string
    *                 example: "Updated Product Name"
-   *               price:
-   *                 type: number
-   *                 example: 129.99
+   *                 description: Product title (optional)
    *               description:
    *                 type: string
-   *               stock:
+   *                 example: "Updated description"
+   *                 description: Product description (optional)
+   *               price:
+   *                 type: number
+   *                 format: integer
+   *                 example: 12999
+   *                 description: Product price in cents (optional)
+   *               categoryId:
    *                 type: integer
+   *                 example: 1
+   *                 description: Category ID (optional)
+   *               subCategoryId:
+   *                 type: integer
+   *                 example: 1
+   *                 description: Subcategory ID (optional)
+   *               branchId:
+   *                 type: integer
+   *                 example: 1
+   *                 description: Branch ID (optional)
+   *               vendorId:
+   *                 type: integer
+   *                 example: 1
+   *                 description: Vendor ID (optional)
+   *               status:
+   *                 type: string
+   *                 enum: [ACTIVE, INACTIVE]
+   *                 example: ACTIVE
+   *                 description: Product status (optional)
+   *               updatedBy:
+   *                 type: integer
+   *                 example: 1
+   *                 description: User ID who is updating the product
+   *               concurrencyStamp:
+   *                 type: string
+   *                 format: uuid
+   *                 example: "123e4567-e89b-12d3-a456-426614174000"
+   *                 description: Concurrency stamp from previous response
    *               file:
    *                 type: string
    *                 format: binary
+   *                 description: Product image file (optional)
    *     responses:
    *       200:
    *         description: Product updated successfully

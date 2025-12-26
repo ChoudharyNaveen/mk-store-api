@@ -29,22 +29,36 @@ module.exports = (router) => {
    *           schema:
    *             type: object
    *             required:
-   *               - name
+   *               - title
+   *               - description
+   *               - branchId
+   *               - vendorId
    *             properties:
-   *               name:
+   *               title:
    *                 type: string
    *                 example: "Electronics"
+   *                 description: Category title (required)
    *               description:
    *                 type: string
    *                 example: "Electronic devices and accessories"
+   *                 description: Category description (required)
+   *               branchId:
+   *                 type: integer
+   *                 example: 1
+   *                 description: Branch ID (required)
+   *               vendorId:
+   *                 type: integer
+   *                 example: 1
+   *                 description: Vendor ID (required)
    *               status:
    *                 type: string
    *                 enum: [ACTIVE, INACTIVE]
    *                 example: ACTIVE
+   *                 description: Category status (optional, defaults to ACTIVE)
    *               file:
    *                 type: string
    *                 format: binary
-   *                 description: Category image file
+   *                 description: Category image file (required)
    *     responses:
    *       200:
    *         description: Category created successfully
@@ -146,24 +160,57 @@ module.exports = (router) => {
    *         schema:
    *           type: integer
    *         description: Category ID
+   *       - in: header
+   *         name: x-concurrencystamp
+   *         required: true
+   *         schema:
+   *           type: string
+   *           format: uuid
+   *         description: Concurrency stamp for optimistic locking
    *     requestBody:
    *       required: true
    *       content:
    *         multipart/form-data:
    *           schema:
    *             type: object
+   *             required:
+   *               - updatedBy
+   *               - concurrencyStamp
    *             properties:
-   *               name:
+   *               title:
    *                 type: string
    *                 example: "Updated Category Name"
+   *                 description: Category title (optional)
    *               description:
    *                 type: string
+   *                 example: "Updated description"
+   *                 description: Category description (optional)
+   *               branchId:
+   *                 type: integer
+   *                 example: 1
+   *                 description: Branch ID (optional)
+   *               vendorId:
+   *                 type: integer
+   *                 example: 1
+   *                 description: Vendor ID (optional)
    *               status:
    *                 type: string
    *                 enum: [ACTIVE, INACTIVE]
+   *                 example: ACTIVE
+   *                 description: Category status (optional)
+   *               updatedBy:
+   *                 type: integer
+   *                 example: 1
+   *                 description: User ID who is updating the category
+   *               concurrencyStamp:
+   *                 type: string
+   *                 format: uuid
+   *                 example: "123e4567-e89b-12d3-a456-426614174000"
+   *                 description: Concurrency stamp from previous response
    *               file:
    *                 type: string
    *                 format: binary
+   *                 description: Category image file (optional)
    *     responses:
    *       200:
    *         description: Category updated successfully

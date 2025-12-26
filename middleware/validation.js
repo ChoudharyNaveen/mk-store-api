@@ -10,8 +10,6 @@ const validate = (schema) => {
         ...req.params,
       }
 
-      console.log('Validation - Received data:', JSON.stringify(data, null, 2));
-
       const { errors } = Validator.isSchemaValid({ schema, data })
 
       if (errors) {
