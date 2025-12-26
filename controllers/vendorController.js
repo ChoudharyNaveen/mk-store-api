@@ -1,4 +1,5 @@
 const { Vendor: VendorService } = require('../services')
+const { handleServerError } = require('../utils/helper')
 
 const saveVendor = async (req, res) => {
   try {
@@ -6,12 +7,12 @@ const saveVendor = async (req, res) => {
 
     const { errors: err, doc } = await VendorService.saveVendor({ data })
     if (doc) {
-      return res.postSuccessfully({ message: 'successfully added' })
+      return res.status(201).json({ success: true, message: 'successfully added' })
     }
     return res.status(400).json(err)
   } catch (error) {
     console.log(error)
-    return res.serverError(error)
+    return handleServerError(error, req, res)
   }
 }
 
@@ -26,20 +27,20 @@ const updateVendor = async (req, res) => {
     } = await VendorService.updateVendor({ data })
 
     if (concurrencyError) {
-      return res.concurrencyError()
+      return res.status(409).json({ success: false, message: 'Concurrency error' })
     }
     if (doc) {
       const { concurrencyStamp: stamp } = doc
       res.setHeader('x-concurrencystamp', stamp)
       res.setHeader('message', 'successfully updated.')
 
-      return res.updated()
+      return res.status(200).json({ success: true, message: 'successfully updated' })
     }
 
     return res.status(400).json(err)
   } catch (error) {
     console.log(error)
-    return res.serverError(error)
+    return handleServerError(error, req, res)
   }
 }
 
@@ -49,9 +50,9 @@ const getVendor = async (req, res) => {
 
     const { count, doc } = await VendorService.getVendor(data)
 
-    return res.getRequest({ doc, count })
+    return res.status(200).json({ success: true, doc, count })
   } catch (error) {
-    return res.serverError(error)
+    return handleServerError(error, req, res)
   }
 }
 
@@ -65,9 +66,9 @@ const getVendorByCode = async (req, res) => {
       return res.status(404).json(err)
     }
 
-    return res.getRequest({ doc })
+    return res.status(200).json({ success: true, doc })
   } catch (error) {
-    return res.serverError(error)
+    return handleServerError(error, req, res)
   }
 }
 

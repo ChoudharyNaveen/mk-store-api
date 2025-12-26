@@ -1,4 +1,5 @@
 const { Order: OrderService } = require('../services')
+const { handleServerError } = require('../utils/helper')
 
 const placeOrder = async (req, res) => {
   try {
@@ -14,8 +15,7 @@ const placeOrder = async (req, res) => {
     }
     return res.status(400).json({ message: error })
   } catch (error) {
-    console.error('Order creation error:', error)
-    return res.status(500).json({ message: 'Internal server error', error })
+    return handleServerError(error, req, res)
   }
 }
 
@@ -25,19 +25,18 @@ const getOrder = async (req, res) => {
 
     const { count, doc } = await OrderService.getOrder(data)
 
-    return res.getRequest({ doc, count })
+    return res.status(200).json({ success: true, doc, count })
   } catch (error) {
-    return res.serverError(error)
+    return handleServerError(error, req, res)
   }
 }
 
 const getStatsOfOrdersCompleted = async (req, res) => {
   try {
     const { data } = await OrderService.getStatsOfOrdersCompleted()
-    return res.getRequest(data)
+    return res.status(200).json({ success: true, data })
   } catch (error) {
-    console.log(error)
-    return res.serverError(error)
+    return handleServerError(error, req, res)
   }
 }
 
@@ -52,20 +51,19 @@ const updateOrder = async (req, res) => {
     } = await OrderService.updateOrder(data)
 
     if (concurrencyError) {
-      return res.concurrencyError()
+      return res.status(409).json({ success: false, message: 'Concurrency error' })
     }
     if (doc) {
       const { concurrencyStamp: stamp } = doc
       res.setHeader('x-concurrencystamp', stamp)
       res.setHeader('message', 'successfully updated.')
 
-      return res.updated()
+      return res.status(200).json({ success: true, message: 'successfully updated' })
     }
 
     return res.status(400).json(err)
   } catch (error) {
-    console.log(error)
-    return res.serverError(error)
+    return handleServerError(error, req, res)
   }
 }
 
@@ -73,11 +71,11 @@ const getTotalReturnsOfToday = async (req, res) => {
   try {
     const { error, data } = await OrderService.getTotalReturnsOfToday()
     if (data) {
-      return res.getRequest({ total: data })
+      return res.status(200).json({ success: true, total: data })
     }
-    return res.badRequest(error)
+    return res.status(400).json({ success: false, error })
   } catch (error) {
-    return res.serverError(error)
+    return handleServerError(error, req, res)
   }
 }
 

@@ -1,4 +1,5 @@
 const { Promocode: PromocodeService } = require('../services')
+const { handleServerError } = require('../utils/helper')
 
 const savePromocode = async (req, res) => {
   try {
@@ -6,12 +7,12 @@ const savePromocode = async (req, res) => {
 
     const { errors: err, doc } = await PromocodeService.savePromocode(data)
     if (doc) {
-      return res.postSuccessfully({ message: 'successfully added' })
+      return res.status(201).json({ success: true, message: 'successfully added' })
     }
     return res.status(400).json(err)
   } catch (error) {
     console.log(error)
-    return res.serverError(error)
+    return handleServerError(error, req, res)
   }
 }
 
@@ -26,20 +27,20 @@ const updatePromocode = async (req, res) => {
     } = await PromocodeService.updatePromocode(data)
 
     if (concurrencyError) {
-      return res.concurrencyError()
+      return res.status(409).json({ success: false, message: 'Concurrency error' })
     }
     if (doc) {
       const { concurrencyStamp: stamp } = doc
       res.setHeader('x-concurrencystamp', stamp)
       res.setHeader('message', 'successfully updated.')
 
-      return res.updated()
+      return res.status(200).json({ success: true, message: 'successfully updated' })
     }
 
     return res.status(400).json(err)
   } catch (error) {
     console.log(error)
-    return res.serverError(error)
+    return handleServerError(error, req, res)
   }
 }
 
@@ -49,9 +50,9 @@ const getPromocode = async (req, res) => {
 
     const { count, doc } = await PromocodeService.getPromocode(data)
 
-    return res.getRequest({ doc, count })
+    return res.status(200).json({ success: true, doc, count })
   } catch (error) {
-    return res.serverError(error)
+    return handleServerError(error, req, res)
   }
 }
 

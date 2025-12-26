@@ -72,7 +72,6 @@ app.use('/public', NodeHttp({ sendStatusCodeinRespose: true }), routes);
 app.use('/api', NodeHttp({ sendStatusCodeinRespose: true }), routes);
 app.use('/api/test', NodeHttp({ sendStatusCodeinRespose: true }), indexRouter);
 
-
 app.use((err, req, res, next) => {
   console.error('Error caught by middleware:', err);
   res.status(err.status || 500).json({

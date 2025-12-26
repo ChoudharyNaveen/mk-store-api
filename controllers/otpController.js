@@ -1,4 +1,5 @@
 const { Otp: OtpService } = require('../services')
+const { handleServerError } = require('../utils/helper')
 
 const sendOtpSMSForUser = async (req, res) => {
   try {
@@ -11,7 +12,7 @@ const sendOtpSMSForUser = async (req, res) => {
     return res.status(400).json({ message: 'SMS sending failed', error: result?.error })
   } catch (error) {
     console.log(error)
-    return res.serverError(error)
+    return handleServerError(error, req, res)
   }
 }
 
@@ -31,9 +32,9 @@ const verifyOtpSMSForUser = async (req, res) => {
       return res.status(200).json(doc)
     }
 
-    return res.badRequest('field-validation', err)
+    return res.status(400).json({ success: false, errors: err })
   } catch (error) {
-    return res.serverError(error)
+    return handleServerError(error, req, res)
   }
 }
 

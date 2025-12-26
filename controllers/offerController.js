@@ -1,4 +1,5 @@
 const { Offer: OfferService } = require('../services')
+const { handleServerError } = require('../utils/helper')
 
 const saveOffer = async (req, res) => {
   try {
@@ -10,12 +11,12 @@ const saveOffer = async (req, res) => {
       imageFile,
     })
     if (doc) {
-      return res.postSuccessfully({ message: 'successfully added' })
+      return res.status(201).json({ success: true, message: 'successfully added' })
     }
     return res.status(400).json(err)
   } catch (error) {
     console.log(error)
-    return res.serverError(error)
+    return handleServerError(error, req, res)
   }
 }
 
@@ -31,20 +32,20 @@ const updateOffer = async (req, res) => {
     } = await OfferService.updateOffer({ data, imageFile })
 
     if (concurrencyError) {
-      return res.concurrencyError()
+      return res.status(409).json({ success: false, message: 'Concurrency error' })
     }
     if (doc) {
       const { concurrencyStamp: stamp } = doc
       res.setHeader('x-concurrencystamp', stamp)
       res.setHeader('message', 'successfully updated.')
 
-      return res.updated()
+      return res.status(200).json({ success: true, message: 'successfully updated' })
     }
 
     return res.status(400).json(err)
   } catch (error) {
     console.log(error)
-    return res.serverError(error)
+    return handleServerError(error, req, res)
   }
 }
 
@@ -54,9 +55,9 @@ const getOffer = async (req, res) => {
 
     const { count, doc } = await OfferService.getOffer(data)
 
-    return res.getRequest({ doc, count })
+    return res.status(200).json({ success: true, doc, count })
   } catch (error) {
-    return res.serverError(error)
+    return handleServerError(error, req, res)
   }
 }
 

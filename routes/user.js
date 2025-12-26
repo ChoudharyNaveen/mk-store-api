@@ -3,6 +3,7 @@ const {
   authLogin,
   createVendorAdmin,
   updateUser,
+  convertUserToRider,
 } = require('../controllers/userController')
 const multer = require('multer')
 const upload = multer()
@@ -13,6 +14,7 @@ const {
   authLogin: authLoginSchema,
   createVendorAdmin: createVendorAdminSchema,
   updateUser: updateUserSchema,
+  convertUserToRider: convertUserToRiderSchema,
 } = require('../schemas')
 
 module.exports = (router) => {
@@ -227,5 +229,41 @@ module.exports = (router) => {
     upload.fields([{ name: 'file', maxCount: 1 }]),
     validate(updateUserSchema),
     updateUser
+  )
+
+  /**
+   * @swagger
+   * /convert-user-to-rider:
+   *   post:
+   *     summary: Convert a user to rider role
+   *     tags: [Users]
+   *     security:
+   *       - bearerAuth: []
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             required:
+   *               - userId
+   *             properties:
+   *               userId:
+   *                 type: integer
+   *                 description: User ID to convert to rider
+   *                 example: 1
+   *     responses:
+   *       200:
+   *         description: User successfully converted to rider
+   *       400:
+   *         description: Validation error or user is already a rider
+   *       404:
+   *         description: User not found
+   */
+  router.post(
+    '/convert-user-to-rider',
+    isAuthenticated,
+    validate(convertUserToRiderSchema),
+    convertUserToRider
   )
 }

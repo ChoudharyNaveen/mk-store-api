@@ -3,6 +3,7 @@ const bcrypt = require('bcrypt')
 const config = require('../config/index')
 const jwt = require('jsonwebtoken')
 const Helper = require('../utils/helper')
+const { handleServerError } = Helper
 const { user_roles_mappings: UserRolesMappingModel, role: RoleModel } = require('../database')
 
 // Create Super Admin
@@ -16,7 +17,8 @@ const createSuperAdmin = async (req, res) => {
       imageFile,
     })
     if (doc) {
-      return res.postSuccessfully({
+      return res.status(201).json({
+        success: true,
         message: 'Super admin created successfully',
         doc,
       })
@@ -24,8 +26,7 @@ const createSuperAdmin = async (req, res) => {
 
     return res.status(400).json({ error: err })
   } catch (error) {
-    console.log(error)
-    return res.serverError(error)
+    return handleServerError(error, req, res)
   }
 }
 
@@ -118,8 +119,7 @@ const authLogin = async (req, res) => {
       },
     })
   } catch (error) {
-    console.log(error)
-    return res.serverError(error)
+    return handleServerError(error, req, res)
   }
 }
 
@@ -133,13 +133,12 @@ const createVendorAdmin = async (req, res) => {
     const { errors: err, doc } = await UserService.createVendorAdmin({ data, imageFile })
 
     if (doc) {
-      return res.postSuccessfully({ message: 'Vendor admin created successfully', doc })
+      return res.status(201).json({ success: true, message: 'Vendor admin created successfully', doc })
     }
 
     return res.status(400).json({ error: err })
   } catch (error) {
-    console.log(error)
-    return res.serverError(error)
+    return handleServerError(error, req, res)
   }
 }
 
@@ -156,19 +155,40 @@ const updateUser = async (req, res) => {
     } = await UserService.updateUser({ data, imageFile })
 
     if (concurrencyError) {
-      return res.concurrencyError()
+      return res.status(409).json({ success: false, message: 'Concurrency error' })
     }
     if (doc) {
       const { concurrencyStamp: stamp } = doc
       res.setHeader('x-concurrencystamp', stamp)
       res.setHeader('message', 'successfully updated.')
 
-      return res.updated()
+      return res.status(200).json({ success: true, message: 'successfully updated' })
     }
 
     return res.status(400).json(err)
   } catch (error) {
-    return res.serverError(error)
+    return handleServerError(error, req, res)
+  }
+}
+
+// Convert User to Rider
+const convertUserToRider = async (req, res) => {
+  try {
+    const { userId } = req.validatedData || req.body
+
+    const { errors: err, doc } = await UserService.convertUserToRider({ userId })
+
+    if (doc) {
+      return res.status(201).json({
+        success: true,
+        message: 'User successfully converted to rider',
+        doc,
+      })
+    }
+
+    return res.status(400).json({ error: err })
+  } catch (error) {
+    return handleServerError(error, req, res)
   }
 }
 
@@ -177,4 +197,5 @@ module.exports = {
   authLogin,
   createVendorAdmin,
   updateUser,
+  convertUserToRider,
 }

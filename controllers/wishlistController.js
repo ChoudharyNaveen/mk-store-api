@@ -1,4 +1,5 @@
 const { Wishlist: WishlistService } = require('../services')
+const { handleServerError } = require('../utils/helper')
 
 const saveWishlist = async (req, res) => {
   try {
@@ -6,15 +7,15 @@ const saveWishlist = async (req, res) => {
 
     const { errors: err, doc, isexists } = await WishlistService.saveWishlist(data)
     if (isexists) {
-      return res.postSuccessfully({ message: 'item already added to wishlist' })
+      return res.status(200).json({ success: true, message: 'item already added to wishlist' })
     }
     if (doc) {
-      return res.postSuccessfully({ message: 'successfully added' })
+      return res.status(201).json({ success: true, message: 'successfully added' })
     }
     return res.status(400).json(err)
   } catch (error) {
     console.log(error)
-    return res.serverError(error)
+    return handleServerError(error, req, res)
   }
 }
 
@@ -24,9 +25,9 @@ const getWishlist = async (req, res) => {
 
     const { count, doc } = await WishlistService.getWishlist(data)
 
-    return res.getRequest({ doc, count })
+    return res.status(200).json({ success: true, doc, count })
   } catch (error) {
-    return res.serverError(error)
+    return handleServerError(error, req, res)
   }
 }
 
@@ -37,11 +38,11 @@ const deleteWishlist = async (req, res) => {
     const { errors, doc } = await WishlistService.deleteWishlist(wishlistId)
     if (doc) {
       res.setHeader('message', 'successfully deleted')
-      return res.deleted()
+      return res.status(200).json({ success: true, message: 'successfully deleted' })
     }
     return res.status(400).json(errors)
   } catch (error) {
-    return res.serverError(error)
+    return handleServerError(error, req, res)
   }
 }
 

@@ -114,8 +114,7 @@ const updateProduct = async ({ data, imageFile }) => {
 
 const getProduct = async (payload) => {
   const { pageSize, pageNumber, filters, sorting } = payload
-  const limit = pageSize
-  const offset = limit * (pageNumber - 1)
+  const { limit, offset } = Helper.calculatePagination(pageSize, pageNumber)
 
   const where = Helper.generateWhereCondition(filters)
   const order = sorting
@@ -149,8 +148,7 @@ const getProduct = async (payload) => {
 
 const getProductsGroupedByCategory = async (payload) => {
   const { pageSize, pageNumber, filters, sorting } = payload
-  const limit = pageSize
-  const offset = limit * (pageNumber - 1)
+  const { limit, offset } = Helper.calculatePagination(pageSize, pageNumber)
 
   const allFilters = filters || []
   const productFilters = allFilters.filter((f) =>

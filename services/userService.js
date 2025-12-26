@@ -299,10 +299,79 @@ const updateUser = async ({ data, imageFile }) => {
   }
 }
 
+// Convert User to Rider
+const convertUserToRider = async ({ userId }) => {
+  let transaction = null
+  try {
+    transaction = await sequelize.transaction()
+
+    // Check if user exists
+    const user = await UserModel.findOne({
+      where: { id: userId },
+    })
+
+    if (!user) {
+      await transaction.rollback()
+      console.error(`[convertUserToRider] Error: User not found with userId: ${userId}`)
+      return { errors: { message: 'User not found' } }
+    }
+
+    // Get RIDER role
+    const riderRole = await RoleModel.findOne({
+      where: { name: 'RIDER' },
+    })
+
+    if (!riderRole) {
+      await transaction.rollback()
+      console.error('[convertUserToRider] Error: RIDER role not found in database')
+      return { errors: { message: 'RIDER role not found' } }
+    }
+
+    // Check if user already has RIDER role
+    const existingRiderMapping = await UserRolesMappingModel.findOne({
+      where: {
+        user_id: userId,
+        role_id: riderRole.id,
+        status: 'ACTIVE',
+      },
+    })
+
+    if (existingRiderMapping) {
+      await transaction.rollback()
+      console.error(`[convertUserToRider] Error: User ${userId} is already a rider`)
+      return { errors: { message: 'User is already a rider' } }
+    }
+
+    // Create mapping entry
+    const mappingConcurrencyStamp = uuidV4()
+    const riderMapping = await UserRolesMappingModel.create(
+      {
+        user_id: userId,
+        role_id: riderRole.id,
+        status: 'ACTIVE',
+        concurrency_stamp: mappingConcurrencyStamp,
+      },
+      { transaction }
+    )
+
+    await transaction.commit()
+
+    return { doc: { message: 'User successfully converted to rider', mapping: riderMapping } }
+  } catch (error) {
+    if (transaction) {
+      await transaction.rollback()
+    }
+    console.error('[convertUserToRider] Error:', error)
+    console.error(`[convertUserToRider] Stack trace:`, error.stack)
+    return { errors: { message: 'Failed to convert user to rider' } }
+  }
+}
+
 module.exports = {
   createSuperAdmin,
   findUserByEmail,
   getUserById,
   createVendorAdmin,
   updateUser,
+  convertUserToRider,
 }

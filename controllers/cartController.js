@@ -1,4 +1,5 @@
 const { Cart: CartService } = require('../services')
+const { handleServerError } = require('../utils/helper')
 
 const saveCart = async (req, res) => {
   try {
@@ -7,15 +8,15 @@ const saveCart = async (req, res) => {
     const { errors: err, doc, isexists } = await CartService.saveCart(data)
 
     if (isexists) {
-      return res.postSuccessfully({ message: 'item already added to cart' })
+      return res.status(200).json({ success: true, message: 'item already added to cart' })
     }
     if (doc) {
-      return res.postSuccessfully({ doc: doc, message: 'successfully added' })
+      return res.status(201).json({ success: true, doc: doc, message: 'successfully added' })
     }
     return res.status(400).json(err)
   } catch (error) {
     console.log(error)
-    return res.serverError(error)
+    return handleServerError(error, req, res)
   }
 }
 
@@ -25,9 +26,9 @@ const getCart = async (req, res) => {
 
     const { count, doc } = await CartService.getCartOfUser(data)
 
-    return res.getRequest({ doc, count })
+    return res.status(200).json({ success: true, doc, count })
   } catch (error) {
-    return res.serverError(error)
+    return handleServerError(error, req, res)
   }
 }
 
@@ -38,11 +39,11 @@ const deleteCart = async (req, res) => {
     const { errors, doc } = await CartService.deleteCart(cartId)
     if (doc) {
       res.setHeader('message', 'successfully deleted')
-      return res.deleted()
+      return res.status(200).json({ success: true, message: 'successfully deleted' })
     }
     return res.status(400).json(errors)
   } catch (error) {
-    return res.serverError(error)
+    return handleServerError(error, req, res)
   }
 }
 
@@ -62,20 +63,20 @@ const updateCart = async (req, res) => {
     }
 
     if (concurrencyError) {
-      return res.concurrencyError()
+      return res.status(409).json({ success: false, message: 'Concurrency error' })
     }
     if (doc) {
       const { concurrencyStamp: stamp } = doc
       res.setHeader('x-concurrencystamp', stamp)
       res.setHeader('message', 'successfully updated.')
 
-      return res.updated()
+      return res.status(200).json({ success: true, message: 'successfully updated' })
     }
 
     return res.status(400).json(err)
   } catch (error) {
     console.log(error)
-    return res.serverError(error)
+    return handleServerError(error, req, res)
   }
 }
 

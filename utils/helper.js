@@ -415,6 +415,50 @@ const langugeProcessingSingle = (data, languageKey, lang, options) => {
   return tempData
 }
 
+/**
+ * Calculate pagination limit and offset from pageSize and pageNumber
+ * @param {number|string} pageSize - Number of items per page
+ * @param {number|string} pageNumber - Current page number (1-indexed)
+ * @returns {Object} Object with limit and offset
+ */
+const calculatePagination = (pageSize, pageNumber) => {
+  const limit = parseInt(pageSize, 10) || 10
+  const offset = limit * ((parseInt(pageNumber, 10) || 1) - 1)
+  return { limit, offset }
+}
+
+/**
+ * Common error handler for controllers
+ * Logs error details and returns appropriate response
+ * @param {Error} error - The error object
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ * @returns {Object} Express response with error details
+ */
+const handleServerError = (error, req, res) => {
+  console.error('\n========== SERVER ERROR ==========')
+  console.error(`[${new Date().toISOString()}] ${req.method} ${req.path}`)
+  console.error('Error Message:', error?.message || 'Unknown error')
+  console.error('Error Stack:', error?.stack || 'No stack trace')
+  if (error?.errors) {
+    console.error('Validation Errors:', JSON.stringify(error.errors, null, 2))
+  }
+  if (error?.response) {
+    console.error('Error Response:', JSON.stringify(error.response, null, 2))
+  }
+  if (error?.request) {
+    console.error('Error Request:', JSON.stringify(error.request, null, 2))
+  }
+  console.error('Full Error:', error)
+  console.error('===================================\n')
+
+  return res.status(500).json({
+    success: false,
+    message: 'Internal server error',
+    error: process.env.NODE_ENV === 'development' ? error.message : undefined,
+  })
+}
+
 module.exports = {
   convertCamelObjectToSnake,
   convertCamelToSnake,
@@ -433,4 +477,6 @@ module.exports = {
   dateDiff,
   langugeProcessing,
   langugeProcessingSingle,
+  calculatePagination,
+  handleServerError,
 }
