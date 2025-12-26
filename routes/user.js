@@ -7,7 +7,7 @@ const {
 } = require('../controllers/userController')
 const multer = require('multer')
 const upload = multer()
-const { isAuthenticated } = require('../middleware/auth')
+const { isAuthenticated, isVendorAdmin } = require('../middleware/auth')
 const validate = require('../middleware/validation')
 const {
   userSignUp: userSignUpSchema,
@@ -171,6 +171,7 @@ module.exports = (router) => {
   router.post(
     '/create-vendor-admin',
     isAuthenticated,
+    isVendorAdmin,
     upload.fields([{ name: 'file', maxCount: 1 }]),
     validate(createVendorAdminSchema),
     createVendorAdmin
@@ -235,7 +236,7 @@ module.exports = (router) => {
    * @swagger
    * /convert-user-to-rider:
    *   post:
-   *     summary: Convert a user to rider role
+   *     summary: Convert a user to rider role (Vendor Admin only)
    *     tags: [Users]
    *     security:
    *       - bearerAuth: []
@@ -257,12 +258,15 @@ module.exports = (router) => {
    *         description: User successfully converted to rider
    *       400:
    *         description: Validation error or user is already a rider
+   *       403:
+   *         description: Access denied. Vendor admin role required.
    *       404:
    *         description: User not found
    */
   router.post(
     '/convert-user-to-rider',
     isAuthenticated,
+    isVendorAdmin,
     validate(convertUserToRiderSchema),
     convertUserToRider
   )
