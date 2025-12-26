@@ -9,7 +9,6 @@ const helmet = require('helmet');
 const swaggerUi = require('swagger-ui-express');
 
 const swaggerSpec = require('./config/swagger');
-const NodeHttp = require('inblox-node-http');
 
 const routes = require('./routes');
 const indexRouter = require('./routes/indexRouter');
@@ -68,9 +67,9 @@ app.use(
   })
 );
 
-app.use('/public', NodeHttp({ sendStatusCodeinRespose: true }), routes);
-app.use('/api', NodeHttp({ sendStatusCodeinRespose: true }), routes);
-app.use('/api/test', NodeHttp({ sendStatusCodeinRespose: true }), indexRouter);
+app.use('/public', routes);
+app.use('/api', routes);
+app.use('/api/test', indexRouter);
 
 app.use((err, req, res, next) => {
   console.error('Error caught by middleware:', err);
