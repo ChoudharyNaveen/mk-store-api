@@ -342,21 +342,42 @@ const convertUserToRider = async ({ userId }) => {
       return { errors: { message: 'User is already a rider' } }
     }
 
-    // Create mapping entry
-    const mappingConcurrencyStamp = uuidV4()
-    const riderMapping = await UserRolesMappingModel.create(
-      {
+    // Find existing role mapping for the user
+    const existingMapping = await UserRolesMappingModel.findOne({
+      where: {
         user_id: userId,
-        role_id: riderRole.id,
         status: 'ACTIVE',
+      },
+    })
+
+    if (!existingMapping) {
+      await transaction.rollback()
+      console.error(`[convertUserToRider] Error: No existing role mapping found for user ${userId}`)
+      return { errors: { message: 'No existing role mapping found for user' } }
+    }
+
+    // Update existing mapping to RIDER role
+    const mappingConcurrencyStamp = uuidV4()
+    await UserRolesMappingModel.update(
+      {
+        role_id: riderRole.id,
         concurrency_stamp: mappingConcurrencyStamp,
       },
-      { transaction }
+      {
+        where: { id: existingMapping.id },
+        transaction,
+      }
     )
+
+    // Fetch updated mapping
+    const updatedMapping = await UserRolesMappingModel.findOne({
+      where: { id: existingMapping.id },
+      transaction,
+    })
 
     await transaction.commit()
 
-    return { doc: { message: 'User successfully converted to rider', mapping: riderMapping } }
+    return { doc: { message: 'User successfully converted to rider', mapping: updatedMapping } }
   } catch (error) {
     if (transaction) {
       await transaction.rollback()
