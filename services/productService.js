@@ -124,14 +124,29 @@ const getProduct = async (payload) => {
 
   const response = await ProductModel.findAndCountAll({
     where: { ...where },
+    attributes: [
+      'id',
+      'title',
+      'description',
+      'price',
+      'selling_price',
+      'quantity',
+      'image',
+      'product_status',
+      'status',
+      'units',
+      'nutritional',
+    ],
     include: [
       {
         model: CategoryModel,
         as: 'category',
+        attributes: ['id', 'title', 'image'],
       },
       {
         model: SubCategoryModel,
         as: 'subCategory',
+        attributes: ['id', 'title', 'image'],
       },
     ],
     order,
@@ -167,12 +182,26 @@ const getProductsGroupedByCategory = async (payload) => {
 
   const response = await CategoryModel.findAndCountAll({
     where: { status: 'ACTIVE' },
+    attributes: ['id', 'title', 'description', 'image', 'status'],
     include: [
       {
         model: ProductModel,
         as: 'products',
         where: { ...productWhere, status: 'ACTIVE' },
         required: false,
+        attributes: [
+          'id',
+          'title',
+          'description',
+          'price',
+          'selling_price',
+          'quantity',
+          'image',
+          'product_status',
+          'status',
+          'units',
+          'nutritional',
+        ],
       },
     ],
     distinct: true,

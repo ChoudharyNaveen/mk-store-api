@@ -26,6 +26,10 @@ const saveProduct = Joi.object({
     'any.required': 'Parameter: branchId is required',
   }),
   status: Joi.string().valid('ACTIVE', 'INACTIVE').optional(),
+  units: Joi.string().required().messages({
+    'any.required': 'Parameter: units is required',
+  }),
+  nutritional: Joi.string().optional(),
   createdBy: Joi.number().integer().optional(),
   sellingPrice: Joi.number().min(0).required().messages({
     'any.required': 'Parameter: sellingPrice is required',

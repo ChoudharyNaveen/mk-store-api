@@ -115,6 +115,7 @@ const getCategory = async (payload) => {
 
   const response = await CategoryModel.findAndCountAll({
     where: { ...where },
+    attributes: ['id', 'title', 'description', 'image', 'status'],
     order,
     limit,
     offset,

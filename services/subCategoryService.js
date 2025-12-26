@@ -98,9 +98,12 @@ const getSubCategory = async (payload) => {
 
   const response = await SubCategoryModel.findAndCountAll({
     where: { ...where },
+    attributes: ['id', 'title', 'description', 'image', 'status'],
     include: [
       {
-        model: CategoryModel, as: 'category'
+        model: CategoryModel,
+        as: 'category',
+        attributes: ['id', 'title', 'image'],
       }
     ],
     order,
