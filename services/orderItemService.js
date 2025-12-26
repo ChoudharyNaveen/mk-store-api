@@ -4,18 +4,19 @@ const {
   product: ProductModel,
   user: UserModel,
   address: AddressModel,
-  sequelize,
-} = require('../database')
-const Helper = require('../utils/helper')
+} = require('../database');
+const Helper = require('../utils/helper');
 
 const getOrderItem = async (payload) => {
-  const { pageSize, pageNumber, filters, sorting } = payload
-  const { limit, offset } = Helper.calculatePagination(pageSize, pageNumber)
+  const {
+    pageSize, pageNumber, filters, sorting,
+  } = payload;
+  const { limit, offset } = Helper.calculatePagination(pageSize, pageNumber);
 
-  const where = Helper.generateWhereCondition(filters)
+  const where = Helper.generateWhereCondition(filters);
   const order = sorting
     ? Helper.generateOrderCondition(sorting)
-    : [['createdAt', 'DESC']]
+    : [ [ 'createdAt', 'DESC' ] ];
 
   const response = await OrderItemModel.findAndCountAll({
     where: { ...where },
@@ -27,7 +28,7 @@ const getOrderItem = async (payload) => {
       {
         model: OrderModel,
         as: 'order',
-        include: [{ model: AddressModel, as: 'address' }],
+        include: [ { model: AddressModel, as: 'address' } ],
       },
       {
         model: ProductModel,
@@ -37,16 +38,20 @@ const getOrderItem = async (payload) => {
     order,
     limit,
     offset,
-  })
-  const doc = []
+  });
+  const doc = [];
+
   if (response) {
-    const { count, rows } = response
-    rows.map((element) => doc.push(element.dataValues))
-    return { count, doc }
+    const { count, rows } = response;
+
+    rows.map((element) => doc.push(element.dataValues));
+
+    return { count, doc };
   }
-  return { count: 0, doc: [] }
-}
+
+  return { count: 0, doc: [] };
+};
 
 module.exports = {
   getOrderItem,
-}
+};

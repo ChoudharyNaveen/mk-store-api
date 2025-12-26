@@ -14,7 +14,7 @@ module.exports = (sequelize, DataTypes) => {
       updated_by: { type: DataTypes.INTEGER },
       status: {
         type: DataTypes.STRING,
-        enum: ['ACTIVE', 'INACTIVE'],
+        enum: [ 'ACTIVE', 'INACTIVE' ],
         defaultValue: 'ACTIVE',
         index: true,
       },
@@ -38,16 +38,16 @@ module.exports = (sequelize, DataTypes) => {
       freezeTableName: true,
       underscored: true,
       timestamps: true,
-    }
-  )
+    },
+  );
 
   role.associate = (models) => {
     role.hasMany(models.user_roles_mappings, {
       foreignKey: 'role_id',
       sourceKey: 'id',
       as: 'userMappings',
-    })
-  }
+    });
+  };
 
-  return role
-}
+  return role;
+};

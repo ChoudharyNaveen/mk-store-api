@@ -1,6 +1,4 @@
-const Joi = require('joi')
-
-const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
+const Joi = require('joi');
 
 const sendOTPToSMS = Joi.object({
   mobileNumber: Joi.string()
@@ -18,6 +16,6 @@ const sendOTPToSMS = Joi.object({
   vendorId: Joi.number().integer().required().messages({
     'any.required': 'Parameter: vendorId is required in the body.',
   }),
-}).unknown(false)
+}).unknown(false);
 
-module.exports = sendOTPToSMS
+module.exports = sendOTPToSMS;

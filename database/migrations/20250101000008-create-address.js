@@ -55,13 +55,13 @@ module.exports = {
         type: Sequelize.DATE,
         defaultValue: Sequelize.literal('CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP'),
       },
-    })
+    });
 
-    await queryInterface.addIndex('address', ['status'])
+    await queryInterface.addIndex('address', [ 'status' ]);
 
     // Add foreign key constraint
     await queryInterface.addConstraint('address', {
-      fields: ['created_by'],
+      fields: [ 'created_by' ],
       type: 'foreign key',
       name: 'fk_address_user',
       references: {
@@ -70,13 +70,11 @@ module.exports = {
       },
       onDelete: 'CASCADE',
       onUpdate: 'CASCADE',
-    })
+    });
   },
 
   down: async (queryInterface) => {
-    await queryInterface.dropTable('address')
+    await queryInterface.dropTable('address');
   },
-}
-
-
+};
 

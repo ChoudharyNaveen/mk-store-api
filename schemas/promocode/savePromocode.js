@@ -1,6 +1,4 @@
-const Joi = require('joi')
-
-const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
+const Joi = require('joi');
 
 const savePromocode = Joi.object({
   type: Joi.string().required().messages({
@@ -29,6 +27,6 @@ const savePromocode = Joi.object({
   }),
   status: Joi.string().valid('ACTIVE', 'INACTIVE').optional(),
   createdBy: Joi.number().integer().optional(),
-}).unknown(false)
+}).unknown(false);
 
-module.exports = savePromocode
+module.exports = savePromocode;

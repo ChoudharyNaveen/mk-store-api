@@ -1,21 +1,22 @@
+const multer = require('multer');
 const {
   createSuperAdmin,
   authLogin,
   createVendorAdmin,
   updateUser,
   convertUserToRider,
-} = require('../controllers/userController')
-const multer = require('multer')
-const upload = multer()
-const { isAuthenticated, isVendorAdmin } = require('../middleware/auth')
-const validate = require('../middleware/validation')
+} = require('../controllers/userController');
+
+const upload = multer();
+const { isAuthenticated, isVendorAdmin } = require('../middleware/auth');
+const validate = require('../middleware/validation');
 const {
   userSignUp: userSignUpSchema,
   authLogin: authLoginSchema,
   createVendorAdmin: createVendorAdminSchema,
   updateUser: updateUserSchema,
   convertUserToRider: convertUserToRiderSchema,
-} = require('../schemas')
+} = require('../schemas');
 
 module.exports = (router) => {
   /**
@@ -69,10 +70,10 @@ module.exports = (router) => {
    */
   router.post(
     '/create-super-admin',
-    upload.fields([{ name: 'file', maxCount: 1 }]),
+    upload.fields([ { name: 'file', maxCount: 1 } ]),
     validate(userSignUpSchema),
-    createSuperAdmin
-  )
+    createSuperAdmin,
+  );
 
   /**
    * @swagger
@@ -104,7 +105,7 @@ module.exports = (router) => {
    *       401:
    *         description: Invalid credentials
    */
-  router.post('/auth-login', validate(authLoginSchema), authLogin)
+  router.post('/auth-login', validate(authLoginSchema), authLogin);
 
   /**
    * @swagger
@@ -172,10 +173,10 @@ module.exports = (router) => {
     '/create-vendor-admin',
     isAuthenticated,
     isVendorAdmin,
-    upload.fields([{ name: 'file', maxCount: 1 }]),
+    upload.fields([ { name: 'file', maxCount: 1 } ]),
     validate(createVendorAdminSchema),
-    createVendorAdmin
-  )
+    createVendorAdmin,
+  );
 
   /**
    * @swagger
@@ -227,10 +228,10 @@ module.exports = (router) => {
   router.patch(
     '/update-user/:id',
     isAuthenticated,
-    upload.fields([{ name: 'file', maxCount: 1 }]),
+    upload.fields([ { name: 'file', maxCount: 1 } ]),
     validate(updateUserSchema),
-    updateUser
-  )
+    updateUser,
+  );
 
   /**
    * @swagger
@@ -268,6 +269,6 @@ module.exports = (router) => {
     isAuthenticated,
     isVendorAdmin,
     validate(convertUserToRiderSchema),
-    convertUserToRider
-  )
-}
+    convertUserToRider,
+  );
+};

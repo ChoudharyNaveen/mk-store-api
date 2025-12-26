@@ -39,14 +39,14 @@ module.exports = {
         type: Sequelize.DATE,
         defaultValue: Sequelize.literal('CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP'),
       },
-    })
+    });
 
-    await queryInterface.addIndex('wishlist', ['product_id'])
-    await queryInterface.addIndex('wishlist', ['status'])
+    await queryInterface.addIndex('wishlist', [ 'product_id' ]);
+    await queryInterface.addIndex('wishlist', [ 'status' ]);
 
     // Add foreign key constraints
     await queryInterface.addConstraint('wishlist', {
-      fields: ['product_id'],
+      fields: [ 'product_id' ],
       type: 'foreign key',
       name: 'fk_wishlist_product',
       references: {
@@ -55,10 +55,10 @@ module.exports = {
       },
       onDelete: 'CASCADE',
       onUpdate: 'CASCADE',
-    })
+    });
 
     await queryInterface.addConstraint('wishlist', {
-      fields: ['created_by'],
+      fields: [ 'created_by' ],
       type: 'foreign key',
       name: 'fk_wishlist_user',
       references: {
@@ -67,13 +67,11 @@ module.exports = {
       },
       onDelete: 'CASCADE',
       onUpdate: 'CASCADE',
-    })
+    });
   },
 
   down: async (queryInterface) => {
-    await queryInterface.dropTable('wishlist')
+    await queryInterface.dropTable('wishlist');
   },
-}
-
-
+};
 

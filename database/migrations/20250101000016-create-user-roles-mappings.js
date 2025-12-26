@@ -47,25 +47,25 @@ module.exports = {
         type: Sequelize.DATE,
         defaultValue: Sequelize.literal('CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP'),
       },
-    })
+    });
 
-    await queryInterface.addIndex('user_roles_mappings', ['user_id'])
-    await queryInterface.addIndex('user_roles_mappings', ['role_id'])
-    await queryInterface.addIndex('user_roles_mappings', ['vendor_id'])
-    await queryInterface.addIndex('user_roles_mappings', ['status'])
-    await queryInterface.addIndex('user_roles_mappings', ['vendor_id', 'user_id'], {
+    await queryInterface.addIndex('user_roles_mappings', [ 'user_id' ]);
+    await queryInterface.addIndex('user_roles_mappings', [ 'role_id' ]);
+    await queryInterface.addIndex('user_roles_mappings', [ 'vendor_id' ]);
+    await queryInterface.addIndex('user_roles_mappings', [ 'status' ]);
+    await queryInterface.addIndex('user_roles_mappings', [ 'vendor_id', 'user_id' ], {
       name: 'idx_user_roles_mapping_vendor_user',
-    })
-    await queryInterface.addIndex('user_roles_mappings', ['vendor_id', 'role_id'], {
+    });
+    await queryInterface.addIndex('user_roles_mappings', [ 'vendor_id', 'role_id' ], {
       name: 'idx_user_roles_mapping_vendor_role',
-    })
-    await queryInterface.addIndex('user_roles_mappings', ['user_id', 'role_id'], {
+    });
+    await queryInterface.addIndex('user_roles_mappings', [ 'user_id', 'role_id' ], {
       name: 'idx_user_roles_mapping_user_role',
-    })
+    });
 
     // Add foreign key constraints
     await queryInterface.addConstraint('user_roles_mappings', {
-      fields: ['user_id'],
+      fields: [ 'user_id' ],
       type: 'foreign key',
       name: 'fk_user_roles_mappings_user',
       references: {
@@ -74,10 +74,10 @@ module.exports = {
       },
       onDelete: 'CASCADE',
       onUpdate: 'CASCADE',
-    })
+    });
 
     await queryInterface.addConstraint('user_roles_mappings', {
-      fields: ['role_id'],
+      fields: [ 'role_id' ],
       type: 'foreign key',
       name: 'fk_user_roles_mappings_role',
       references: {
@@ -86,10 +86,10 @@ module.exports = {
       },
       onDelete: 'CASCADE',
       onUpdate: 'CASCADE',
-    })
+    });
 
     await queryInterface.addConstraint('user_roles_mappings', {
-      fields: ['vendor_id'],
+      fields: [ 'vendor_id' ],
       type: 'foreign key',
       name: 'fk_user_roles_mappings_vendor',
       references: {
@@ -98,13 +98,10 @@ module.exports = {
       },
       onDelete: 'SET NULL',
       onUpdate: 'CASCADE',
-    })
+    });
   },
 
   down: async (queryInterface) => {
-    await queryInterface.dropTable('user_roles_mappings')
+    await queryInterface.dropTable('user_roles_mappings');
   },
-}
-
-
-
+};

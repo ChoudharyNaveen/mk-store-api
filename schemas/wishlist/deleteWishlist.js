@@ -1,11 +1,9 @@
-const Joi = require('joi')
-
-const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
+const Joi = require('joi');
 
 const deleteWishlist = Joi.object({
   wishlistId: Joi.number().integer().required().messages({
     'any.required': 'Parameter: wishlistId is required in query',
   }),
-}).unknown(false)
+}).unknown(false);
 
-module.exports = deleteWishlist
+module.exports = deleteWishlist;

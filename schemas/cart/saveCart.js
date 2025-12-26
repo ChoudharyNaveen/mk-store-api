@@ -1,6 +1,4 @@
-const Joi = require('joi')
-
-const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
+const Joi = require('joi');
 
 const saveCart = Joi.object({
   productId: Joi.number().integer().required().messages({
@@ -11,6 +9,6 @@ const saveCart = Joi.object({
     'number.base': 'Parameter: quantity is required',
   }),
   createdBy: Joi.number().integer().optional(),
-}).unknown(false)
+}).unknown(false);
 
-module.exports = saveCart
+module.exports = saveCart;

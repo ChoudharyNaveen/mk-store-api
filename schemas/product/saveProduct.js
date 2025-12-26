@@ -1,6 +1,4 @@
-const Joi = require('joi')
-
-const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
+const Joi = require('joi');
 
 const saveProduct = Joi.object({
   title: Joi.string().required().messages({
@@ -35,6 +33,6 @@ const saveProduct = Joi.object({
     'any.required': 'Parameter: sellingPrice is required',
     'number.min': 'Parameter: sellingPrice must be greater than or equal to 0',
   }),
-}).unknown(false)
+}).unknown(false);
 
-module.exports = saveProduct
+module.exports = saveProduct;

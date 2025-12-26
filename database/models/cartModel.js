@@ -18,7 +18,7 @@ module.exports = (sequelize, DataTypes) => {
       },
       status: {
         type: DataTypes.STRING,
-        enum: ['ACTIVE', 'INACTIVE'],
+        enum: [ 'ACTIVE', 'INACTIVE' ],
         defaultValue: 'ACTIVE',
         index: true,
       },
@@ -38,21 +38,21 @@ module.exports = (sequelize, DataTypes) => {
       freezeTableName: true,
       underscored: true,
       timestamps: true,
-    }
-  )
+    },
+  );
 
   cart.associate = (models) => {
     cart.belongsTo(models.user, {
       foreignKey: 'created_by',
       targetKey: 'id',
       as: 'user',
-    })
+    });
     cart.belongsTo(models.product, {
       foreignKey: 'product_id',
       targetKey: 'id',
       as: 'productDetails',
-    })
-  }
+    });
+  };
 
-  return cart
-}
+  return cart;
+};

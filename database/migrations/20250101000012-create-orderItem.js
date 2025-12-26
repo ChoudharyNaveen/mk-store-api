@@ -46,14 +46,14 @@ module.exports = {
         type: Sequelize.DATE,
         defaultValue: Sequelize.literal('CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP'),
       },
-    })
+    });
 
-    await queryInterface.addIndex('orderItem', ['order_id'])
-    await queryInterface.addIndex('orderItem', ['product_id'])
+    await queryInterface.addIndex('orderItem', [ 'order_id' ]);
+    await queryInterface.addIndex('orderItem', [ 'product_id' ]);
 
     // Add foreign key constraints
     await queryInterface.addConstraint('orderItem', {
-      fields: ['order_id'],
+      fields: [ 'order_id' ],
       type: 'foreign key',
       name: 'fk_orderitem_order',
       references: {
@@ -62,10 +62,10 @@ module.exports = {
       },
       onDelete: 'CASCADE',
       onUpdate: 'CASCADE',
-    })
+    });
 
     await queryInterface.addConstraint('orderItem', {
-      fields: ['product_id'],
+      fields: [ 'product_id' ],
       type: 'foreign key',
       name: 'fk_orderitem_product',
       references: {
@@ -74,10 +74,10 @@ module.exports = {
       },
       onDelete: 'CASCADE',
       onUpdate: 'CASCADE',
-    })
+    });
 
     await queryInterface.addConstraint('orderItem', {
-      fields: ['created_by'],
+      fields: [ 'created_by' ],
       type: 'foreign key',
       name: 'fk_orderitem_user',
       references: {
@@ -86,13 +86,11 @@ module.exports = {
       },
       onDelete: 'CASCADE',
       onUpdate: 'CASCADE',
-    })
+    });
   },
 
   down: async (queryInterface) => {
-    await queryInterface.dropTable('orderItem')
+    await queryInterface.dropTable('orderItem');
   },
-}
-
-
+};
 

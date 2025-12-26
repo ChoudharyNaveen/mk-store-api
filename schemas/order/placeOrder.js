@@ -1,6 +1,4 @@
-const Joi = require('joi')
-
-const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
+const Joi = require('joi');
 
 const placeOrder = Joi.object({
   addressId: Joi.number().integer().required().messages({
@@ -11,6 +9,6 @@ const placeOrder = Joi.object({
   }),
   promocodeId: Joi.number().integer().optional(),
   createdBy: Joi.number().integer().optional(),
-}).unknown(false)
+}).unknown(false);
 
-module.exports = placeOrder
+module.exports = placeOrder;

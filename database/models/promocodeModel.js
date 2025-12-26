@@ -34,7 +34,7 @@ module.exports = (sequelize, DataTypes) => {
       },
       status: {
         type: DataTypes.STRING,
-        enum: ['ACTIVE', 'INACTIVE'],
+        enum: [ 'ACTIVE', 'INACTIVE' ],
         defaultValue: 'ACTIVE',
         index: true,
       },
@@ -54,16 +54,16 @@ module.exports = (sequelize, DataTypes) => {
       freezeTableName: true,
       underscored: true,
       timestamps: true,
-    }
-  )
+    },
+  );
 
   promocode.associate = (models) => {
     promocode.belongsTo(models.user, {
       foreignKey: 'created_by',
       targetKey: 'id',
       as: 'createdByUser',
-    })
-  }
+    });
+  };
 
-  return promocode
-}
+  return promocode;
+};

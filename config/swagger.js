@@ -88,7 +88,7 @@ const options = {
       { name: 'Test', description: 'Test endpoints' },
     ],
   },
-  apis: ['./routes/*.js'],
+  apis: [ './routes/*.js' ],
 };
 
 const swaggerSpec = swaggerJsdoc(options);

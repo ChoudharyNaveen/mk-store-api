@@ -1,9 +1,10 @@
-const { version } = require('../package.json');
 const path = require('path');
+const { version } = require('../package.json');
+
 require('dotenv').config({
   path: path.resolve(
     process.cwd(),
-    `.env.${process.env.NODE_ENV || 'production'}`
+    `.env.${process.env.NODE_ENV || 'production'}`,
   ),
 });
 

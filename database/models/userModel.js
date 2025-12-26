@@ -34,18 +34,18 @@ module.exports = (sequelize, DataTypes) => {
       },
       gender: {
         type: DataTypes.STRING,
-        enum: ['MALE', 'FEMALE'],
+        enum: [ 'MALE', 'FEMALE' ],
         allowNull: true,
       },
       status: {
         type: DataTypes.STRING,
-        enum: ['ACTIVE', 'INACTIVE'],
+        enum: [ 'ACTIVE', 'INACTIVE' ],
         defaultValue: 'ACTIVE',
         index: true,
       },
       profile_status: {
         type: DataTypes.STRING,
-        enum: ['INCOMPLETE', 'COMPLETE'],
+        enum: [ 'INCOMPLETE', 'COMPLETE' ],
         defaultValue: 'INCOMPLETE',
         index: true,
       },
@@ -65,8 +65,8 @@ module.exports = (sequelize, DataTypes) => {
       freezeTableName: true,
       underscored: true,
       timestamps: true,
-    }
-  )
+    },
+  );
 
   user.associate = (models) => {
     // Mapping table relationship
@@ -74,69 +74,69 @@ module.exports = (sequelize, DataTypes) => {
       foreignKey: 'user_id',
       sourceKey: 'id',
       as: 'roleMappings',
-    })
+    });
     // Relationships for tables that reference user
     user.hasMany(models.address, {
       foreignKey: 'created_by',
       sourceKey: 'id',
       as: 'addresses',
-    })
+    });
     user.hasMany(models.cart, {
       foreignKey: 'created_by',
       sourceKey: 'id',
       as: 'cartItems',
-    })
+    });
     user.hasMany(models.wishlist, {
       foreignKey: 'created_by',
       sourceKey: 'id',
       as: 'wishlistItems',
-    })
+    });
     user.hasMany(models.order, {
       foreignKey: 'created_by',
       sourceKey: 'id',
       as: 'orders',
-    })
+    });
     user.hasMany(models.order, {
       foreignKey: 'rider_id',
       sourceKey: 'id',
       as: 'riderOrders',
-    })
+    });
     user.hasMany(models.orderItem, {
       foreignKey: 'created_by',
       sourceKey: 'id',
       as: 'orderItems',
-    })
+    });
     user.hasMany(models.otp, {
       foreignKey: 'user_id',
       sourceKey: 'id',
       as: 'otps',
-    })
+    });
     user.hasMany(models.category, {
       foreignKey: 'created_by',
       sourceKey: 'id',
       as: 'createdCategories',
-    })
+    });
     user.hasMany(models.product, {
       foreignKey: 'created_by',
       sourceKey: 'id',
       as: 'createdProducts',
-    })
+    });
     user.hasMany(models.vendor, {
       foreignKey: 'created_by',
       sourceKey: 'id',
       as: 'createdVendors',
-    })
+    });
     user.hasMany(models.promocode, {
       foreignKey: 'created_by',
       sourceKey: 'id',
       as: 'createdPromocodes',
-    })
+    });
     user.hasMany(models.offer, {
       foreignKey: 'created_by',
       sourceKey: 'id',
       as: 'createdOffers',
-    })
-  }
+    });
+  };
 
-  return user
-}
+  return user;
+};

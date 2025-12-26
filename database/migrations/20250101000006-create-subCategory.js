@@ -51,13 +51,13 @@ module.exports = {
         type: Sequelize.DATE,
         defaultValue: Sequelize.literal('CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP'),
       },
-    })
+    });
 
-    await queryInterface.addIndex('subCategory', ['category_id'])
+    await queryInterface.addIndex('subCategory', [ 'category_id' ]);
 
     // Add foreign key constraint
     await queryInterface.addConstraint('subCategory', {
-      fields: ['category_id'],
+      fields: [ 'category_id' ],
       type: 'foreign key',
       name: 'fk_subcategory_category',
       references: {
@@ -66,13 +66,11 @@ module.exports = {
       },
       onDelete: 'CASCADE',
       onUpdate: 'CASCADE',
-    })
+    });
   },
 
   down: async (queryInterface) => {
-    await queryInterface.dropTable('subCategory')
+    await queryInterface.dropTable('subCategory');
   },
-}
-
-
+};
 

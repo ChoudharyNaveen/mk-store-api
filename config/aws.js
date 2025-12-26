@@ -1,5 +1,5 @@
-const { SNSClient, PublishCommand } = require('@aws-sdk/client-sns')
-const config = require('./index')
+const { SNSClient, PublishCommand } = require('@aws-sdk/client-sns');
+const config = require('./index');
 
 // Initialize AWS SNS Client
 const snsClient = new SNSClient({
@@ -8,7 +8,7 @@ const snsClient = new SNSClient({
     accessKeyId: config.AWS.ACCESS_KEY_ID,
     secretAccessKey: config.AWS.SECRET_ACCESS_KEY,
   },
-})
+});
 
 /**
  * Send SMS via AWS SNS
@@ -19,13 +19,14 @@ const snsClient = new SNSClient({
 const sendSMS = async (phoneNumber, message) => {
   // If mock SMS is enabled, return mock success response
   if (config.AWS.USE_MOCK_SMS) {
-    console.log('Mock SMS mode enabled - SMS not sent via AWS')
-    console.log(`Would send SMS to ${phoneNumber}: ${message}`)
+    console.log('Mock SMS mode enabled - SMS not sent via AWS');
+    console.log(`Would send SMS to ${phoneNumber}: ${message}`);
+
     return {
       success: true,
-      messageId: 'mock-message-id-' + Date.now(),
+      messageId: `mock-message-id-${Date.now()}`,
       response: { mock: true },
-    }
+    };
   }
 
   try {
@@ -38,27 +39,27 @@ const sendSMS = async (phoneNumber, message) => {
           StringValue: config.AWS.SNS.SMS_TYPE,
         },
       },
-    }
+    };
 
-    const command = new PublishCommand(params)
-    const response = await snsClient.send(command)
+    const command = new PublishCommand(params);
+    const response = await snsClient.send(command);
 
     return {
       success: true,
       messageId: response.MessageId,
       response,
-    }
+    };
   } catch (error) {
-    console.error('Error sending SMS via AWS SNS:', error)
+    console.error('Error sending SMS via AWS SNS:', error);
+
     return {
       success: false,
       error: error.message,
-    }
+    };
   }
-}
+};
 
 module.exports = {
   sendSMS,
   snsClient,
-}
-
+};

@@ -1,17 +1,17 @@
 const {
- placeOrder ,
- getOrder,
- getStatsOfOrdersCompleted,
- updateOrder,
- getTotalReturnsOfToday
-} = require('../controllers/orderController')
-const { isAuthenticated } = require('../middleware/auth')
-const validate = require('../middleware/validation')
+  placeOrder,
+  getOrder,
+  getStatsOfOrdersCompleted,
+  updateOrder,
+  getTotalReturnsOfToday,
+} = require('../controllers/orderController');
+const { isAuthenticated } = require('../middleware/auth');
+const validate = require('../middleware/validation');
 const {
   placeOrder: placeOrderSchema,
   getOrder: getOrderSchema,
   updateOrder: updateOrderSchema,
-} = require('../schemas')
+} = require('../schemas');
 
 module.exports = (router) => {
   /**
@@ -86,8 +86,8 @@ module.exports = (router) => {
     '/place-order',
     isAuthenticated,
     validate(placeOrderSchema),
-    placeOrder
-  )
+    placeOrder,
+  );
 
   /**
    * @swagger
@@ -148,7 +148,7 @@ module.exports = (router) => {
    *                 count:
    *                   type: integer
    */
-  router.get('/get-order', isAuthenticated, validate(getOrderSchema), getOrder)
+  router.get('/get-order', isAuthenticated, validate(getOrderSchema), getOrder);
 
   /**
    * @swagger
@@ -179,7 +179,7 @@ module.exports = (router) => {
    *                       type: number
    *                       example: 45000.50
    */
-  router.get('/get-stats-of-orders-completed', isAuthenticated, getStatsOfOrdersCompleted)
+  router.get('/get-stats-of-orders-completed', isAuthenticated, getStatsOfOrdersCompleted);
 
   /**
    * @swagger
@@ -230,8 +230,8 @@ module.exports = (router) => {
     '/update-order/:id',
     isAuthenticated,
     validate(updateOrderSchema),
-    updateOrder
-  )
+    updateOrder,
+  );
 
   /**
    * @swagger
@@ -259,5 +259,5 @@ module.exports = (router) => {
    *                       type: integer
    *                       example: 5
    */
-  router.get('/get-total-returns-of-today', isAuthenticated, getTotalReturnsOfToday)
-}
+  router.get('/get-total-returns-of-today', isAuthenticated, getTotalReturnsOfToday);
+};

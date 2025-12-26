@@ -25,7 +25,7 @@ module.exports = (sequelize, DataTypes) => {
       },
       status: {
         type: DataTypes.STRING,
-        enum: ['ACTIVE', 'INACTIVE'],
+        enum: [ 'ACTIVE', 'INACTIVE' ],
         defaultValue: 'ACTIVE',
         index: true,
       },
@@ -45,8 +45,8 @@ module.exports = (sequelize, DataTypes) => {
       freezeTableName: true,
       underscored: true,
       timestamps: true,
-    }
-  )
+    },
+  );
 
   userRolesMapping.associate = (models) => {
     userRolesMapping.belongsTo(models.vendor, {
@@ -54,19 +54,18 @@ module.exports = (sequelize, DataTypes) => {
       targetKey: 'id',
       as: 'vendor',
       required: false, // Optional relationship
-    })
+    });
     userRolesMapping.belongsTo(models.user, {
       foreignKey: 'user_id',
       targetKey: 'id',
       as: 'user',
-    })
+    });
     userRolesMapping.belongsTo(models.role, {
       foreignKey: 'role_id',
       targetKey: 'id',
       as: 'role',
-    })
-  }
+    });
+  };
 
-  return userRolesMapping
-}
-
+  return userRolesMapping;
+};

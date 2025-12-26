@@ -1,6 +1,4 @@
-const Joi = require('joi')
-
-const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
+const Joi = require('joi');
 
 const saveVendor = Joi.object({
   name: Joi.string().required().messages({
@@ -39,10 +37,11 @@ const saveVendor = Joi.object({
   latitude: Joi.number().optional(),
   longitude: Joi.number().optional(),
   branchPhone: Joi.string().optional().allow(''),
-  branchEmail: Joi.string().email().optional().allow('').messages({
-    'string.email': 'Parameter: branchEmail should be a valid email address',
-  }),
+  branchEmail: Joi.string().email().optional().allow('')
+    .messages({
+      'string.email': 'Parameter: branchEmail should be a valid email address',
+    }),
   branchStatus: Joi.string().valid('ACTIVE', 'INACTIVE').optional(),
-}).unknown(false)
+}).unknown(false);
 
-module.exports = saveVendor
+module.exports = saveVendor;

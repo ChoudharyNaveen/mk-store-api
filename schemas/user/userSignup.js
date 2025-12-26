@@ -1,4 +1,4 @@
-const Joi = require('joi')
+const Joi = require('joi');
 
 const userSignUp = Joi.object({
   name: Joi.string().required().messages({
@@ -26,6 +26,6 @@ const userSignUp = Joi.object({
   gender: Joi.string().optional(),
   status: Joi.string().valid('ACTIVE', 'INACTIVE').optional(),
   createdBy: Joi.string().optional(),
-}).unknown(false)
+}).unknown(false);
 
-module.exports = userSignUp
+module.exports = userSignUp;

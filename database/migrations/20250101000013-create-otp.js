@@ -47,16 +47,16 @@ module.exports = {
         type: Sequelize.DATE,
         defaultValue: Sequelize.literal('CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP'),
       },
-    })
+    });
 
-    await queryInterface.addIndex('otp', ['type'])
-    await queryInterface.addIndex('otp', ['user_id'])
-    await queryInterface.addIndex('otp', ['mobile_number'])
-    await queryInterface.addIndex('otp', ['status'])
+    await queryInterface.addIndex('otp', [ 'type' ]);
+    await queryInterface.addIndex('otp', [ 'user_id' ]);
+    await queryInterface.addIndex('otp', [ 'mobile_number' ]);
+    await queryInterface.addIndex('otp', [ 'status' ]);
 
     // Add foreign key constraint
     await queryInterface.addConstraint('otp', {
-      fields: ['user_id'],
+      fields: [ 'user_id' ],
       type: 'foreign key',
       name: 'fk_otp_user',
       references: {
@@ -65,13 +65,11 @@ module.exports = {
       },
       onDelete: 'CASCADE',
       onUpdate: 'CASCADE',
-    })
+    });
   },
 
   down: async (queryInterface) => {
-    await queryInterface.dropTable('otp')
+    await queryInterface.dropTable('otp');
   },
-}
-
-
+};
 

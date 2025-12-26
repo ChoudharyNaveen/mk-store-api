@@ -26,7 +26,7 @@ module.exports = (sequelize, DataTypes) => {
       },
       status: {
         type: DataTypes.STRING,
-        enum: ['ACTIVE', 'INACTIVE'],
+        enum: [ 'ACTIVE', 'INACTIVE' ],
         defaultValue: 'ACTIVE',
         index: true,
       },
@@ -46,20 +46,21 @@ module.exports = (sequelize, DataTypes) => {
       freezeTableName: true,
       underscored: true,
       timestamps: true,
-    }
-  )
+    },
+  );
+
   subCategory.associate = (models) => {
     subCategory.belongsTo(models.category, {
       foreignKey: 'category_id',
       targetKey: 'id',
       as: 'category',
-    })
+    });
     subCategory.hasMany(models.product, {
       foreignKey: 'sub_category_id',
       sourceKey: 'id',
       as: 'products',
-    })
-  }
+    });
+  };
 
-  return subCategory
-}
+  return subCategory;
+};

@@ -1,11 +1,11 @@
 const {
   getOrderItem,
-} = require('../controllers/orderItemController')
-const { isAuthenticated } = require('../middleware/auth')
-const validate = require('../middleware/validation')
+} = require('../controllers/orderItemController');
+const { isAuthenticated } = require('../middleware/auth');
+const validate = require('../middleware/validation');
 const {
   getOrderItem: getOrderItemSchema,
-} = require('../schemas')
+} = require('../schemas');
 
 module.exports = (router) => {
   /**
@@ -75,5 +75,5 @@ module.exports = (router) => {
    *                 count:
    *                   type: integer
    */
-  router.get('/get-order-item', isAuthenticated, validate(getOrderItemSchema), getOrderItem)
-}
+  router.get('/get-order-item', isAuthenticated, validate(getOrderItemSchema), getOrderItem);
+};

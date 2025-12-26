@@ -1,0 +1,58 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+build/
+coverage/
+*.min.js
+
+# Logs
+*.log
+logs/
+
+# Uploads
+uploads/
+
+# Database (migrations and seed files may have different conventions)
+database/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Database
+*.sqlite
+*.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test files (if you want to ignore them)
+# **/*.test.js
+# **/*.spec.js
+
+# Public assets
+public/
+
+# Documentation
+*.md
+
+# Compiled files
+*.exe
+*.zip
+
+# ngrok
+ngrok.exe
+ngrok.zip
+
+.eslintrc.js

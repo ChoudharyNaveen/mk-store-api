@@ -1,12 +1,12 @@
 const {
   sendOtpSMSForUser,
   verifyOtpSMSForUser,
-} = require('../controllers/otpController')
-const validate = require('../middleware/validation')
+} = require('../controllers/otpController');
+const validate = require('../middleware/validation');
 const {
   sendOTPToSMS: sendOTPToSMSSchema,
   verifyOTPBySMS: verifyOTPBySMSSchema,
-} = require('../schemas')
+} = require('../schemas');
 
 module.exports = (router) => {
   /**
@@ -51,7 +51,7 @@ module.exports = (router) => {
    *       400:
    *         description: Error sending SMS
    */
-  router.post('/send-otp-sms-for-user', validate(sendOTPToSMSSchema), sendOtpSMSForUser)
+  router.post('/send-otp-sms-for-user', validate(sendOTPToSMSSchema), sendOtpSMSForUser);
 
   /**
    * @swagger
@@ -131,5 +131,5 @@ module.exports = (router) => {
    *       400:
    *         description: Invalid or expired OTP
    */
-  router.post('/verify-otp-sms-for-user', validate(verifyOTPBySMSSchema), verifyOtpSMSForUser)
-}
+  router.post('/verify-otp-sms-for-user', validate(verifyOTPBySMSSchema), verifyOtpSMSForUser);
+};

@@ -67,13 +67,13 @@ module.exports = {
         type: Sequelize.DATE,
         defaultValue: Sequelize.literal('CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP'),
       },
-    })
+    });
 
-    await queryInterface.addIndex('offer', ['status'])
+    await queryInterface.addIndex('offer', [ 'status' ]);
 
     // Add foreign key constraint
     await queryInterface.addConstraint('offer', {
-      fields: ['created_by'],
+      fields: [ 'created_by' ],
       type: 'foreign key',
       name: 'fk_offer_created_by',
       references: {
@@ -82,13 +82,11 @@ module.exports = {
       },
       onDelete: 'SET NULL',
       onUpdate: 'CASCADE',
-    })
+    });
   },
 
   down: async (queryInterface) => {
-    await queryInterface.dropTable('offer')
+    await queryInterface.dropTable('offer');
   },
-}
-
-
+};
 

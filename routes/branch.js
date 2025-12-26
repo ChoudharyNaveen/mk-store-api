@@ -2,14 +2,14 @@ const {
   saveBranch,
   getBranch,
   updateBranch,
-} = require('../controllers/branchController')
-const { isAuthenticated } = require('../middleware/auth')
-const validate = require('../middleware/validation')
+} = require('../controllers/branchController');
+const { isAuthenticated } = require('../middleware/auth');
+const validate = require('../middleware/validation');
 const {
   saveBranch: saveBranchSchema,
   getBranch: getBranchSchema,
   updateBranch: updateBranchSchema,
-} = require('../schemas')
+} = require('../schemas');
 
 module.exports = (router) => {
   /**
@@ -142,7 +142,7 @@ module.exports = (router) => {
    *       400:
    *         description: Bad request - validation error or duplicate code
    */
-  router.post('/save-branch', isAuthenticated, validate(saveBranchSchema), saveBranch)
+  router.post('/save-branch', isAuthenticated, validate(saveBranchSchema), saveBranch);
 
   /**
    * @swagger
@@ -171,7 +171,7 @@ module.exports = (router) => {
    *       200:
    *         description: Branches retrieved successfully
    */
-  router.get('/get-branch', isAuthenticated, validate(getBranchSchema), getBranch)
+  router.get('/get-branch', isAuthenticated, validate(getBranchSchema), getBranch);
 
   /**
    * @swagger
@@ -278,6 +278,5 @@ module.exports = (router) => {
    *       409:
    *         description: Concurrency conflict - branch was modified by another user
    */
-  router.patch('/update-branch/:id', isAuthenticated, validate(updateBranchSchema), updateBranch)
-}
-
+  router.patch('/update-branch/:id', isAuthenticated, validate(updateBranchSchema), updateBranch);
+};

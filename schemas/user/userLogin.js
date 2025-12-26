@@ -1,4 +1,4 @@
-const Joi = require('joi')
+const Joi = require('joi');
 
 const userLogin = Joi.object({
   email: Joi.string().optional().allow(''),
@@ -7,6 +7,6 @@ const userLogin = Joi.object({
     'any.required': 'Parameter: password is required in the body',
     'string.empty': 'Parameter: password is required in the body',
   }),
-}).unknown(false)
+}).unknown(false);
 
-module.exports = userLogin
+module.exports = userLogin;

@@ -55,15 +55,15 @@ module.exports = {
         type: Sequelize.DATE,
         defaultValue: Sequelize.literal('CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP'),
       },
-    })
+    });
 
-    await queryInterface.addIndex('category', ['branch_id'])
-    await queryInterface.addIndex('category', ['vendor_id'])
-    await queryInterface.addIndex('category', ['status'])
+    await queryInterface.addIndex('category', [ 'branch_id' ]);
+    await queryInterface.addIndex('category', [ 'vendor_id' ]);
+    await queryInterface.addIndex('category', [ 'status' ]);
 
     // Add foreign key constraints
     await queryInterface.addConstraint('category', {
-      fields: ['branch_id'],
+      fields: [ 'branch_id' ],
       type: 'foreign key',
       name: 'fk_category_branch',
       references: {
@@ -72,10 +72,10 @@ module.exports = {
       },
       onDelete: 'CASCADE',
       onUpdate: 'CASCADE',
-    })
+    });
 
     await queryInterface.addConstraint('category', {
-      fields: ['vendor_id'],
+      fields: [ 'vendor_id' ],
       type: 'foreign key',
       name: 'fk_category_vendor',
       references: {
@@ -84,10 +84,10 @@ module.exports = {
       },
       onDelete: 'CASCADE',
       onUpdate: 'CASCADE',
-    })
+    });
 
     await queryInterface.addConstraint('category', {
-      fields: ['created_by'],
+      fields: [ 'created_by' ],
       type: 'foreign key',
       name: 'fk_category_created_by',
       references: {
@@ -96,13 +96,11 @@ module.exports = {
       },
       onDelete: 'SET NULL',
       onUpdate: 'CASCADE',
-    })
+    });
   },
 
   down: async (queryInterface) => {
-    await queryInterface.dropTable('category')
+    await queryInterface.dropTable('category');
   },
-}
-
-
+};
 

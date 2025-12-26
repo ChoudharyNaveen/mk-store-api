@@ -57,16 +57,14 @@ module.exports = {
         type: Sequelize.DATE,
         defaultValue: Sequelize.literal('CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP'),
       },
-    })
+    });
 
-    await queryInterface.addIndex('vendor', ['status'])
-    await queryInterface.addIndex('vendor', ['code'])
+    await queryInterface.addIndex('vendor', [ 'status' ]);
+    await queryInterface.addIndex('vendor', [ 'code' ]);
   },
 
   down: async (queryInterface) => {
-    await queryInterface.dropTable('vendor')
+    await queryInterface.dropTable('vendor');
   },
-}
-
-
+};
 

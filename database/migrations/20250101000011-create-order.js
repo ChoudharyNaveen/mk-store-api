@@ -61,16 +61,16 @@ module.exports = {
         type: Sequelize.DATE,
         defaultValue: Sequelize.literal('CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP'),
       },
-    })
+    });
 
-    await queryInterface.addIndex('order', ['branch_id'])
-    await queryInterface.addIndex('order', ['address_id'])
-    await queryInterface.addIndex('order', ['status'])
-    await queryInterface.addIndex('order', ['payment_status'])
+    await queryInterface.addIndex('order', [ 'branch_id' ]);
+    await queryInterface.addIndex('order', [ 'address_id' ]);
+    await queryInterface.addIndex('order', [ 'status' ]);
+    await queryInterface.addIndex('order', [ 'payment_status' ]);
 
     // Add foreign key constraints
     await queryInterface.addConstraint('order', {
-      fields: ['branch_id'],
+      fields: [ 'branch_id' ],
       type: 'foreign key',
       name: 'fk_order_branch',
       references: {
@@ -79,10 +79,10 @@ module.exports = {
       },
       onDelete: 'CASCADE',
       onUpdate: 'CASCADE',
-    })
+    });
 
     await queryInterface.addConstraint('order', {
-      fields: ['address_id'],
+      fields: [ 'address_id' ],
       type: 'foreign key',
       name: 'fk_order_address',
       references: {
@@ -91,10 +91,10 @@ module.exports = {
       },
       onDelete: 'CASCADE',
       onUpdate: 'CASCADE',
-    })
+    });
 
     await queryInterface.addConstraint('order', {
-      fields: ['created_by'],
+      fields: [ 'created_by' ],
       type: 'foreign key',
       name: 'fk_order_user',
       references: {
@@ -103,10 +103,10 @@ module.exports = {
       },
       onDelete: 'CASCADE',
       onUpdate: 'CASCADE',
-    })
+    });
 
     await queryInterface.addConstraint('order', {
-      fields: ['rider_id'],
+      fields: [ 'rider_id' ],
       type: 'foreign key',
       name: 'fk_order_rider',
       references: {
@@ -115,13 +115,11 @@ module.exports = {
       },
       onDelete: 'SET NULL',
       onUpdate: 'CASCADE',
-    })
+    });
   },
 
   down: async (queryInterface) => {
-    await queryInterface.dropTable('order')
+    await queryInterface.dropTable('order');
   },
-}
-
-
+};
 

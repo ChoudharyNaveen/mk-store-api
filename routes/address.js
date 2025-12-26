@@ -2,14 +2,14 @@ const {
   saveAddress,
   getAddress,
   updateAddress,
-} = require('../controllers/addressController')
-const { isAuthenticated } = require('../middleware/auth')
-const validate = require('../middleware/validation')
+} = require('../controllers/addressController');
+const { isAuthenticated } = require('../middleware/auth');
+const validate = require('../middleware/validation');
 const {
   saveAddress: saveAddressSchema,
   getAddress: getAddressSchema,
   updateAddress: updateAddressSchema,
-} = require('../schemas')
+} = require('../schemas');
 
 module.exports = (router) => {
   /**
@@ -83,8 +83,8 @@ module.exports = (router) => {
     '/save-address',
     isAuthenticated,
     validate(saveAddressSchema),
-    saveAddress
-  )
+    saveAddress,
+  );
 
   /**
    * @swagger
@@ -141,7 +141,7 @@ module.exports = (router) => {
    *                 count:
    *                   type: integer
    */
-  router.get('/get-address', isAuthenticated, validate(getAddressSchema), getAddress)
+  router.get('/get-address', isAuthenticated, validate(getAddressSchema), getAddress);
 
   /**
    * @swagger
@@ -201,6 +201,6 @@ module.exports = (router) => {
     '/update-address/:id',
     isAuthenticated,
     validate(updateAddressSchema),
-    updateAddress
-  )
-}
+    updateAddress,
+  );
+};

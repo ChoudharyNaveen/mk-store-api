@@ -1,6 +1,4 @@
-const Joi = require('joi')
-
-const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
+const Joi = require('joi');
 
 const updateCategory = Joi.object({
   id: Joi.number().integer().required(),
@@ -10,7 +8,7 @@ const updateCategory = Joi.object({
   vendorId: Joi.number().integer().optional(),
   status: Joi.string().valid('ACTIVE', 'INACTIVE').optional(),
   updatedBy: Joi.number().integer().required(),
-  concurrencyStamp: Joi.string().pattern(uuidPattern).required(),
-}).unknown(false)
+  concurrencyStamp: Joi.string().required(),
+}).unknown(false);
 
-module.exports = updateCategory
+module.exports = updateCategory;

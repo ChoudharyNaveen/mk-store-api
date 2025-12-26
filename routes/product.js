@@ -1,21 +1,22 @@
+const multer = require('multer');
 const {
   saveProduct,
   getProduct,
   updateProduct,
   getProductsGroupedByCategory,
-  deleteProduct
-} = require('../controllers/productController')
-const { isAuthenticated } = require('../middleware/auth')
-const validate = require('../middleware/validation')
+  deleteProduct,
+} = require('../controllers/productController');
+const { isAuthenticated } = require('../middleware/auth');
+const validate = require('../middleware/validation');
 const {
   saveProduct: saveProductSchema,
   getProduct: getProductSchema,
   updateProduct: updateProductSchema,
   getProductsGroupedByCategory: getProductsGroupedByCategorySchema,
   deleteProduct: deleteProductSchema,
-} = require('../schemas')
-const multer = require('multer')
-const upload = multer()
+} = require('../schemas');
+
+const upload = multer();
 
 module.exports = (router) => {
   /**
@@ -108,10 +109,10 @@ module.exports = (router) => {
   router.post(
     '/save-product',
     isAuthenticated,
-    upload.fields([{ name: 'file', maxCount: 1 }]),
+    upload.fields([ { name: 'file', maxCount: 1 } ]),
     validate(saveProductSchema),
-    saveProduct
-  )
+    saveProduct,
+  );
 
   /**
    * @swagger
@@ -165,7 +166,7 @@ module.exports = (router) => {
    *                   type: integer
    *                   example: 50
    */
-  router.get('/get-product', isAuthenticated, validate(getProductSchema), getProduct)
+  router.get('/get-product', isAuthenticated, validate(getProductSchema), getProduct);
 
   /**
    * @swagger
@@ -268,10 +269,10 @@ module.exports = (router) => {
   router.patch(
     '/update-product/:id',
     isAuthenticated,
-    upload.fields([{ name: 'file', maxCount: 1 }]),
+    upload.fields([ { name: 'file', maxCount: 1 } ]),
     validate(updateProductSchema),
-    updateProduct
-  )
+    updateProduct,
+  );
 
   /**
    * @swagger
@@ -311,8 +312,8 @@ module.exports = (router) => {
     '/get-products-by-category',
     isAuthenticated,
     validate(getProductsGroupedByCategorySchema),
-    getProductsGroupedByCategory
-  )
+    getProductsGroupedByCategory,
+  );
 
   /**
    * @swagger
@@ -348,5 +349,5 @@ module.exports = (router) => {
    *       400:
    *         description: Error deleting product
    */
-  router.delete('/delete-product', isAuthenticated, validate(deleteProductSchema), deleteProduct)
-}
+  router.delete('/delete-product', isAuthenticated, validate(deleteProductSchema), deleteProduct);
+};

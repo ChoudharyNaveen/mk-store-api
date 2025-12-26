@@ -39,26 +39,26 @@ module.exports = (sequelize, DataTypes) => {
       freezeTableName: true,
       underscored: true,
       timestamps: true,
-    }
-  )
+    },
+  );
 
   orderItem.associate = (models) => {
     orderItem.belongsTo(models.order, {
       foreignKey: 'order_id',
       targetKey: 'id',
       as: 'order',
-    })
+    });
     orderItem.belongsTo(models.user, {
       foreignKey: 'created_by',
       targetKey: 'id',
       as: 'user',
-    })
+    });
     orderItem.belongsTo(models.product, {
       foreignKey: 'product_id',
       targetKey: 'id',
       as: 'product',
-    })
-  }
+    });
+  };
 
-  return orderItem
-}
+  return orderItem;
+};

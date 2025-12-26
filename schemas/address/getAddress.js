@@ -1,4 +1,4 @@
-const Joi = require('joi')
+const Joi = require('joi');
 
 const filterSchema = Joi.object({
   key: Joi.string().required(),
@@ -11,24 +11,26 @@ const filterSchema = Joi.object({
   lte: Joi.string().optional(),
   like: Joi.string().optional(),
   iLike: Joi.string().optional(),
-}).or('in', 'eq', 'neq', 'gt', 'gte', 'lt', 'lte', 'like', 'iLike')
+}).or('in', 'eq', 'neq', 'gt', 'gte', 'lt', 'lte', 'like', 'iLike');
 
 const sortingSchema = Joi.object({
   key: Joi.string().required(),
   direction: Joi.string().valid('ASC', 'DESC').required(),
-})
+});
 
 const getAddress = Joi.object({
-  pageSize: Joi.number().integer().valid(10, 20, 30, 40, 50, 100, 500).required().messages({
-    'any.required': 'Parameter: pageSize is required in the body.',
-    'any.only': 'Parameter: pageSize should be valid.',
-  }),
-  pageNumber: Joi.number().integer().min(1).required().messages({
-    'any.required': 'Parameter: pageNumber is required in the body.',
-    'number.min': 'Parameter: pageNumber should be valid.',
-  }),
+  pageSize: Joi.number().integer().valid(10, 20, 30, 40, 50, 100, 500).required()
+    .messages({
+      'any.required': 'Parameter: pageSize is required in the body.',
+      'any.only': 'Parameter: pageSize should be valid.',
+    }),
+  pageNumber: Joi.number().integer().min(1).required()
+    .messages({
+      'any.required': 'Parameter: pageNumber is required in the body.',
+      'number.min': 'Parameter: pageNumber should be valid.',
+    }),
   filters: Joi.array().items(filterSchema).optional(),
   sorting: Joi.array().items(sortingSchema).optional(),
-}).unknown(false)
+}).unknown(false);
 
-module.exports = getAddress
+module.exports = getAddress;

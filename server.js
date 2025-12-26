@@ -1,5 +1,3 @@
-'use strict';
-
 process.env.NODE_ENV = process.env.NODE_ENV || 'production';
 
 const express = require('express');
@@ -34,14 +32,13 @@ app.use(
       'Content-Type',
       'Content-disposition',
     ],
-  })
+  }),
 );
 
 app.use(compression());
 app.use(helmet());
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 app.use(express.json({ limit: '50mb' }));
-
 
 app.use((req, res, next) => {
   console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`, {
@@ -57,21 +54,20 @@ app.get('/', (req, res) => {
   res.status(200).send('MK Store Backend is running');
 });
 
-
 app.use(
   '/api-docs',
   swaggerUi.serve,
   swaggerUi.setup(swaggerSpec, {
     customCss: '.swagger-ui .topbar { display: none }',
     customSiteTitle: 'MK Store API Documentation',
-  })
+  }),
 );
 
 app.use('/public', routes);
 app.use('/api', routes);
 app.use('/api/test', indexRouter);
 
-app.use((err, req, res, next) => {
+app.use((err, req, res) => {
   console.error('Error caught by middleware:', err);
   res.status(err.status || 500).json({
     success: false,
@@ -89,20 +85,17 @@ app.use((req, res) => {
   });
 });
 
-
 cronJobForUpdatingOfferStatus();
-
 
 const port = process.env.PORT;
 
 if (!port) {
   console.error('PORT not provided by Plesk');
-  process.exit(1);
+  throw new Error('PORT not provided by Plesk');
 }
 
 app.listen(port, '127.0.0.1', () => {
   console.log(`Server running on port ${port} in ${process.env.NODE_ENV}`);
 });
-
 
 module.exports = app;

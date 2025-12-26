@@ -1,4 +1,4 @@
-const Joi = require('joi')
+const Joi = require('joi');
 
 const saveSubCategory = Joi.object({
   title: Joi.string().required().messages({
@@ -14,6 +14,6 @@ const saveSubCategory = Joi.object({
   }),
   status: Joi.string().valid('ACTIVE', 'INACTIVE').optional(),
   createdBy: Joi.number().integer().optional(),
-}).unknown(false)
+}).unknown(false);
 
-module.exports = saveSubCategory
+module.exports = saveSubCategory;

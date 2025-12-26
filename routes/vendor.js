@@ -3,15 +3,15 @@ const {
   getVendor,
   updateVendor,
   getVendorByCode,
-} = require('../controllers/vendorController')
-const { isAuthenticated } = require('../middleware/auth')
-const validate = require('../middleware/validation')
+} = require('../controllers/vendorController');
+const { isAuthenticated } = require('../middleware/auth');
+const validate = require('../middleware/validation');
 const {
   saveVendor: saveVendorSchema,
   getVendor: getVendorSchema,
   updateVendor: updateVendorSchema,
   getVendorByCode: getVendorByCodeSchema,
-} = require('../schemas')
+} = require('../schemas');
 
 module.exports = (router) => {
   /**
@@ -179,7 +179,7 @@ module.exports = (router) => {
    *       400:
    *         description: Bad request - validation error or duplicate code
    */
-  router.post('/save-vendor', isAuthenticated, validate(saveVendorSchema), saveVendor)
+  router.post('/save-vendor', isAuthenticated, validate(saveVendorSchema), saveVendor);
 
   /**
    * @swagger
@@ -208,7 +208,7 @@ module.exports = (router) => {
    *       200:
    *         description: Vendors retrieved successfully
    */
-  router.get('/get-vendor', isAuthenticated, validate(getVendorSchema), getVendor)
+  router.get('/get-vendor', isAuthenticated, validate(getVendorSchema), getVendor);
 
   /**
    * @swagger
@@ -248,7 +248,7 @@ module.exports = (router) => {
    *       200:
    *         description: Vendor updated successfully
    */
-  router.patch('/update-vendor/:id', isAuthenticated, validate(updateVendorSchema), updateVendor)
+  router.patch('/update-vendor/:id', isAuthenticated, validate(updateVendorSchema), updateVendor);
 
   /**
    * @swagger
@@ -309,6 +309,5 @@ module.exports = (router) => {
    *       404:
    *         description: Vendor not found
    */
-  router.get('/get-vendor-by-code', validate(getVendorByCodeSchema), getVendorByCode)
-}
-
+  router.get('/get-vendor-by-code', validate(getVendorByCodeSchema), getVendorByCode);
+};

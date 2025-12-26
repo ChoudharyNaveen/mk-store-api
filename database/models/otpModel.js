@@ -29,7 +29,7 @@ module.exports = (sequelize, DataTypes) => {
       validity: { type: DataTypes.DATE, allowNull: true },
       status: {
         type: DataTypes.STRING,
-        enum: ['ACTIVE', 'INACTIVE'],
+        enum: [ 'ACTIVE', 'INACTIVE' ],
         defaultValue: 'ACTIVE',
         index: true,
       },
@@ -38,16 +38,16 @@ module.exports = (sequelize, DataTypes) => {
       freezeTableName: true,
       underscored: true,
       timestamps: true,
-    }
-  )
+    },
+  );
 
   otp.associate = (models) => {
     otp.belongsTo(models.user, {
       foreignKey: 'user_id',
       targetKey: 'id',
       as: 'user',
-    })
-  }
+    });
+  };
 
-  return otp
-}
+  return otp;
+};

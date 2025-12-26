@@ -33,7 +33,7 @@ module.exports = (sequelize, DataTypes) => {
       },
       status: {
         type: DataTypes.STRING,
-        enum: ['ACTIVE', 'INACTIVE'],
+        enum: [ 'ACTIVE', 'INACTIVE' ],
         defaultValue: 'ACTIVE',
         index: true,
       },
@@ -53,38 +53,37 @@ module.exports = (sequelize, DataTypes) => {
       freezeTableName: true,
       underscored: true,
       timestamps: true,
-    }
-  )
+    },
+  );
 
   vendor.associate = (models) => {
     vendor.hasMany(models.branch, {
       foreignKey: 'vendor_id',
       sourceKey: 'id',
       as: 'branches',
-    })
+    });
     // Mapping table relationships
     vendor.hasMany(models.user_roles_mappings, {
       foreignKey: 'vendor_id',
       sourceKey: 'id',
       as: 'userRoleMappings',
-    })
+    });
     vendor.hasMany(models.category, {
       foreignKey: 'vendor_id',
       sourceKey: 'id',
       as: 'categories',
-    })
+    });
     vendor.hasMany(models.product, {
       foreignKey: 'vendor_id',
       sourceKey: 'id',
       as: 'products',
-    })
+    });
     vendor.belongsTo(models.user, {
       foreignKey: 'created_by',
       targetKey: 'id',
       as: 'createdByUser',
-    })
-  }
+    });
+  };
 
-  return vendor
-}
-
+  return vendor;
+};

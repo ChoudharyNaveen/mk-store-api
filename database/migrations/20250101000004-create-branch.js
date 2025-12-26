@@ -55,14 +55,14 @@ module.exports = {
         type: Sequelize.DATE,
         defaultValue: Sequelize.literal('CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP'),
       },
-    })
+    });
 
-    await queryInterface.addIndex('branch', ['vendor_id'])
-    await queryInterface.addIndex('branch', ['status'])
+    await queryInterface.addIndex('branch', [ 'vendor_id' ]);
+    await queryInterface.addIndex('branch', [ 'status' ]);
 
     // Add foreign key constraint
     await queryInterface.addConstraint('branch', {
-      fields: ['vendor_id'],
+      fields: [ 'vendor_id' ],
       type: 'foreign key',
       name: 'fk_branch_vendor',
       references: {
@@ -71,10 +71,10 @@ module.exports = {
       },
       onDelete: 'CASCADE',
       onUpdate: 'CASCADE',
-    })
+    });
 
     await queryInterface.addConstraint('branch', {
-      fields: ['created_by'],
+      fields: [ 'created_by' ],
       type: 'foreign key',
       name: 'fk_branch_created_by',
       references: {
@@ -83,13 +83,11 @@ module.exports = {
       },
       onDelete: 'SET NULL',
       onUpdate: 'CASCADE',
-    })
+    });
   },
 
   down: async (queryInterface) => {
-    await queryInterface.dropTable('branch')
+    await queryInterface.dropTable('branch');
   },
-}
-
-
+};
 

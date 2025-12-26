@@ -1,6 +1,4 @@
-const Joi = require('joi')
-
-const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
+const Joi = require('joi');
 
 const saveBranch = Joi.object({
   vendorId: Joi.number().integer().required().messages({
@@ -27,6 +25,6 @@ const saveBranch = Joi.object({
   }),
   status: Joi.string().valid('ACTIVE', 'INACTIVE').optional(),
   createdBy: Joi.number().integer().optional(),
-}).unknown(false)
+}).unknown(false);
 
-module.exports = saveBranch
+module.exports = saveBranch;

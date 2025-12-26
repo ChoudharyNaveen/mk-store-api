@@ -42,7 +42,7 @@ module.exports = (sequelize, DataTypes) => {
       },
       status: {
         type: DataTypes.STRING,
-        enum: ['OPEN','ACTIVE', 'INACTIVE'],
+        enum: [ 'OPEN', 'ACTIVE', 'INACTIVE' ],
         defaultValue: 'OPEN',
         index: true,
       },
@@ -62,16 +62,16 @@ module.exports = (sequelize, DataTypes) => {
       freezeTableName: true,
       underscored: true,
       timestamps: true,
-    }
-  )
+    },
+  );
 
   offer.associate = (models) => {
     offer.belongsTo(models.user, {
       foreignKey: 'created_by',
       targetKey: 'id',
       as: 'createdByUser',
-    })
-  }
+    });
+  };
 
-  return offer
-}
+  return offer;
+};

@@ -19,25 +19,25 @@ module.exports = (sequelize, DataTypes) => {
       },
       status: {
         type: DataTypes.STRING,
-        enum: ['PENDING', 'CONFIRMED', 'SHIPPED', 'DELIVERED', 'CANCELLED'],
+        enum: [ 'PENDING', 'CONFIRMED', 'SHIPPED', 'DELIVERED', 'CANCELLED' ],
         defaultValue: 'PENDING',
         allowNull: false,
       },
       payment_status: {
         type: DataTypes.STRING,
-        enum: ['PAID', 'UNPAID', 'FAILED'],
+        enum: [ 'PAID', 'UNPAID', 'FAILED' ],
         allowNull: false,
         defaultValue: 'UNPAID',
       },
       pickup_status: {
         type: DataTypes.STRING,
-        enum: ['OPEN', 'ACCEPT'],
+        enum: [ 'OPEN', 'ACCEPT' ],
         allowNull: true,
         defaultValue: 'OPEN',
       },
-      rider_id:{
-        type:DataTypes.INTEGER,
-        allowNull: true
+      rider_id: {
+        type: DataTypes.INTEGER,
+        allowNull: true,
       },
       address_id: {
         type: DataTypes.INTEGER,
@@ -58,36 +58,36 @@ module.exports = (sequelize, DataTypes) => {
       freezeTableName: true,
       underscored: true,
       timestamps: true,
-    }
-  )
+    },
+  );
 
   order.associate = (models) => {
     order.belongsTo(models.user, {
       foreignKey: 'created_by',
       targetKey: 'id',
       as: 'user',
-    })
+    });
     order.belongsTo(models.address, {
       foreignKey: 'address_id',
       targetKey: 'id',
       as: 'address',
-    })
+    });
     order.belongsTo(models.user, {
       foreignKey: 'rider_id',
       targetKey: 'id',
       as: 'riderDetails',
-    })
+    });
     order.belongsTo(models.branch, {
       foreignKey: 'branch_id',
       targetKey: 'id',
       as: 'branch',
-    })
+    });
     order.hasMany(models.orderItem, {
       foreignKey: 'order_id',
       sourceKey: 'id',
       as: 'orderItems',
-    })
-  }
+    });
+  };
 
-  return order
-}
+  return order;
+};

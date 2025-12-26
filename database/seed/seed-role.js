@@ -1,4 +1,5 @@
-const crypto = require('crypto')
+const crypto = require('crypto');
+
 const role = [
   {
     public_id: crypto.randomUUID(),
@@ -32,6 +33,6 @@ const role = [
     updated_at: new Date(),
     concurrency_stamp: crypto.randomUUID(),
   },
-]
+];
 
-module.exports = role
+module.exports = role;

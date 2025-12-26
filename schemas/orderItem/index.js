@@ -1,6 +1,5 @@
-const getOrderItem = require('./getOrderItem')
+const getOrderItem = require('./getOrderItem');
 
 module.exports = {
   getOrderItem,
-}
-
+};

@@ -1,4 +1,4 @@
-const Joi = require('joi')
+const Joi = require('joi');
 
 const createVendorAdmin = Joi.object({
   vendorId: Joi.number().integer().required().messages({
@@ -25,6 +25,6 @@ const createVendorAdmin = Joi.object({
   date_of_birth: Joi.date().optional(),
   gender: Joi.string().valid('MALE', 'FEMALE').optional(),
   status: Joi.string().valid('ACTIVE', 'INACTIVE').optional(),
-}).unknown(false)
+}).unknown(false);
 
-module.exports = createVendorAdmin
+module.exports = createVendorAdmin;

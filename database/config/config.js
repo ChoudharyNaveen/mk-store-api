@@ -5,7 +5,7 @@ const {
     password,
     options: { host, dialect },
   },
-} = require('./../../config')
+} = require('../../config');
 
 module.exports = {
   username,
@@ -13,4 +13,4 @@ module.exports = {
   database,
   host,
   dialect,
-}
+};
