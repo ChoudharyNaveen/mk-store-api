@@ -1,5 +1,5 @@
 const { Vendor: VendorService } = require('../services');
-const { handleServerError } = require('../utils/helper');
+const { handleServerError, sendErrorResponse, extractErrorMessage } = require('../utils/helper');
 
 const saveVendor = async (req, res) => {
   try {
@@ -11,7 +11,7 @@ const saveVendor = async (req, res) => {
       return res.status(201).json({ success: true, message: 'successfully added' });
     }
 
-    return res.status(400).json(err);
+    return sendErrorResponse(res, 400, extractErrorMessage(err), 'VALIDATION_ERROR');
   } catch (error) {
     console.log(error);
 
@@ -30,7 +30,7 @@ const updateVendor = async (req, res) => {
     } = await VendorService.updateVendor({ data });
 
     if (concurrencyError) {
-      return res.status(409).json({ success: false, message: 'Concurrency error' });
+      return sendErrorResponse(res, 409, 'Concurrency error', 'CONCURRENCY_ERROR');
     }
     if (doc) {
       const { concurrencyStamp: stamp } = doc;
@@ -41,7 +41,7 @@ const updateVendor = async (req, res) => {
       return res.status(200).json({ success: true, message: 'successfully updated' });
     }
 
-    return res.status(400).json(err);
+    return sendErrorResponse(res, 400, extractErrorMessage(err), 'VALIDATION_ERROR');
   } catch (error) {
     console.log(error);
 
@@ -68,7 +68,7 @@ const getVendorByCode = async (req, res) => {
     const { errors: err, doc } = await VendorService.getVendorByCode(code);
 
     if (err) {
-      return res.status(404).json(err);
+      return sendErrorResponse(res, 404, extractErrorMessage(err), 'NOT_FOUND');
     }
 
     return res.status(200).json({ success: true, doc });

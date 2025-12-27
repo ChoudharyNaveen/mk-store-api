@@ -1,5 +1,5 @@
 const { Cart: CartService } = require('../services');
-const { handleServerError } = require('../utils/helper');
+const { handleServerError, sendErrorResponse, extractErrorMessage } = require('../utils/helper');
 
 const saveCart = async (req, res) => {
   try {
@@ -14,7 +14,7 @@ const saveCart = async (req, res) => {
       return res.status(201).json({ success: true, doc, message: 'successfully added' });
     }
 
-    return res.status(400).json(err);
+    return sendErrorResponse(res, 400, extractErrorMessage(err), 'VALIDATION_ERROR');
   } catch (error) {
     console.log(error);
 
@@ -46,7 +46,7 @@ const deleteCart = async (req, res) => {
       return res.status(200).json({ success: true, message: 'successfully deleted' });
     }
 
-    return res.status(400).json(errors);
+    return sendErrorResponse(res, 400, extractErrorMessage(errors), 'VALIDATION_ERROR');
   } catch (error) {
     return handleServerError(error, req, res);
   }
@@ -68,7 +68,7 @@ const updateCart = async (req, res) => {
     }
 
     if (concurrencyError) {
-      return res.status(409).json({ success: false, message: 'Concurrency error' });
+      return sendErrorResponse(res, 409, 'Concurrency error', 'CONCURRENCY_ERROR');
     }
     if (doc) {
       const { concurrencyStamp: stamp } = doc;
@@ -79,7 +79,7 @@ const updateCart = async (req, res) => {
       return res.status(200).json({ success: true, message: 'successfully updated' });
     }
 
-    return res.status(400).json(err);
+    return sendErrorResponse(res, 400, extractErrorMessage(err), 'VALIDATION_ERROR');
   } catch (error) {
     console.log(error);
 

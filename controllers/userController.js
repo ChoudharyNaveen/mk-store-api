@@ -4,7 +4,7 @@ const { User: UserService } = require('../services');
 const config = require('../config/index');
 const Helper = require('../utils/helper');
 
-const { handleServerError } = Helper;
+const { handleServerError, sendErrorResponse, extractErrorMessage } = Helper;
 const { user_roles_mappings: UserRolesMappingModel, role: RoleModel } = require('../database');
 
 // Create Super Admin
@@ -26,7 +26,7 @@ const createSuperAdmin = async (req, res) => {
       });
     }
 
-    return res.status(400).json({ error: err });
+    return sendErrorResponse(res, 400, extractErrorMessage(err), 'VALIDATION_ERROR');
   } catch (error) {
     return handleServerError(error, req, res);
   }
@@ -38,36 +38,28 @@ const authLogin = async (req, res) => {
     const { email, password } = req.body;
 
     if (!email || !password) {
-      return res.status(400).json({
-        errors: [ { message: 'Email and password are required', name: 'validation' } ],
-      });
+      return sendErrorResponse(res, 400, 'Email and password are required', 'VALIDATION_ERROR');
     }
 
     // Find user by email
     const user = await UserService.findUserByEmail({ email });
 
     if (!user) {
-      return res.status(401).json({
-        errors: [ { message: 'User not found. Please sign up first.', name: 'user' } ],
-      });
+      return sendErrorResponse(res, 401, 'User not found. Please sign up first.', 'AUTHENTICATION_FAILED');
     }
 
     const userData = Helper.convertSnakeToCamel(user.dataValues);
 
     // Check if user has password
     if (!userData.password) {
-      return res.status(401).json({
-        errors: [ { message: 'Invalid credentials', name: 'password' } ],
-      });
+      return sendErrorResponse(res, 401, 'Invalid credentials', 'AUTHENTICATION_FAILED');
     }
 
     // Verify password
     const passwordMatch = await bcrypt.compare(password, userData.password);
 
     if (!passwordMatch) {
-      return res.status(401).json({
-        errors: [ { message: 'Invalid credentials', name: 'password' } ],
-      });
+      return sendErrorResponse(res, 401, 'Invalid credentials', 'AUTHENTICATION_FAILED');
     }
 
     // Get role mappings and role information
@@ -138,7 +130,7 @@ const createVendorAdmin = async (req, res) => {
       return res.status(201).json({ success: true, message: 'Vendor admin created successfully', doc });
     }
 
-    return res.status(400).json({ error: err });
+    return sendErrorResponse(res, 400, extractErrorMessage(err), 'VALIDATION_ERROR');
   } catch (error) {
     return handleServerError(error, req, res);
   }
@@ -157,7 +149,7 @@ const updateUser = async (req, res) => {
     } = await UserService.updateUser({ data, imageFile });
 
     if (concurrencyError) {
-      return res.status(409).json({ success: false, message: 'Concurrency error' });
+      return sendErrorResponse(res, 409, 'Concurrency error', 'CONCURRENCY_ERROR');
     }
     if (doc) {
       const { concurrencyStamp: stamp } = doc;
@@ -168,7 +160,7 @@ const updateUser = async (req, res) => {
       return res.status(200).json({ success: true, message: 'successfully updated' });
     }
 
-    return res.status(400).json(err);
+    return sendErrorResponse(res, 400, extractErrorMessage(err), 'VALIDATION_ERROR');
   } catch (error) {
     return handleServerError(error, req, res);
   }
@@ -189,7 +181,31 @@ const convertUserToRider = async (req, res) => {
       });
     }
 
-    return res.status(400).json({ error: err });
+    return sendErrorResponse(res, 400, extractErrorMessage(err), 'VALIDATION_ERROR');
+  } catch (error) {
+    return handleServerError(error, req, res);
+  }
+};
+
+// Get User Profile
+const getUserProfile = async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    if (!userId) {
+      return sendErrorResponse(res, 401, 'User ID not found in token', 'AUTHENTICATION_FAILED');
+    }
+
+    const { errors: err, doc } = await UserService.getUserProfile({ id: userId });
+
+    if (err) {
+      return sendErrorResponse(res, 404, extractErrorMessage(err), 'NOT_FOUND');
+    }
+
+    return res.status(200).json({
+      success: true,
+      doc,
+    });
   } catch (error) {
     return handleServerError(error, req, res);
   }
@@ -201,4 +217,5 @@ module.exports = {
   createVendorAdmin,
   updateUser,
   convertUserToRider,
+  getUserProfile,
 };

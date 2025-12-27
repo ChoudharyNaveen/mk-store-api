@@ -1,5 +1,5 @@
 const { Wishlist: WishlistService } = require('../services');
-const { handleServerError } = require('../utils/helper');
+const { handleServerError, sendErrorResponse, extractErrorMessage } = require('../utils/helper');
 
 const saveWishlist = async (req, res) => {
   try {
@@ -14,7 +14,7 @@ const saveWishlist = async (req, res) => {
       return res.status(201).json({ success: true, message: 'successfully added' });
     }
 
-    return res.status(400).json(err);
+    return sendErrorResponse(res, 400, extractErrorMessage(err), 'VALIDATION_ERROR');
   } catch (error) {
     console.log(error);
 
@@ -46,7 +46,7 @@ const deleteWishlist = async (req, res) => {
       return res.status(200).json({ success: true, message: 'successfully deleted' });
     }
 
-    return res.status(400).json(errors);
+    return sendErrorResponse(res, 400, extractErrorMessage(errors), 'VALIDATION_ERROR');
   } catch (error) {
     return handleServerError(error, req, res);
   }

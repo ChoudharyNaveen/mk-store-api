@@ -151,6 +151,54 @@ const getUserById = async (payload) => {
   return { errors: { message: 'User not found' } };
 };
 
+// Get user profile (includes role and vendor information)
+const getUserProfile = async (payload) => {
+  const { id } = payload;
+
+  const user = await UserModel.findOne({
+    where: { id },
+    attributes: [ 'id', 'name', 'mobile_number', 'email', 'date_of_birth', 'gender', 'status', 'profile_status', 'image', 'created_at', 'updated_at' ],
+  });
+
+  if (!user) {
+    return { errors: { message: 'User not found' } };
+  }
+
+  const userData = convertSnakeToCamel(user.dataValues);
+
+  // Get role mappings and role information
+  const roleMappings = await UserRolesMappingModel.findAll({
+    where: {
+      user_id: id,
+      status: 'ACTIVE',
+    },
+    include: [
+      {
+        model: RoleModel,
+        as: 'role',
+      },
+    ],
+  });
+
+  // Extract role and vendor information
+  const roleMapping = roleMappings && roleMappings[0];
+  const roleData = roleMapping && roleMapping.role
+    ? convertSnakeToCamel(roleMapping.role.dataValues)
+    : null;
+  const mappingData = roleMapping
+    ? convertSnakeToCamel(roleMapping.dataValues)
+    : null;
+
+  // Prepare user profile response
+  const profile = {
+    ...userData,
+    roleName: roleData ? roleData.name : null,
+    vendorId: mappingData ? mappingData.vendorId : null,
+  };
+
+  return { doc: profile };
+};
+
 // Create Vendor Admin
 const createVendorAdmin = async ({ data, imageFile }) => {
   let transaction = null;
@@ -444,6 +492,7 @@ module.exports = {
   createSuperAdmin,
   findUserByEmail,
   getUserById,
+  getUserProfile,
   createVendorAdmin,
   updateUser,
   convertUserToRider,
