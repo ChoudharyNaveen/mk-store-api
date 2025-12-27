@@ -59,3 +59,5 @@ async function dropAllTables() {
 
 dropAllTables();
 
+
+

@@ -454,6 +454,73 @@ const handleServerError = (error, req, res) => {
   });
 };
 
+/**
+ * Execute a function within a database transaction
+ * Handles transaction creation, commit, and rollback automatically
+ * @param {Object} sequelize - Sequelize instance
+ * @param {Function} callback - Async function that receives transaction as parameter
+ * @returns {Promise} Result of the callback function
+ */
+const withTransaction = async (sequelize, callback) => {
+  const transaction = await sequelize.transaction();
+
+  try {
+    const result = await callback(transaction);
+    await transaction.commit();
+    return result;
+  } catch (error) {
+    await transaction.rollback();
+    throw error;
+  }
+};
+
+/**
+ * Update entity with concurrency stamp validation
+ * Common pattern for optimistic locking
+ * @param {Object} Model - Sequelize model
+ * @param {string} id - Entity ID
+ * @param {Object} updateData - Data to update (should include concurrencyStamp and updatedBy)
+ * @param {Object} options - Options object with transaction
+ * @returns {Promise<Object>} Result object with success status and concurrencyStamp or error
+ */
+const updateWithConcurrencyStamp = async (Model, id, updateData, options = {}) => {
+  const { transaction, ...queryOptions } = options;
+  const { concurrencyStamp, updatedBy } = updateData;
+
+  const entity = await Model.findOne({
+    where: { id },
+    attributes: ['id', 'concurrency_stamp'],
+    transaction,
+    ...queryOptions,
+  });
+
+  if (!entity) {
+    return { success: false, error: 'Entity not found' };
+  }
+
+  const { concurrency_stamp: stamp } = entity;
+
+  if (concurrencyStamp !== stamp) {
+    return { success: false, error: 'invalid concurrency stamp' };
+  }
+
+  const { v4: uuidV4 } = require('uuid');
+  const newConcurrencyStamp = uuidV4();
+  const doc = {
+    ...convertCamelToSnake(updateData),
+    updated_by: updatedBy,
+    concurrency_stamp: newConcurrencyStamp,
+  };
+
+  await Model.update(doc, {
+    where: { id },
+    transaction,
+    ...queryOptions,
+  });
+
+  return { success: true, concurrencyStamp: newConcurrencyStamp };
+};
+
 module.exports = {
   convertCamelObjectToSnake,
   convertCamelToSnake,
@@ -474,4 +541,6 @@ module.exports = {
   langugeProcessingSingle,
   calculatePagination,
   handleServerError,
+  withTransaction,
+  updateWithConcurrencyStamp,
 };

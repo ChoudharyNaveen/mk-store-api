@@ -4,107 +4,99 @@ const {
   user: UserModel,
   sequelize,
 } = require('../database');
-const Helper = require('../utils/helper');
+const {
+  withTransaction,
+  convertCamelToSnake,
+  calculatePagination,
+  generateWhereCondition,
+  generateOrderCondition,
+} = require('../utils/helper');
 
-const saveAddress = async (data) => {
-  let transaction = null;
+const saveAddress = async (data) => withTransaction(sequelize, async (transaction) => {
+  const { createdBy, ...datas } = data;
 
-  try {
-    const { createdBy, ...datas } = data;
+  const concurrencyStamp = uuidV4();
 
-    transaction = await sequelize.transaction();
-    const concurrencyStamp = uuidV4();
+  const doc = {
+    ...datas,
+    concurrencyStamp,
+    createdBy,
+  };
+  const cat = await AddressModel.create(convertCamelToSnake(doc), {
+    transaction,
+  });
 
-    const doc = {
-      ...datas,
-      concurrencyStamp,
-      createdBy,
-    };
-    const cat = await AddressModel.create(Helper.convertCamelToSnake(doc), {
-      transaction,
-    });
+  return { doc: { cat } };
+}).catch((error) => {
+  console.log(error);
 
-    await transaction.commit();
+  return { errors: { message: 'failed to save address' } };
+});
 
-    return { doc: { cat } };
-  } catch (error) {
-    console.log(error);
-    if (transaction) {
-      await transaction.rollback();
-    }
-
-    return { errors: { message: 'failed to save address' } };
-  }
-};
-
-const updateAddress = async (data) => {
-  let transaction = null;
+const updateAddress = async (data) => withTransaction(sequelize, async (transaction) => {
   const { id, ...datas } = data;
   const { concurrencyStamp, updatedBy } = datas;
 
-  try {
-    transaction = await sequelize.transaction();
-    const response = await AddressModel.findOne({
-      where: { id },
-    });
+  const response = await AddressModel.findOne({
+    where: { id },
+    attributes: [ 'id', 'concurrency_stamp' ],
+    transaction,
+  });
 
-    if (response) {
-      const { concurrency_stamp: stamp } = response;
-
-      if (concurrencyStamp === stamp) {
-        const newConcurrencyStamp = uuidV4();
-        const doc = {
-          ...Helper.convertCamelToSnake(data),
-          updatedBy,
-          concurrency_stamp: newConcurrencyStamp,
-        };
-
-        await AddressModel.update(doc, {
-          where: { id },
-          transaction,
-        });
-        await transaction.commit();
-
-        return { doc: { concurrencyStamp: newConcurrencyStamp } };
-      }
-      await transaction.rollback();
-
-      return { concurrencyError: { message: 'invalid concurrency stamp' } };
-    }
-
-    return {};
-  } catch (error) {
-    console.log(error);
-    if (transaction) {
-      await transaction.rollback();
-    }
-
-    return { errors: { message: 'transaction failed' } };
+  if (!response) {
+    return { errors: { message: 'Address not found' } };
   }
-};
+
+  const { concurrency_stamp: stamp } = response;
+
+  if (concurrencyStamp !== stamp) {
+    return { concurrencyError: { message: 'invalid concurrency stamp' } };
+  }
+
+  const newConcurrencyStamp = uuidV4();
+  const doc = {
+    ...convertCamelToSnake(data),
+    updated_by: updatedBy,
+    concurrency_stamp: newConcurrencyStamp,
+  };
+
+  await AddressModel.update(doc, {
+    where: { id },
+    transaction,
+  });
+
+  return { doc: { concurrencyStamp: newConcurrencyStamp } };
+}).catch((error) => {
+  console.log(error);
+
+  return { errors: { message: 'transaction failed' } };
+});
 
 const getAddress = async (payload) => {
   const {
     pageSize, pageNumber, filters, sorting,
   } = payload;
-  const { limit, offset } = Helper.calculatePagination(pageSize, pageNumber);
+  const { limit, offset } = calculatePagination(pageSize, pageNumber);
 
-  const where = Helper.generateWhereCondition(filters);
+  const where = generateWhereCondition(filters);
   const order = sorting
-    ? Helper.generateOrderCondition(sorting)
+    ? generateOrderCondition(sorting)
     : [ [ 'createdAt', 'DESC' ] ];
 
   const response = await AddressModel.findAndCountAll({
     where: { ...where },
+    attributes: [ 'id', 'house_no', 'street_details', 'landmark', 'name', 'mobile_number', 'created_by', 'created_at', 'updated_at', 'concurrency_stamp' ],
     include: [
       {
         model: UserModel,
         as: 'user',
+        attributes: [ 'id', 'name', 'email', 'mobile_number' ],
       },
     ],
     order,
     limit,
     offset,
+    distinct: true,
   });
   const doc = [];
 

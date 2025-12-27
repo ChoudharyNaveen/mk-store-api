@@ -4,70 +4,71 @@ const {
   product: ProductModel,
   sequelize,
 } = require('../database');
-const Helper = require('../utils/helper');
+const {
+  withTransaction,
+  convertCamelToSnake,
+  calculatePagination,
+  generateWhereCondition,
+  generateOrderCondition,
+} = require('../utils/helper');
 
-const saveWishlist = async (data) => {
-  let transaction = null;
+const saveWishlist = async (data) => withTransaction(sequelize, async (transaction) => {
+  const { createdBy, productId, ...datas } = data;
 
-  try {
-    const { createdBy, productId, ...datas } = data;
+  const concurrencyStamp = uuidV4();
 
-    transaction = await sequelize.transaction();
-    const concurrencyStamp = uuidV4();
+  const isExists = await WishlistModel.findOne({
+    where: { product_id: productId, created_by: createdBy },
+    attributes: [ 'id', 'product_id' ],
+    transaction,
+  });
 
-    const isExists = await WishlistModel.findOne({
-      where: { product_id: productId },
-    });
-
-    if (isExists) {
-      return { isexists: isExists };
-    }
-
-    const doc = {
-      ...datas,
-      productId,
-      concurrencyStamp,
-      createdBy,
-    };
-    const cat = await WishlistModel.create(Helper.convertCamelToSnake(doc), {
-      transaction,
-    });
-
-    await transaction.commit();
-
-    return { doc: { cat } };
-  } catch (error) {
-    console.log(error);
-    if (transaction) {
-      await transaction.rollback();
-    }
-
-    return { errors: { message: 'failed to save wishlist' } };
+  if (isExists) {
+    return { isexists: isExists };
   }
-};
+
+  const doc = {
+    ...datas,
+    productId,
+    concurrencyStamp,
+    createdBy,
+  };
+  const cat = await WishlistModel.create(convertCamelToSnake(doc), {
+    transaction,
+  });
+
+  return { doc: { cat } };
+}).catch((error) => {
+  console.log(error);
+
+  return { errors: { message: 'failed to save wishlist' } };
+});
 
 const getWishlist = async (payload) => {
   const {
     pageSize, pageNumber, filters, sorting, createdBy,
   } = payload;
-  const { limit, offset } = Helper.calculatePagination(pageSize, pageNumber);
+  const { limit, offset } = calculatePagination(pageSize, pageNumber);
 
-  const where = Helper.generateWhereCondition(filters);
+  const where = generateWhereCondition(filters);
   const order = sorting
-    ? Helper.generateOrderCondition(sorting)
+    ? generateOrderCondition(sorting)
     : [ [ 'createdAt', 'DESC' ] ];
 
   const response = await WishlistModel.findAndCountAll({
     where: { ...where, created_by: createdBy },
+    attributes: [ 'id', 'product_id', 'created_by', 'created_at', 'updated_at', 'concurrency_stamp' ],
     include: [
       {
         model: ProductModel,
         as: 'productDetails',
+        attributes: [ 'id', 'title', 'selling_price', 'quantity', 'image', 'product_status' ],
       },
     ],
     order,
     limit,
     offset,
+    distinct: true,
   });
   const doc = [];
 

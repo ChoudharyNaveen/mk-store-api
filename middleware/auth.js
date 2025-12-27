@@ -1,5 +1,4 @@
 const jwt = require('jsonwebtoken');
-const { User: UserService } = require('../services');
 const config = require('../config/index');
 
 const isAuthenticated = async (req, res, next) => {
@@ -12,29 +11,18 @@ const isAuthenticated = async (req, res, next) => {
     } = req;
     const accessToken = authorization;
     const token = accessToken.replace('Bearer ', '');
-    const decoded = jwt.decode(token);
-    let userDetails = {};
-
-    userDetails = await UserService.getUserById({ id: decoded.id });
-    const password = userDetails.doc.password || userDetails.doc.concurrencyStamp;
-    const tokenSecret = config.jwt.token_secret + password;
+    const tokenSecret = config.jwt.token_secret;
     const verified = jwt.verify(token, tokenSecret);
 
-    req.user = userDetails.doc;
-    req.user.userId = userDetails.doc.id;
-    // Add role information from token
-    if (verified.roleName) {
-      req.user.roleName = verified.roleName;
-    }
-    if (verified.vendorId) {
-      req.user.vendorId = verified.vendorId;
-    }
+    req.user = verified;
 
     return next();
   } catch (error) {
     console.log('auth error', error);
 
-    return res.status(401).send();
+    return res.status(401).json({
+      errors: [ { message: 'Unauthorized Access', name: 'AUTHENTICATION_FAILED' } ],
+    });
   }
 };
 
@@ -43,7 +31,7 @@ const isVendorAdmin = async (req, res, next) => {
     // Ensure user is authenticated first
     if (!req.user || !req.user.userId) {
       return res.status(401).json({
-        errors: [ { message: 'Authentication required', name: 'auth' } ],
+        errors: [ { message: 'Unauthorized Access', name: 'AUTHENTICATION_FAILED' } ],
       });
     }
 
@@ -53,7 +41,7 @@ const isVendorAdmin = async (req, res, next) => {
         errors: [
           {
             message: 'Access denied. Vendor admin role required.',
-            name: 'authorization',
+            name: 'FORBIDDEN',
           },
         ],
       });
@@ -64,7 +52,7 @@ const isVendorAdmin = async (req, res, next) => {
     console.log('vendor admin auth error', error);
 
     return res.status(500).json({
-      errors: [ { message: 'Internal server error', name: 'server' } ],
+      errors: [ { message: 'Internal server error', name: 'INTERNAL_SERVER_ERROR' } ],
     });
   }
 };

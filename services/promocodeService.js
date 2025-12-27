@@ -1,6 +1,12 @@
 const { v4: uuidV4 } = require('uuid');
 const { promocode: PromocodeModel, sequelize } = require('../database');
-const Helper = require('../utils/helper');
+const {
+  withTransaction,
+  convertCamelToSnake,
+  calculatePagination,
+  generateWhereCondition,
+  generateOrderCondition,
+} = require('../utils/helper');
 
 const savePromocode = async (data) => {
   let transaction = null;
@@ -17,7 +23,7 @@ const savePromocode = async (data) => {
       createdBy,
     };
 
-    const cat = await PromocodeModel.create(Helper.convertCamelToSnake(doc), {
+    const cat = await PromocodeModel.create(convertCamelToSnake(doc), {
       transaction,
     });
 
@@ -34,61 +40,54 @@ const savePromocode = async (data) => {
   }
 };
 
-const updatePromocode = async (data) => {
-  let transaction = null;
+const updatePromocode = async (data) => withTransaction(sequelize, async (transaction) => {
   const { id, ...datas } = data;
   const { concurrencyStamp, updatedBy } = datas;
 
-  try {
-    transaction = await sequelize.transaction();
-    const response = await PromocodeModel.findOne({
-      where: { id },
-    });
+  const response = await PromocodeModel.findOne({
+    where: { id },
+    attributes: [ 'id', 'concurrency_stamp' ],
+    transaction,
+  });
 
-    if (response) {
-      const { concurrency_stamp: stamp } = response;
-
-      if (concurrencyStamp === stamp) {
-        const newConcurrencyStamp = uuidV4();
-        const doc = {
-          ...Helper.convertCamelToSnake(data),
-          updatedBy,
-          concurrency_stamp: newConcurrencyStamp,
-        };
-
-        await PromocodeModel.update(doc, {
-          where: { id },
-          transaction,
-        });
-        await transaction.commit();
-
-        return { doc: { concurrencyStamp: newConcurrencyStamp } };
-      }
-      await transaction.rollback();
-
-      return { concurrencyError: { message: 'invalid concurrency stamp' } };
-    }
-
-    return {};
-  } catch (error) {
-    console.log(error);
-    if (transaction) {
-      await transaction.rollback();
-    }
-
-    return { errors: { message: 'transaction failed' } };
+  if (!response) {
+    return { errors: { message: 'Promocode not found' } };
   }
-};
+
+  const { concurrency_stamp: stamp } = response;
+
+  if (concurrencyStamp !== stamp) {
+    return { concurrencyError: { message: 'invalid concurrency stamp' } };
+  }
+
+  const newConcurrencyStamp = uuidV4();
+  const doc = {
+    ...convertCamelToSnake(data),
+    updated_by: updatedBy,
+    concurrency_stamp: newConcurrencyStamp,
+  };
+
+  await PromocodeModel.update(doc, {
+    where: { id },
+    transaction,
+  });
+
+  return { doc: { concurrencyStamp: newConcurrencyStamp } };
+}).catch((error) => {
+  console.log(error);
+
+  return { errors: { message: 'transaction failed' } };
+});
 
 const getPromocode = async (payload) => {
   const {
     pageSize, pageNumber, filters, sorting,
   } = payload;
-  const { limit, offset } = Helper.calculatePagination(pageSize, pageNumber);
+  const { limit, offset } = calculatePagination(pageSize, pageNumber);
 
-  const where = Helper.generateWhereCondition(filters);
+  const where = generateWhereCondition(filters);
   const order = sorting
-    ? Helper.generateOrderCondition(sorting)
+    ? generateOrderCondition(sorting)
     : [ [ 'createdAt', 'DESC' ] ];
 
   const response = await PromocodeModel.findAndCountAll({

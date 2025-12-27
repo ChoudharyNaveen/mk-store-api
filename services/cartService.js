@@ -5,74 +5,76 @@ const {
   product: ProductModel,
   sequelize,
 } = require('../database');
-const Helper = require('../utils/helper');
+const {
+  withTransaction,
+  convertCamelToSnake,
+  calculatePagination,
+  generateWhereCondition,
+  generateOrderCondition,
+} = require('../utils/helper');
 
-const saveCart = async (data) => {
-  let transaction = null;
+const saveCart = async (data) => withTransaction(sequelize, async (transaction) => {
+  const { createdBy, productId, ...datas } = data;
 
-  try {
-    const { createdBy, productId, ...datas } = data;
+  const concurrencyStamp = uuidV4();
 
-    transaction = await sequelize.transaction();
-    const concurrencyStamp = uuidV4();
+  const isExists = await CartModel.findOne({
+    where: { product_id: productId, created_by: createdBy },
+    attributes: [ 'id', 'product_id', 'quantity' ],
+    transaction,
+  });
 
-    const isExists = await CartModel.findOne({
-      where: { product_id: productId },
-    });
-
-    if (isExists) {
-      return { isexists: isExists };
-    }
-
-    const doc = {
-      ...datas,
-      productId,
-      concurrencyStamp,
-      createdBy,
-    };
-    const cat = await CartModel.create(Helper.convertCamelToSnake(doc), {
-      transaction,
-    });
-
-    await transaction.commit();
-
-    return { doc: { cat } };
-  } catch (error) {
-    console.log(error);
-    if (transaction) {
-      await transaction.rollback();
-    }
-
-    return { errors: { message: 'failed to save cart' } };
+  if (isExists) {
+    return { isexists: isExists };
   }
-};
+
+  const doc = {
+    ...datas,
+    productId,
+    concurrencyStamp,
+    createdBy,
+  };
+  const cat = await CartModel.create(convertCamelToSnake(doc), {
+    transaction,
+  });
+
+  return { doc: { cat } };
+}).catch((error) => {
+  console.log(error);
+
+  return { errors: { message: 'failed to save cart' } };
+});
 
 const getCartOfUser = async (payload) => {
   const {
     pageSize, pageNumber, filters, sorting,
   } = payload;
-  const { limit, offset } = Helper.calculatePagination(pageSize, pageNumber);
+  const { limit, offset } = calculatePagination(pageSize, pageNumber);
 
-  const where = Helper.generateWhereCondition(filters);
+  const where = generateWhereCondition(filters);
   const order = sorting
-    ? Helper.generateOrderCondition(sorting)
+    ? generateOrderCondition(sorting)
     : [ [ 'createdAt', 'DESC' ] ];
 
   const response = await CartModel.findAndCountAll({
     where: { ...where, status: 'ACTIVE' },
+    attributes: [ 'id', 'product_id', 'quantity', 'status', 'created_by', 'created_at', 'updated_at', 'concurrency_stamp' ],
     include: [
       {
         model: ProductModel,
         as: 'productDetails',
+        attributes: [ 'id', 'title', 'selling_price', 'quantity', 'image', 'product_status' ],
       },
       {
         model: UserModel,
         as: 'user',
+        attributes: [ 'id', 'name', 'email', 'mobile_number' ],
       },
     ],
     order,
     limit,
     offset,
+    distinct: true,
   });
   const doc = [];
 
@@ -101,58 +103,53 @@ const deleteCart = async (cartId) => {
   }
 };
 
-const updateCart = async (data) => {
-  let transaction = null;
+const updateCart = async (data) => withTransaction(sequelize, async (transaction) => {
   const { id, quantity, ...datas } = data;
   const { concurrencyStamp, updatedBy } = datas;
 
-  try {
-    transaction = await sequelize.transaction();
-    const response = await CartModel.findOne({
+  const response = await CartModel.findOne({
+    where: { id },
+    attributes: [ 'id', 'concurrency_stamp' ],
+    transaction,
+  });
+
+  if (!response) {
+    return { errors: { message: 'Cart item not found' } };
+  }
+
+  if (quantity === 0) {
+    await CartModel.destroy({
       where: { id },
+      transaction,
     });
 
-    if (response) {
-      if (quantity === 0) {
-        await CartModel.destroy({
-          where: { id },
-        });
-
-        return { cartZero: 'item removed from cart' };
-      }
-      const { concurrency_stamp: stamp } = response;
-
-      if (concurrencyStamp === stamp) {
-        const newConcurrencyStamp = uuidV4();
-        const doc = {
-          ...Helper.convertCamelToSnake(data),
-          updatedBy,
-          concurrency_stamp: newConcurrencyStamp,
-        };
-
-        await CartModel.update(doc, {
-          where: { id },
-          transaction,
-        });
-        await transaction.commit();
-
-        return { doc: { concurrencyStamp: newConcurrencyStamp } };
-      }
-      await transaction.rollback();
-
-      return { concurrencyError: { message: 'invalid concurrency stamp' } };
-    }
-
-    return {};
-  } catch (error) {
-    console.log(error);
-    if (transaction) {
-      await transaction.rollback();
-    }
-
-    return { errors: { message: 'transaction failed' } };
+    return { cartZero: 'item removed from cart' };
   }
-};
+
+  const { concurrency_stamp: stamp } = response;
+
+  if (concurrencyStamp !== stamp) {
+    return { concurrencyError: { message: 'invalid concurrency stamp' } };
+  }
+
+  const newConcurrencyStamp = uuidV4();
+  const doc = {
+    ...convertCamelToSnake(data),
+    updated_by: updatedBy,
+    concurrency_stamp: newConcurrencyStamp,
+  };
+
+  await CartModel.update(doc, {
+    where: { id },
+    transaction,
+  });
+
+  return { doc: { concurrencyStamp: newConcurrencyStamp } };
+}).catch((error) => {
+  console.log(error);
+
+  return { errors: { message: 'transaction failed' } };
+});
 
 module.exports = {
   saveCart,

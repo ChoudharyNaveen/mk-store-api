@@ -106,10 +106,9 @@ const authLogin = async (req, res) => {
     };
 
     // Generate JWT token (same as verifyOtpSms)
-    const passwordForToken = userData.password || userData.concurrencyStamp;
-    const tokenSecret = config.jwt.token_secret + passwordForToken;
+    const tokenSecret = config.jwt.token_secret;
 
-    const token = jwt.sign(userData, tokenSecret, {
+    const token = jwt.sign(userResponse, tokenSecret, {
       expiresIn: config.jwt.token_life,
     });
 

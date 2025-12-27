@@ -1,7 +1,5 @@
 const { v4: uuidV4 } = require('uuid');
-const {
-  Op, fn, col,
-} = require('sequelize');
+const { fn, col } = require('sequelize');
 const {
   order: OrderModel,
   cart: CartModel,
@@ -13,281 +11,295 @@ const {
   role: RoleModel,
   branch: BranchModel,
   sequelize,
+  Sequelize: { Op },
 } = require('../database');
-const Helper = require('../utils/helper');
+const {
+  withTransaction,
+  convertCamelToSnake,
+  calculatePagination,
+  generateWhereCondition,
+  generateOrderCondition,
+} = require('../utils/helper');
 
-const placeOrder = async (data) => {
-  let transaction = null;
+const placeOrder = async (data) => withTransaction(sequelize, async (transaction) => {
+  const {
+    createdBy,
+    branchId,
+    houseNo,
+    streetDetails,
+    landmark,
+    name,
+    mobileNumber,
+    offerCode,
+  } = data;
 
-  try {
-    const {
-      createdBy,
-      branchId,
+  // Verify branch exists
+  if (!branchId) {
+    return { error: 'branchId is required' };
+  }
+
+  const branch = await BranchModel.findOne({
+    where: { id: branchId },
+    attributes: [ 'id', 'vendor_id' ],
+    transaction,
+  });
+
+  if (!branch) {
+    return { error: 'Branch not found' };
+  }
+
+  const cartItems = await CartModel.findAll({
+    where: {
+      created_by: createdBy,
+      status: 'ACTIVE',
+    },
+    attributes: [ 'id', 'product_id', 'quantity', 'created_by' ],
+    include: [
+      {
+        model: ProductModel,
+        as: 'productDetails',
+        attributes: [ 'id', 'title', 'selling_price', 'quantity', 'concurrency_stamp' ],
+      },
+    ],
+    transaction,
+  });
+
+  if (cartItems.length === 0) {
+    return { error: 'no item in the cart' };
+  }
+
+  // Fetch all products in parallel for validation and quantity checks
+  const productIds = cartItems.map((item) => item.product_id);
+  const products = await ProductModel.findAll({
+    where: { id: { [Op.in]: productIds } },
+    attributes: [ 'id', 'title', 'quantity', 'concurrency_stamp' ],
+    transaction,
+  });
+
+  const productMap = new Map(products.map((p) => [ p.id, p ]));
+
+  // calculate total amount and validate quantities
+  let totalAmount = 0;
+  const validationResults = cartItems.map((item) => {
+    const price = item.productDetails.selling_price;
+    const { quantity } = item;
+    const subtotal = price * quantity;
+    const product = productMap.get(item.product_id);
+
+    if (!product) {
+      return {
+        error: `Product with id ${item.product_id} not found`,
+      };
+    }
+
+    if (quantity > product.quantity) {
+      return {
+        error: `we apologize for the inconvenience, quantity for the ${product.title} is left with only ${product.quantity}.
+          please try with lower quantity`,
+      };
+    }
+
+    return {
+      orderItem: {
+        product_id: item.product_id,
+        quantity,
+        price_at_purchase: price,
+        product_quantity: product.quantity,
+        product_concurrency_stamp: product.concurrency_stamp,
+      },
+      subtotal,
+    };
+  });
+
+  // Early exit on first validation error
+  const errorResult = validationResults.find((result) => result?.error);
+
+  if (errorResult) {
+    return { error: errorResult.error };
+  }
+
+  const orderItemsData = validationResults.map((result) => result?.orderItem);
+
+  totalAmount += validationResults.reduce((sum, result) => sum + (result?.subtotal || 0), 0);
+
+  // Update all product quantities in parallel
+  await Promise.all(orderItemsData.map(async (itemData) => {
+    const productQuanityRemaining = itemData.product_quantity - itemData.quantity;
+
+    await ProductModel.update(
+      { quantity: productQuanityRemaining, concurrency_stamp: uuidV4() },
+      {
+        where: { id: itemData.product_id },
+        transaction,
+      },
+    );
+  }));
+
+  // offer application
+  if (offerCode) {
+    const offer = await OfferModel.findOne({
+      where: {
+        code: offerCode,
+        status: 'ACTIVE',
+      },
+      attributes: [ 'id', 'code', 'percentage', 'min_order_price', 'start_date', 'end_date' ],
+      transaction,
+    });
+
+    const currentDate = new Date();
+
+    if (offer) {
+      if (
+        currentDate >= new Date(offer.start_date)
+          && currentDate <= new Date(offer.end_date)
+      ) {
+        if (totalAmount >= offer.min_order_price) {
+          const discount = totalAmount * (offer.percentage / 100);
+
+          totalAmount -= discount;
+        } else {
+          return {
+            error: `Order amount must be atleast ₹${offer.min_order_price} to use this offer`,
+          };
+        }
+      } else {
+        return { error: 'This offer is not valid at the moment.' };
+      }
+    } else {
+      return { error: 'Invalid offer code.' };
+    }
+  }
+
+  // create address
+  if (houseNo && streetDetails && landmark && name && mobileNumber) {
+    const addressConcurrencyStamp = uuidV4();
+
+    const doc = {
+      concurrencyStamp: addressConcurrencyStamp,
       houseNo,
       streetDetails,
       landmark,
       name,
       mobileNumber,
-      offerCode,
-    } = data;
-
-    transaction = await sequelize.transaction();
-
-    // Verify branch exists
-    if (!branchId) {
-      await transaction.rollback();
-
-      return { error: 'branchId is required' };
-    }
-
-    const branch = await BranchModel.findOne({
-      where: { id: branchId },
-    });
-
-    if (!branch) {
-      await transaction.rollback();
-
-      return { error: 'Branch not found' };
-    }
-
-    const cartItems = await CartModel.findAll({
-      where: {
-        created_by: createdBy,
-        status: 'ACTIVE',
-      },
-      include: [
-        {
-          model: ProductModel,
-          as: 'productDetails',
-        },
-      ],
-    });
-
-    if (cartItems.length === 0) {
-      await transaction.rollback();
-
-      return { error: 'no item in the cart' };
-    }
-
-    // calculate total amount
-    let totalAmount = 0;
-    const orderItemsData = [];
-
-    const productUpdateResults = await Promise.all(cartItems.map(async (item) => {
-      const price = item.productDetails.selling_price;
-      const { quantity } = item;
-      const subtotal = price * quantity;
-
-      totalAmount += subtotal;
-
-      const product = await ProductModel.findOne({
-        where: { id: item.product_id },
-        transaction,
-      });
-
-      if (!product) {
-        return {
-          error: `Product with id ${item.product_id} not found`,
-        };
-      }
-
-      if (quantity > product.dataValues.quantity) {
-        return {
-          error: `we apologize for the inconvinence, quantity for the ${product.dataValues.title} is left with only ${product.dataValues.quantity}. 
-          please try with lower quantity`,
-        };
-      }
-
-      const productQuanityRemaining = product.dataValues.quantity - quantity;
-
-      await ProductModel.update(
-        { quantity: productQuanityRemaining, concurrency_stamp: uuidV4() },
-        {
-          where: { id: product.id },
-          transaction,
-        },
-      );
-
-      orderItemsData.push({
-        product_id: item.product_id,
-        quantity,
-        price_at_purchase: price,
-      });
-
-      return { success: true, message: 'Product quantity updated successfully' };
-    }));
-
-    // Check for errors in product updates
-    const errorResult = productUpdateResults.find((result) => result?.error);
-
-    if (errorResult) {
-      await transaction.rollback();
-
-      return errorResult;
-    }
-
-    // offer application
-    if (offerCode) {
-      const offer = await OfferModel.findOne({
-        where: {
-          code: offerCode,
-          status: 'ACTIVE',
-        },
-        transaction,
-      });
-
-      const currentDate = new Date();
-
-      if (offer) {
-        if (
-          currentDate >= new Date(offer.dataValues.start_date)
-          && currentDate <= new Date(offer.dataValues.end_date)
-        ) {
-          if (totalAmount >= offer.dataValues.min_order_price) {
-            const discount = totalAmount * (offer.dataValues.percentage / 100);
-
-            totalAmount -= discount;
-          } else {
-            await transaction.rollback();
-
-            return {
-              error: `Order amount must be atleast ₹${offer.dataValues.min_order_price} to use this offer`,
-            };
-          }
-        } else {
-          await transaction.rollback();
-
-          return { error: 'This offer is not valid at the moment.' };
-        }
-      } else {
-        await transaction.rollback();
-
-        return { error: 'Invalid offer code.' };
-      }
-    }
-
-    // create address
-    if (houseNo && streetDetails && landmark && name && mobileNumber) {
-      const addressConcurrencyStamp = uuidV4();
-
-      const doc = {
-        concurrencyStamp: addressConcurrencyStamp,
-        houseNo,
-        streetDetails,
-        landmark,
-        name,
-        mobileNumber,
-        createdBy,
-      };
-
-      await AddressModel.create(Helper.convertCamelToSnake(doc), {
-        transaction,
-      });
-    }
-
-    const address = await AddressModel.findOne({
-      where: { created_by: createdBy },
-      transaction,
-      order: [ [ 'created_at', 'DESC' ] ],
-    });
-
-    if (!address) {
-      await transaction.rollback();
-
-      return { error: 'Address not found. Please provide address details.' };
-    }
-
-    // create order
-    const orderConcurrencyStamp = uuidV4();
-
-    const orderDoc = {
-      totalAmount,
-      addressId: address.id,
-      branchId,
-      status: 'PENDING',
-      paymentStatus: 'UNPAID',
-      concurrencyStamp: orderConcurrencyStamp,
       createdBy,
     };
 
-    const newOrder = await OrderModel.create(
-      Helper.convertCamelToSnake(orderDoc),
-      {
-        transaction,
-      },
-    );
-
-    // create order item
-    await Promise.all(orderItemsData.map(async (item) => {
-      const itemDoc = {
-        concurrencyStamp: uuidV4(),
-        orderId: newOrder.id,
-        productId: item.product_id,
-        quantity: item.quantity,
-        priceAtPurchase: item.price_at_purchase,
-        createdBy,
-      };
-
-      await OrderItemModel.create(Helper.convertCamelToSnake(itemDoc), {
-        transaction,
-      });
-    }));
-
-    // deleting cart
-    if (newOrder) {
-      await CartModel.destroy({
-        where: {
-          created_by: createdBy,
-          status: 'ACTIVE',
-        },
-        transaction,
-      });
-    }
-
-    await transaction.commit();
-
-    return {
-      doc: {
-        order_id: newOrder.id,
-        total_amount: newOrder.total_amount,
-        item_count: orderItemsData.length,
-      },
-    };
-  } catch (error) {
-    if (transaction) {
-      await transaction.rollback();
-    }
-
-    return { error };
+    await AddressModel.create(convertCamelToSnake(doc), {
+      transaction,
+    });
   }
-};
+
+  const address = await AddressModel.findOne({
+    where: { created_by: createdBy },
+    attributes: [ 'id', 'created_by' ],
+    transaction,
+    order: [ [ 'created_at', 'DESC' ] ],
+  });
+
+  if (!address) {
+    return { error: 'Address not found. Please provide address details.' };
+  }
+
+  // create order
+  const orderConcurrencyStamp = uuidV4();
+
+  const orderDoc = {
+    totalAmount,
+    addressId: address.id,
+    branchId,
+    status: 'PENDING',
+    paymentStatus: 'UNPAID',
+    concurrencyStamp: orderConcurrencyStamp,
+    createdBy,
+  };
+
+  const newOrder = await OrderModel.create(
+    convertCamelToSnake(orderDoc),
+    {
+      transaction,
+    },
+  );
+
+  // create order items in parallel
+  await Promise.all(orderItemsData.map(async (item) => {
+    const itemDoc = {
+      concurrencyStamp: uuidV4(),
+      orderId: newOrder.id,
+      productId: item.product_id,
+      quantity: item.quantity,
+      priceAtPurchase: item.price_at_purchase,
+      createdBy,
+    };
+
+    await OrderItemModel.create(convertCamelToSnake(itemDoc), {
+      transaction,
+    });
+  }));
+
+  // deleting cart
+  await CartModel.destroy({
+    where: {
+      created_by: createdBy,
+      status: 'ACTIVE',
+    },
+    transaction,
+  });
+
+  return {
+    doc: {
+      order_id: newOrder.id,
+      total_amount: newOrder.total_amount,
+      item_count: orderItemsData.length,
+    },
+  };
+}).catch((error) => {
+  console.log(error);
+
+  return { error };
+});
 
 const getOrder = async (payload) => {
   const {
     pageSize, pageNumber, filters, sorting,
   } = payload;
-  const { limit, offset } = Helper.calculatePagination(pageSize, pageNumber);
+  const { limit, offset } = calculatePagination(pageSize, pageNumber);
 
-  const where = Helper.generateWhereCondition(filters);
+  const where = generateWhereCondition(filters);
   const order = sorting
-    ? Helper.generateOrderCondition(sorting)
+    ? generateOrderCondition(sorting)
     : [ [ 'createdAt', 'DESC' ] ];
 
   const response = await OrderModel.findAndCountAll({
     where: { ...where },
+    attributes: [
+      'id',
+      'total_amount',
+      'status',
+      'payment_status',
+      'rider_id',
+      'branch_id',
+      'address_id',
+      'created_by',
+      'created_at',
+      'updated_at',
+      'concurrency_stamp',
+    ],
     include: [
       {
         model: AddressModel,
         as: 'address',
+        attributes: [ 'id', 'house_no', 'street_details', 'landmark', 'name', 'mobile_number' ],
       },
       {
         model: UserModel,
         as: 'user',
+        attributes: [ 'id', 'name', 'email', 'mobile_number' ],
       },
     ],
     order,
     limit,
     offset,
+    distinct: true,
   });
   const doc = [];
 
@@ -349,66 +361,64 @@ const getStatsOfOrdersCompleted = async () => {
   }
 };
 
-const updateOrder = async (data) => {
-  let transaction = null;
+const updateOrder = async (data) => withTransaction(sequelize, async (transaction) => {
   const { id, ...datas } = data;
   const { concurrencyStamp, updatedBy } = datas;
 
-  try {
-    transaction = await sequelize.transaction();
-    const response = await OrderModel.findOne({
+  const [ response, riderExist ] = await Promise.all([
+    OrderModel.findOne({
       where: { id },
+      attributes: [ 'id', 'concurrency_stamp' ],
       transaction,
-    });
+    }),
+    UserModel.findOne({
+      where: { id: updatedBy },
+      attributes: [ 'id' ],
+      include: [
+        {
+          model: RoleModel,
+          as: 'role',
+          attributes: [ 'id', 'name' ],
+        },
+      ],
+      transaction,
+    }),
+  ]);
 
-    if (response) {
-      const riderExist = await UserModel.findOne({
-        where: { id: updatedBy },
-        include: [
-          {
-            model: RoleModel, as: 'role',
-          },
-        ],
-        transaction,
-      });
-      const modifiedData = { ...data };
-
-      if (riderExist?.dataValues?.role?.dataValues?.name === 'RIDER') {
-        modifiedData.riderId = updatedBy;
-      }
-      const { concurrency_stamp: stamp } = response;
-
-      if (concurrencyStamp === stamp) {
-        const newConcurrencyStamp = uuidV4();
-        const doc = {
-          ...Helper.convertCamelToSnake(modifiedData),
-          updatedBy,
-          concurrency_stamp: newConcurrencyStamp,
-        };
-
-        await OrderModel.update(doc, {
-          where: { id },
-          transaction,
-        });
-        await transaction.commit();
-
-        return { doc: { concurrencyStamp: newConcurrencyStamp } };
-      }
-      await transaction.rollback();
-
-      return { concurrencyError: { message: 'invalid concurrency stamp' } };
-    }
-
-    return {};
-  } catch (error) {
-    console.log(error);
-    if (transaction) {
-      await transaction.rollback();
-    }
-
-    return { errors: { message: 'transaction failed' } };
+  if (!response) {
+    return { errors: { message: 'Order not found' } };
   }
-};
+
+  const modifiedData = { ...data };
+
+  if (riderExist?.role?.name === 'RIDER') {
+    modifiedData.riderId = updatedBy;
+  }
+
+  const { concurrency_stamp: stamp } = response;
+
+  if (concurrencyStamp !== stamp) {
+    return { concurrencyError: { message: 'invalid concurrency stamp' } };
+  }
+
+  const newConcurrencyStamp = uuidV4();
+  const doc = {
+    ...convertCamelToSnake(modifiedData),
+    updated_by: updatedBy,
+    concurrency_stamp: newConcurrencyStamp,
+  };
+
+  await OrderModel.update(doc, {
+    where: { id },
+    transaction,
+  });
+
+  return { doc: { concurrencyStamp: newConcurrencyStamp } };
+}).catch((error) => {
+  console.log(error);
+
+  return { errors: { message: 'transaction failed' } };
+});
 
 const getTotalReturnsOfToday = async () => {
   try {

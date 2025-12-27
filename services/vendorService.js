@@ -7,7 +7,13 @@ const {
   user_roles_mappings: UserRolesMappingModel,
   sequelize,
 } = require('../database');
-const Helper = require('../utils/helper');
+const {
+  withTransaction,
+  convertCamelToSnake,
+  calculatePagination,
+  generateWhereCondition,
+  generateOrderCondition,
+} = require('../utils/helper');
 
 const saveVendor = async ({ data }) => {
   let transaction = null;
@@ -34,32 +40,30 @@ const saveVendor = async ({ data }) => {
 
     transaction = await sequelize.transaction();
 
-    // Check if vendor code is provided and if it already exists
-    if (code) {
-      const existingVendor = await VendorModel.findOne({
+    // Check if vendor code and branch code already exist in parallel
+    const [ existingVendor, existingBranch ] = await Promise.all([
+      code ? VendorModel.findOne({
         where: { code },
+        attributes: [ 'id' ],
         transaction,
-      });
+      }) : null,
+      branchCode ? BranchModel.findOne({
+        where: { code: branchCode },
+        attributes: [ 'id' ],
+        transaction,
+      }) : null,
+    ]);
 
-      if (existingVendor) {
-        await transaction.rollback();
+    if (existingVendor) {
+      await transaction.rollback();
 
-        return { errors: { message: 'Vendor code already exists. Please use a different code.' } };
-      }
+      return { errors: { message: 'Vendor code already exists. Please use a different code.' } };
     }
 
-    // Check if branch code is provided and if it already exists
-    if (branchCode) {
-      const existingBranch = await BranchModel.findOne({
-        where: { code: branchCode },
-        transaction,
-      });
+    if (existingBranch) {
+      await transaction.rollback();
 
-      if (existingBranch) {
-        await transaction.rollback();
-
-        return { errors: { message: 'Branch code already exists. Please use a different code.' } };
-      }
+      return { errors: { message: 'Branch code already exists. Please use a different code.' } };
     }
 
     const concurrencyStamp = uuidV4();
@@ -71,7 +75,7 @@ const saveVendor = async ({ data }) => {
       createdBy,
     };
 
-    const vendor = await VendorModel.create(Helper.convertCamelToSnake(vendorDoc), {
+    const vendor = await VendorModel.create(convertCamelToSnake(vendorDoc), {
       transaction,
     });
 
@@ -96,7 +100,7 @@ const saveVendor = async ({ data }) => {
       createdBy,
     };
 
-    const branch = await BranchModel.create(Helper.convertCamelToSnake(branchDoc), {
+    const branch = await BranchModel.create(convertCamelToSnake(branchDoc), {
       transaction,
     });
 
@@ -125,61 +129,54 @@ const saveVendor = async ({ data }) => {
   }
 };
 
-const updateVendor = async ({ data }) => {
-  let transaction = null;
+const updateVendor = async ({ data }) => withTransaction(sequelize, async (transaction) => {
   const { id, ...datas } = data;
   const { concurrencyStamp, updatedBy } = datas;
 
-  try {
-    transaction = await sequelize.transaction();
-    const response = await VendorModel.findOne({
-      where: { id },
-    });
+  const response = await VendorModel.findOne({
+    where: { id },
+    attributes: [ 'id', 'concurrency_stamp' ],
+    transaction,
+  });
 
-    if (response) {
-      const { concurrency_stamp: stamp } = response;
-
-      if (concurrencyStamp === stamp) {
-        const newConcurrencyStamp = uuidV4();
-        const doc = {
-          ...Helper.convertCamelToSnake(data),
-          updatedBy,
-          concurrency_stamp: newConcurrencyStamp,
-        };
-
-        await VendorModel.update(doc, {
-          where: { id },
-          transaction,
-        });
-        await transaction.commit();
-
-        return { doc: { concurrencyStamp: newConcurrencyStamp } };
-      }
-      await transaction.rollback();
-
-      return { concurrencyError: { message: 'invalid concurrency stamp' } };
-    }
-
-    return {};
-  } catch (error) {
-    console.log(error);
-    if (transaction) {
-      await transaction.rollback();
-    }
-
-    return { errors: { message: 'transaction failed' } };
+  if (!response) {
+    return { errors: { message: 'Vendor not found' } };
   }
-};
+
+  const { concurrency_stamp: stamp } = response;
+
+  if (concurrencyStamp !== stamp) {
+    return { concurrencyError: { message: 'invalid concurrency stamp' } };
+  }
+
+  const newConcurrencyStamp = uuidV4();
+  const doc = {
+    ...convertCamelToSnake(data),
+    updated_by: updatedBy,
+    concurrency_stamp: newConcurrencyStamp,
+  };
+
+  await VendorModel.update(doc, {
+    where: { id },
+    transaction,
+  });
+
+  return { doc: { concurrencyStamp: newConcurrencyStamp } };
+}).catch((error) => {
+  console.log(error);
+
+  return { errors: { message: 'transaction failed' } };
+});
 
 const getVendor = async (payload) => {
   const {
     pageSize, pageNumber, filters, sorting,
   } = payload;
-  const { limit, offset } = Helper.calculatePagination(pageSize, pageNumber);
+  const { limit, offset } = calculatePagination(pageSize, pageNumber);
 
-  const where = Helper.generateWhereCondition(filters);
+  const where = generateWhereCondition(filters);
   const order = sorting
-    ? Helper.generateOrderCondition(sorting)
+    ? generateOrderCondition(sorting)
     : [ [ 'createdAt', 'DESC' ] ];
 
   const response = await VendorModel.findAndCountAll({
@@ -205,6 +202,7 @@ const getVendorByCode = async (code) => {
   try {
     const vendor = await VendorModel.findOne({
       where: { code },
+      attributes: [ 'id', 'name', 'email', 'code', 'status', 'created_at', 'updated_at' ],
     });
 
     if (!vendor) {
@@ -221,12 +219,17 @@ const getVendorByCode = async (code) => {
 
 const getVendorWithUsers = async (vendorId) => {
   try {
-    const adminRole = await RoleModel.findOne({
-      where: { name: 'VENDOR_ADMIN' },
-    });
-    const riderRole = await RoleModel.findOne({
-      where: { name: 'rider' },
-    });
+    // Fetch roles in parallel
+    const [ adminRole, riderRole ] = await Promise.all([
+      RoleModel.findOne({
+        where: { name: 'VENDOR_ADMIN' },
+        attributes: [ 'id', 'name' ],
+      }),
+      RoleModel.findOne({
+        where: { name: 'rider' },
+        attributes: [ 'id', 'name' ],
+      }),
+    ]);
 
     if (!adminRole || !riderRole) {
       return { errors: { message: 'Roles not found' } };
@@ -234,18 +237,22 @@ const getVendorWithUsers = async (vendorId) => {
 
     const vendor = await VendorModel.findOne({
       where: { id: vendorId },
+      attributes: [ 'id', 'name', 'email', 'code', 'status', 'created_at', 'updated_at' ],
       include: [
         {
           model: UserRolesMappingModel,
           as: 'userRoleMappings',
+          attributes: [ 'id', 'user_id', 'role_id', 'vendor_id', 'status' ],
           include: [
             {
               model: UserModel,
               as: 'user',
+              attributes: [ 'id', 'name', 'mobile_number', 'email', 'status', 'profile_status', 'image' ],
             },
             {
               model: RoleModel,
               as: 'role',
+              attributes: [ 'id', 'name' ],
             },
           ],
         },

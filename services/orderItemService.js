@@ -5,39 +5,52 @@ const {
   user: UserModel,
   address: AddressModel,
 } = require('../database');
-const Helper = require('../utils/helper');
+const {
+  calculatePagination,
+  generateWhereCondition,
+  generateOrderCondition,
+} = require('../utils/helper');
 
 const getOrderItem = async (payload) => {
   const {
     pageSize, pageNumber, filters, sorting,
   } = payload;
-  const { limit, offset } = Helper.calculatePagination(pageSize, pageNumber);
+  const { limit, offset } = calculatePagination(pageSize, pageNumber);
 
-  const where = Helper.generateWhereCondition(filters);
+  const where = generateWhereCondition(filters);
   const order = sorting
-    ? Helper.generateOrderCondition(sorting)
+    ? generateOrderCondition(sorting)
     : [ [ 'createdAt', 'DESC' ] ];
 
   const response = await OrderItemModel.findAndCountAll({
     where: { ...where },
+    attributes: [ 'id', 'order_id', 'product_id', 'quantity', 'price_at_purchase', 'created_by', 'created_at', 'updated_at', 'concurrency_stamp' ],
     include: [
       {
         model: UserModel,
         as: 'user',
+        attributes: [ 'id', 'name', 'email', 'mobile_number' ],
       },
       {
         model: OrderModel,
         as: 'order',
-        include: [ { model: AddressModel, as: 'address' } ],
+        attributes: [ 'id', 'total_amount', 'status', 'payment_status', 'address_id' ],
+        include: [ {
+          model: AddressModel,
+          as: 'address',
+          attributes: [ 'id', 'house_no', 'street_details', 'landmark', 'name', 'mobile_number' ],
+        } ],
       },
       {
         model: ProductModel,
         as: 'product',
+        attributes: [ 'id', 'title', 'selling_price', 'image' ],
       },
     ],
     order,
     limit,
     offset,
+    distinct: true,
   });
   const doc = [];
 

@@ -9,7 +9,13 @@ const {
   branch: BranchModel,
   sequelize,
 } = require('../database');
-const Helper = require('../utils/helper');
+const {
+  withTransaction,
+  convertCamelToSnake,
+  calculatePagination,
+  generateWhereCondition,
+  generateOrderCondition,
+} = require('../utils/helper');
 const { uploadFile } = require('../config/azure');
 
 const saveProduct = async ({ data, imageFile }) => {
@@ -24,6 +30,8 @@ const saveProduct = async ({ data, imageFile }) => {
     if (branchId) {
       const branch = await BranchModel.findOne({
         where: { id: branchId },
+        attributes: [ 'id', 'vendor_id' ],
+        transaction,
       });
 
       if (!branch) {
@@ -48,7 +56,7 @@ const saveProduct = async ({ data, imageFile }) => {
       image: 'NA',
     };
 
-    const cat = await ProductModel.create(Helper.convertCamelToSnake(doc), {
+    const cat = await ProductModel.create(convertCamelToSnake(doc), {
       transaction,
     });
 
@@ -74,67 +82,61 @@ const saveProduct = async ({ data, imageFile }) => {
   }
 };
 
-const updateProduct = async ({ data, imageFile }) => {
-  let transaction = null;
+const updateProduct = async ({ data, imageFile }) => withTransaction(sequelize, async (transaction) => {
   const { id, ...datas } = data;
   const { concurrencyStamp, updatedBy } = datas;
 
-  try {
-    transaction = await sequelize.transaction();
-    const response = await ProductModel.findOne({
-      where: { id },
-    });
+  const response = await ProductModel.findOne({
+    where: { id },
+    attributes: [ 'id', 'concurrency_stamp' ],
+    transaction,
+  });
 
-    if (response) {
-      const { concurrency_stamp: stamp } = response;
-
-      if (concurrencyStamp === stamp) {
-        const newConcurrencyStamp = uuidV4();
-        const doc = {
-          ...Helper.convertCamelToSnake(data),
-          updatedBy,
-          concurrency_stamp: newConcurrencyStamp,
-        };
-
-        if (imageFile) {
-          const blobName = `product-${id}-${Date.now()}.jpg`;
-          const imageUrl = await uploadFile(imageFile, blobName);
-
-          doc.image = imageUrl;
-        }
-        await ProductModel.update(doc, {
-          where: { id },
-          transaction,
-        });
-        await transaction.commit();
-
-        return { doc: { concurrencyStamp: newConcurrencyStamp } };
-      }
-      await transaction.rollback();
-
-      return { concurrencyError: { message: 'invalid concurrency stamp' } };
-    }
-
-    return {};
-  } catch (error) {
-    console.log(error);
-    if (transaction) {
-      await transaction.rollback();
-    }
-
-    return { errors: { message: 'transaction failed' } };
+  if (!response) {
+    return { errors: { message: 'Product not found' } };
   }
-};
+
+  const { concurrency_stamp: stamp } = response;
+
+  if (concurrencyStamp !== stamp) {
+    return { concurrencyError: { message: 'invalid concurrency stamp' } };
+  }
+
+  const newConcurrencyStamp = uuidV4();
+  const doc = {
+    ...convertCamelToSnake(data),
+    updated_by: updatedBy,
+    concurrency_stamp: newConcurrencyStamp,
+  };
+
+  if (imageFile) {
+    const blobName = `product-${id}-${Date.now()}.jpg`;
+    const imageUrl = await uploadFile(imageFile, blobName);
+
+    doc.image = imageUrl;
+  }
+
+  await ProductModel.update(doc, {
+    where: { id },
+    transaction,
+  });
+
+  return { doc: { concurrencyStamp: newConcurrencyStamp } };
+}).catch((error) => {
+  console.log(error);
+
+  return { errors: { message: 'transaction failed' } };
+});
 
 const getProduct = async (payload) => {
   const {
     pageSize, pageNumber, filters, sorting,
   } = payload;
-  const { limit, offset } = Helper.calculatePagination(pageSize, pageNumber);
+  const { limit, offset } = calculatePagination(pageSize, pageNumber);
 
-  const where = Helper.generateWhereCondition(filters);
+  const where = generateWhereCondition(filters);
   const order = sorting
-    ? Helper.generateOrderCondition(sorting)
+    ? generateOrderCondition(sorting)
     : [ [ 'createdAt', 'DESC' ] ];
 
   const response = await ProductModel.findAndCountAll({
@@ -185,15 +187,15 @@ const getProductsGroupedByCategory = async (payload) => {
   const {
     pageSize, pageNumber, filters, sorting,
   } = payload;
-  const { limit, offset } = Helper.calculatePagination(pageSize, pageNumber);
+  const { limit, offset } = calculatePagination(pageSize, pageNumber);
 
   const allFilters = filters || [];
   const productFilters = allFilters.filter((f) => (f.key || '').startsWith('products.'));
 
-  const productWhere = Helper.generateWhereCondition(productFilters);
+  const productWhere = generateWhereCondition(productFilters);
 
   const order = sorting
-    ? Helper.generateOrderCondition(sorting)
+    ? generateOrderCondition(sorting)
     : [ [ 'createdAt', 'DESC' ] ];
 
   const response = await CategoryModel.findAndCountAll({
@@ -239,34 +241,33 @@ const getProductsGroupedByCategory = async (payload) => {
   return { count: 0, doc: [] };
 };
 
-const deleteProduct = async (productId) => {
-  try {
-    await sequelize.transaction(async (transaction) => {
-      await CartModel.destroy({
-        where: { product_id: productId },
-        transaction,
-      });
-      await OrderItemModel.destroy({
-        where: { product_id: productId },
-        transaction,
-      });
-      await WishlistModel.destroy({
-        where: { product_id: productId },
-        transaction,
-      });
-      await ProductModel.destroy({
-        where: { id: productId },
-        transaction,
-      });
-    });
+const deleteProduct = async (productId) => withTransaction(sequelize, async (transaction) => {
+  // Delete all related records in parallel
+  await Promise.all([
+    CartModel.destroy({
+      where: { product_id: productId },
+      transaction,
+    }),
+    OrderItemModel.destroy({
+      where: { product_id: productId },
+      transaction,
+    }),
+    WishlistModel.destroy({
+      where: { product_id: productId },
+      transaction,
+    }),
+    ProductModel.destroy({
+      where: { id: productId },
+      transaction,
+    }),
+  ]);
 
-    return { doc: { message: 'successfully deleted product' } };
-  } catch (error) {
-    console.log(error);
+  return { doc: { message: 'successfully deleted product' } };
+}).catch((error) => {
+  console.log(error);
 
-    return { errors: { message: 'failed to delete product' } };
-  }
-};
+  return { errors: { message: 'failed to delete product' } };
+});
 
 module.exports = {
   saveProduct,
