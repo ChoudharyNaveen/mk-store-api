@@ -5,6 +5,7 @@ const {
   createVendorAdmin,
   updateUser,
   convertUserToRider,
+  getUserProfile,
 } = require('../controllers/userController');
 
 const upload = multer();
@@ -106,6 +107,80 @@ module.exports = (router) => {
    *         description: Invalid credentials
    */
   router.post('/auth-login', validate(authLoginSchema), authLogin);
+
+  /**
+   * @swagger
+   * /user-profile:
+   *   get:
+   *     summary: Get current user profile
+   *     tags: [Users]
+   *     security:
+   *       - bearerAuth: []
+   *     responses:
+   *       200:
+   *         description: User profile retrieved successfully
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 success:
+   *                   type: boolean
+   *                   example: true
+   *                 doc:
+   *                   type: object
+   *                   properties:
+   *                     id:
+   *                       type: integer
+   *                       example: 1
+   *                     name:
+   *                       type: string
+   *                       example: "John Doe"
+   *                     mobileNumber:
+   *                       type: string
+   *                       example: "+1234567890"
+   *                     email:
+   *                       type: string
+   *                       format: email
+   *                       example: "user@example.com"
+   *                     dateOfBirth:
+   *                       type: string
+   *                       format: date
+   *                       example: "1990-01-01"
+   *                     gender:
+   *                       type: string
+   *                       enum: [MALE, FEMALE]
+   *                       example: "MALE"
+   *                     status:
+   *                       type: string
+   *                       enum: [ACTIVE, INACTIVE]
+   *                       example: "ACTIVE"
+   *                     profileStatus:
+   *                       type: string
+   *                       enum: [INCOMPLETE, COMPLETE]
+   *                       example: "COMPLETE"
+   *                     image:
+   *                       type: string
+   *                       example: "https://example.com/image.jpg"
+   *                     roleName:
+   *                       type: string
+   *                       example: "USER"
+   *                     vendorId:
+   *                       type: integer
+   *                       nullable: true
+   *                       example: 1
+   *                     createdAt:
+   *                       type: string
+   *                       format: date-time
+   *                     updatedAt:
+   *                       type: string
+   *                       format: date-time
+   *       401:
+   *         description: Unauthorized - Invalid or missing token
+   *       404:
+   *         description: User not found
+   */
+  router.get('/user-profile', isAuthenticated, getUserProfile);
 
   /**
    * @swagger

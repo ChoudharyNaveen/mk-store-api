@@ -4,7 +4,7 @@ const {
   getSubCategory,
   updateSubCategory,
 } = require('../controllers/subCategoryController');
-const { isAuthenticated } = require('../middleware/auth');
+const { isAuthenticated, isVendorAdmin } = require('../middleware/auth');
 const validate = require('../middleware/validation');
 const {
   saveSubCategory: saveSubCategorySchema,
@@ -87,6 +87,7 @@ module.exports = (router) => {
   router.post(
     '/save-sub-category',
     isAuthenticated,
+    isVendorAdmin,
     upload.fields([ { name: 'file', maxCount: 1 } ]),
     validate(saveSubCategorySchema),
     saveSubCategory,
@@ -233,6 +234,7 @@ module.exports = (router) => {
   router.patch(
     '/update-sub-category/:id',
     isAuthenticated,
+    isVendorAdmin,
     upload.fields([ { name: 'file', maxCount: 1 } ]),
     validate(updateSubCategorySchema),
     updateSubCategory,

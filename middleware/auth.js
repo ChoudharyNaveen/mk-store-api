@@ -1,9 +1,10 @@
 const jwt = require('jsonwebtoken');
 const config = require('../config/index');
+const { sendErrorResponse } = require('../utils/helper');
 
 const isAuthenticated = async (req, res, next) => {
   if (!req.headers.authorization) {
-    return res.status(401).send();
+    return sendErrorResponse(res, 401, 'Unauthorized Access', 'AUTHENTICATION_FAILED');
   }
   try {
     const {
@@ -20,9 +21,7 @@ const isAuthenticated = async (req, res, next) => {
   } catch (error) {
     console.log('auth error', error);
 
-    return res.status(401).json({
-      errors: [ { message: 'Unauthorized Access', name: 'AUTHENTICATION_FAILED' } ],
-    });
+    return sendErrorResponse(res, 401, 'Unauthorized Access', 'AUTHENTICATION_FAILED', error);
   }
 };
 
@@ -30,30 +29,19 @@ const isVendorAdmin = async (req, res, next) => {
   try {
     // Ensure user is authenticated first
     if (!req.user || !req.user.userId) {
-      return res.status(401).json({
-        errors: [ { message: 'Unauthorized Access', name: 'AUTHENTICATION_FAILED' } ],
-      });
+      return sendErrorResponse(res, 401, 'Unauthorized Access', 'AUTHENTICATION_FAILED');
     }
 
     // Check role from JWT token
     if (!req.user.roleName || req.user.roleName !== 'VENDOR_ADMIN') {
-      return res.status(403).json({
-        errors: [
-          {
-            message: 'Access denied. Vendor admin role required.',
-            name: 'FORBIDDEN',
-          },
-        ],
-      });
+      return sendErrorResponse(res, 403, 'Access denied. Vendor admin role required.', 'FORBIDDEN');
     }
 
     return next();
   } catch (error) {
     console.log('vendor admin auth error', error);
 
-    return res.status(500).json({
-      errors: [ { message: 'Internal server error', name: 'INTERNAL_SERVER_ERROR' } ],
-    });
+    return sendErrorResponse(res, 500, 'Internal server error', 'INTERNAL_SERVER_ERROR', error);
   }
 };
 

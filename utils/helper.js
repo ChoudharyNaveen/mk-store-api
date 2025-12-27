@@ -167,13 +167,13 @@ const postRequest = async ({ url, data, headers }) => {
     if (status === 404) {
       return {
         status,
-        errors: [ { name: 'server', message: 'Resources are not available' } ],
+        errors: [{ name: 'server', message: 'Resources are not available' }],
       };
     }
     if (status === 401) {
       return {
         status,
-        errors: [ { name: 'server', message: 'Resources are not available' } ],
+        errors: [{ name: 'server', message: 'Resources are not available' }],
       };
     }
     if (status === 400 && responseData) {
@@ -185,7 +185,7 @@ const postRequest = async ({ url, data, headers }) => {
 
       return {
         status,
-        errors: [ { name: 'server', message: 'Resources are not available' } ],
+        errors: [{ name: 'server', message: 'Resources are not available' }],
       };
     }
 
@@ -217,7 +217,7 @@ const getRequest = async ({ url, headers }) => {
 
     if (status === 404) {
       return {
-        errors: [ { name: 'server', message: 'Resources are not available.' } ],
+        errors: [{ name: 'server', message: 'Resources are not available.' }],
       };
     }
 
@@ -238,13 +238,13 @@ const generateWhereCondition = (data) => {
   (data || []).forEach((element) => {
     const { key: KeyCamelCase, ...values } = element;
 
-    const [ key1, key2 ] = KeyCamelCase.split('.');
+    const [key1, key2] = KeyCamelCase.split('.');
 
     const key = key2
       ? `${key1}.${convertSnakeCase(key2)}`
       : convertSnakeCase(key1);
 
-    const [ secondKey ] = Object.keys(values);
+    const [secondKey] = Object.keys(values);
 
     let value;
 
@@ -314,7 +314,7 @@ const generateOrderCondition = (data) => {
   const order = (data || []).map((element) => {
     const { direction, key } = element;
 
-    return [ convertSnakeCase(key), direction ];
+    return [convertSnakeCase(key), direction];
   });
 
   return order;
@@ -423,6 +423,57 @@ const calculatePagination = (pageSize, pageNumber) => {
 };
 
 /**
+ * Send standardized error response
+ * @param {Object} res - Express response object
+ * @param {number} statusCode - HTTP status code
+ * @param {string} message - Error message
+ * @param {string} code - Error code (e.g., 'VALIDATION_ERROR', 'NOT_FOUND')
+ * @param {Error} [error] - Optional error object for development mode
+ * @returns {Object} Express response with error details
+ */
+const sendErrorResponse = (res, statusCode, message, code, error = null) => {
+  return res.status(statusCode).json({
+    success: false,
+    errors: { message, code },
+    message: process.env.NODE_ENV === 'development' && error ? error.message : undefined,
+  });
+};
+
+/**
+ * Extract error message from service error response
+ * Handles different error formats: string, object with message, or object with errors property
+ * @param {string|Object} serviceError - Error returned from service
+ * @returns {string} Extracted error message
+ */
+const extractErrorMessage = (serviceError) => {
+  if (!serviceError) {
+    return 'An error occurred';
+  }
+
+  if (typeof serviceError === 'string') {
+    return serviceError;
+  }
+
+  if (typeof serviceError === 'object') {
+    if (serviceError.message) {
+      return serviceError.message;
+    }
+    if (serviceError.errors) {
+      return typeof serviceError.errors === 'string' 
+        ? serviceError.errors 
+        : serviceError.errors.message || 'An error occurred';
+    }
+    if (serviceError.error) {
+      return typeof serviceError.error === 'string'
+        ? serviceError.error
+        : serviceError.error.message || 'An error occurred';
+    }
+  }
+
+  return 'An error occurred';
+};
+
+/**
  * Common error handler for controllers
  * Logs error details and returns appropriate response
  * @param {Error} error - The error object
@@ -447,11 +498,7 @@ const handleServerError = (error, req, res) => {
   console.error('Full Error:', error);
   console.error('===================================\n');
 
-  return res.status(500).json({
-    success: false,
-    message: 'Internal server error',
-    error: process.env.NODE_ENV === 'development' ? error.message : undefined,
-  });
+  return sendErrorResponse(res, 500, 'Internal server error', 'INTERNAL_SERVER_ERROR', error);
 };
 
 /**
@@ -540,6 +587,8 @@ module.exports = {
   langugeProcessing,
   langugeProcessingSingle,
   calculatePagination,
+  sendErrorResponse,
+  extractErrorMessage,
   handleServerError,
   withTransaction,
   updateWithConcurrencyStamp,

@@ -1,4 +1,5 @@
 const Validator = require('../utils/validator');
+const { sendErrorResponse } = require('../utils/helper');
 
 const validate = (schema) => (req, res, next) => {
   try {
@@ -19,8 +20,9 @@ const validate = (schema) => (req, res, next) => {
 
       return res.status(400).json({
         success: false,
+        errors: { message: 'Validation failed', code: 'VALIDATION_ERROR' },
         message: 'field-validation',
-        errors,
+        validationErrors: errors,
       });
     }
 
@@ -32,11 +34,7 @@ const validate = (schema) => (req, res, next) => {
     console.error('Validation middleware error:', error);
     res.setHeader('Content-Type', 'application/json');
 
-    return res.status(500).json({
-      success: false,
-      message: 'Validation error',
-      error: error.message,
-    });
+    return sendErrorResponse(res, 500, 'Validation error', 'INTERNAL_SERVER_ERROR', error);
   }
 };
 
