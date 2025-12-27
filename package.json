@@ -4,21 +4,18 @@
   "description": "ecommerce-application-backend",
   "main": "server.js",
   "scripts": {
-    "dev": "NODE_ENV=development nodemon server.js",
-    "start": "NODE_ENV=production npx sequelize db:migrate && NODE_ENV=production node server.js",
-    "start:development": "NODE_ENV=development npx sequelize db:migrate && NODE_ENV=development node server.js",
-    "start:staging": "NODE_ENV=staging npx sequelize db:migrate && NODE_ENV=staging node server.js",
-    "start:production": "NODE_ENV=production npx sequelize db:migrate && NODE_ENV=production node server.js",
-    "test": "NODE_ENV=test node server.js"
+    "start": "node server.js",
+    "migrate": "npx sequelize db:migrate",
+    "dev": "cross-env NODE_ENV=development nodemon server.js",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix"
   },
   "repository": "git+https://github.com/BrotocodeTech/mk-store-backend.git",
   "license": "ISC",
   "author": "abdulhadi",
   "dependencies": {
+    "@aws-sdk/client-sns": "^3.700.0",
     "@azure/storage-blob": "^12.27.0",
-    "ajv": "^8.17.1",
-    "ajv-errors": "^3.0.0",
-    "ajv-keywords": "^5.1.0",
     "axios": "^1.8.4",
     "bcrypt": "^5.1.1",
     "compression": "^1.8.0",
@@ -27,7 +24,7 @@
     "dotenv": "^17.2.3",
     "express": "^4.21.2",
     "helmet": "^8.1.0",
-    "inblox-node-http": "^1.3.0",
+    "joi": "^18.0.2",
     "jsonwebtoken": "^9.0.2",
     "jwt-redis": "^7.0.3",
     "lodash": "^4.17.21",
@@ -50,6 +47,8 @@
     "winston": "^3.17.0"
   },
   "devDependencies": {
+    "cross-env": "^7.0.3",
+    "eslint": "^8.57.0",
     "eslint-config-airbnb-base": "^15.0.0",
     "eslint-plugin-filenames": "^1.3.2",
     "eslint-plugin-import": "^2.31.0",

@@ -1,23 +1,32 @@
+const multer = require('multer');
 const {
-  userSignUp,
-  userLogin,
-  getTotalUsers,
+  createSuperAdmin,
+  authLogin,
+  createVendorAdmin,
   updateUser,
-  adminLogin,
-  customerSignUp,
-  riderLogin
-} = require('../controllers/userController')
-const multer = require('multer')
-const upload = multer()
-const { isAuthenticated } = require('../middleware/auth')
+  convertUserToRider,
+} = require('../controllers/userController');
+
+const upload = multer();
+const { isAuthenticated, isVendorAdmin } = require('../middleware/auth');
+const validate = require('../middleware/validation');
+const {
+  userSignUp: userSignUpSchema,
+  authLogin: authLoginSchema,
+  createVendorAdmin: createVendorAdminSchema,
+  updateUser: updateUserSchema,
+  convertUserToRider: convertUserToRiderSchema,
+} = require('../schemas');
 
 module.exports = (router) => {
   /**
    * @swagger
-   * /rider-sign-up:
+   * /create-super-admin:
    *   post:
-   *     summary: Rider sign up
+   *     summary: Create super admin user
    *     tags: [Authentication]
+   *     security:
+   *       - bearerAuth: []
    *     requestBody:
    *       required: true
    *       content:
@@ -33,14 +42,14 @@ module.exports = (router) => {
    *             properties:
    *               name:
    *                 type: string
-   *                 example: John Doe
+   *                 example: "Super Admin"
    *               mobile_number:
    *                 type: string
    *                 example: "+1234567890"
    *               email:
    *                 type: string
    *                 format: email
-   *                 example: "john.doe@example.com"
+   *                 example: "superadmin@example.com"
    *               password:
    *                 type: string
    *                 format: password
@@ -49,13 +58,103 @@ module.exports = (router) => {
    *                 type: string
    *                 format: password
    *                 example: "SecurePassword123"
+   *               file:
+   *                 type: string
+   *                 format: binary
+   *                 description: Profile image file
+   *     responses:
+   *       200:
+   *         description: Super admin created successfully
+   *       400:
+   *         description: Validation error
+   */
+  router.post(
+    '/create-super-admin',
+    upload.fields([ { name: 'file', maxCount: 1 } ]),
+    validate(userSignUpSchema),
+    createSuperAdmin,
+  );
+
+  /**
+   * @swagger
+   * /auth-login:
+   *   post:
+   *     summary: Authentication login with email and password (similar to OTP verification)
+   *     tags: [Authentication]
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             required:
+   *               - email
+   *               - password
+   *             properties:
+   *               email:
+   *                 type: string
+   *                 format: email
+   *                 example: "user@example.com"
+   *               password:
+   *                 type: string
+   *                 format: password
+   *                 example: "SecurePassword123"
+   *     responses:
+   *       200:
+   *         description: Login successful
+   *       401:
+   *         description: Invalid credentials
+   */
+  router.post('/auth-login', validate(authLoginSchema), authLogin);
+
+  /**
+   * @swagger
+   * /create-vendor-admin:
+   *   post:
+   *     summary: Create a vendor admin user
+   *     tags: [Users]
+   *     security:
+   *       - bearerAuth: []
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         multipart/form-data:
+   *           schema:
+   *             type: object
+   *             required:
+   *               - vendorId
+   *               - name
+   *               - mobile_number
+   *               - email
+   *               - password
+   *             properties:
+   *               vendorId:
+   *                 type: integer
+   *                 description: Vendor ID
+   *                 example: 1
+   *               name:
+   *                 type: string
+   *                 example: "Admin Name"
+   *               mobile_number:
+   *                 type: string
+   *                 example: "+1234567890"
+   *               email:
+   *                 type: string
+   *                 format: email
+   *                 example: "admin@vendor.com"
+   *               password:
+   *                 type: string
+   *                 format: password
+   *                 minLength: 6
+   *                 example: "SecurePassword123"
    *               date_of_birth:
    *                 type: string
    *                 format: date
    *                 example: "1990-01-01"
    *               gender:
    *                 type: string
-   *                 example: "Male"
+   *                 enum: [MALE, FEMALE]
+   *                 example: "MALE"
    *               status:
    *                 type: string
    *                 enum: [ACTIVE, INACTIVE]
@@ -66,209 +165,22 @@ module.exports = (router) => {
    *                 description: Profile image file
    *     responses:
    *       200:
-   *         description: User successfully registered
-   *         content:
-   *           application/json:
-   *             schema:
-   *               type: object
-   *               properties:
-   *                 success:
-   *                   type: boolean
-   *                   example: true
-   *                 message:
-   *                   type: string
-   *                   example: "User registered successfully"
-   *                 doc:
-   *                   type: object
-   *                   properties:
-   *                     publicId:
-   *                       type: string
-   *                       example: "uuid-here"
-   *                     name:
-   *                       type: string
-   *                       example: "John Doe"
-   *                     email:
-   *                       type: string
-   *                       example: "john.doe@example.com"
+   *         description: Vendor admin created successfully
    *       400:
-   *         description: Validation error
-   *         content:
-   *           application/json:
-   *             schema:
-   *               $ref: '#/components/schemas/Error'
+   *         description: Validation error or vendor already has an admin
    */
   router.post(
-    '/rider-sign-up',
-    upload.fields([{ name: 'file', maxCount: 1 }]),
-    userSignUp
-  )
+    '/create-vendor-admin',
+    isAuthenticated,
+    isVendorAdmin,
+    upload.fields([ { name: 'file', maxCount: 1 } ]),
+    validate(createVendorAdminSchema),
+    createVendorAdmin,
+  );
 
   /**
    * @swagger
-   * /rider-login:
-   *   post:
-   *     summary: Rider login
-   *     tags: [Authentication]
-   *     requestBody:
-   *       required: true
-   *       content:
-   *         application/json:
-   *           schema:
-   *             type: object
-   *             required:
-   *               - password
-   *             properties:
-   *               email:
-   *                 type: string
-   *                 format: email
-   *                 example: "rider@example.com"
-   *               mobile_number:
-   *                 type: string
-   *                 example: "+1234567890"
-   *               password:
-   *                 type: string
-   *                 format: password
-   *                 example: "SecurePassword123"
-   *     responses:
-   *       200:
-   *         description: Login successful
-   *         headers:
-   *           token:
-   *             schema:
-   *               type: string
-   *             description: JWT authentication token
-   *         content:
-   *           application/json:
-   *             schema:
-   *               type: object
-   *               properties:
-   *                 success:
-   *                   type: boolean
-   *                   example: true
-   *                 doc:
-   *                   type: object
-   *                   properties:
-   *                     publicId:
-   *                       type: string
-   *                       example: "uuid-here"
-   *                     name:
-   *                       type: string
-   *                       example: "John Doe"
-   *                     email:
-   *                       type: string
-   *                       example: "rider@example.com"
-   *                     access_token:
-   *                       type: string
-   *                       example: "jwt-token-here"
-   *       401:
-   *         description: Invalid credentials
-   *         content:
-   *           application/json:
-   *             schema:
-   *               type: object
-   *               properties:
-   *                 success:
-   *                   type: boolean
-   *                   example: false
-   *                 message:
-   *                   type: string
-   *                   example: "Invalid Credentials"
-   */
-  router.post('/rider-login', riderLogin)
-
-  /**
-   * @swagger
-   * /user-login:
-   *   post:
-   *     summary: User login
-   *     tags: [Authentication]
-   *     requestBody:
-   *       required: true
-   *       content:
-   *         application/json:
-   *           schema:
-   *             type: object
-   *             required:
-   *               - password
-   *             properties:
-   *               email:
-   *                 type: string
-   *                 format: email
-   *                 example: "user@example.com"
-   *               mobile_number:
-   *                 type: string
-   *                 example: "+1234567890"
-   *               password:
-   *                 type: string
-   *                 format: password
-   *                 example: "SecurePassword123"
-   *     responses:
-   *       200:
-   *         description: Login successful
-   *         headers:
-   *           token:
-   *             schema:
-   *               type: string
-   *             description: JWT authentication token
-   *         content:
-   *           application/json:
-   *             schema:
-   *               type: object
-   *               properties:
-   *                 success:
-   *                   type: boolean
-   *                   example: true
-   *                 doc:
-   *                   type: object
-   *                   properties:
-   *                     publicId:
-   *                       type: string
-   *                       example: "uuid-here"
-   *                     name:
-   *                       type: string
-   *                       example: "John Doe"
-   *                     email:
-   *                       type: string
-   *                       example: "user@example.com"
-   *                     access_token:
-   *                       type: string
-   *                       example: "jwt-token-here"
-   *       401:
-   *         description: Invalid credentials
-   */
-  router.post('/user-login', userLogin)
-
-  /**
-   * @swagger
-   * /get-total-users:
-   *   get:
-   *     summary: Get total number of users
-   *     tags: [Users]
-   *     security:
-   *       - bearerAuth: []
-   *     responses:
-   *       200:
-   *         description: Total users count
-   *         content:
-   *           application/json:
-   *             schema:
-   *               type: object
-   *               properties:
-   *                 success:
-   *                   type: boolean
-   *                   example: true
-   *                 doc:
-   *                   type: object
-   *                   properties:
-   *                     totalUsers:
-   *                       type: integer
-   *                       example: 150
-   */
-  router.get('/get-total-users', getTotalUsers)
-
-  /**
-   * @swagger
-   * /update-user/{publicId}:
+   * /update-user/{id}:
    *   patch:
    *     summary: Update user information
    *     tags: [Users]
@@ -276,12 +188,12 @@ module.exports = (router) => {
    *       - bearerAuth: []
    *     parameters:
    *       - in: path
-   *         name: publicId
+   *         name: id
    *         required: true
    *         schema:
-   *           type: string
-   *         description: User public ID
-   *         example: "uuid-here"
+   *           type: integer
+   *         description: User ID
+   *         example: 1
    *     requestBody:
    *       required: true
    *       content:
@@ -299,6 +211,10 @@ module.exports = (router) => {
    *               mobile_number:
    *                 type: string
    *                 example: "+1234567890"
+   *               password:
+   *                 type: string
+   *                 format: password
+   *                 example: "NewPassword123"
    *               file:
    *                 type: string
    *                 format: binary
@@ -306,42 +222,25 @@ module.exports = (router) => {
    *     responses:
    *       200:
    *         description: User updated successfully
-   *         headers:
-   *           x-concurrencystamp:
-   *             schema:
-   *               type: string
-   *             description: Concurrency stamp for optimistic locking
-   *           message:
-   *             schema:
-   *               type: string
-   *             description: Success message
-   *         content:
-   *           application/json:
-   *             schema:
-   *               type: object
-   *               properties:
-   *                 success:
-   *                   type: boolean
-   *                   example: true
-   *                 message:
-   *                   type: string
-   *                   example: "User updated successfully"
    *       400:
    *         description: Validation error
    */
   router.patch(
-    '/update-user/:publicId',
+    '/update-user/:id',
     isAuthenticated,
-    upload.fields([{ name: 'file', maxCount: 1 }]),
-    updateUser
-  )
+    upload.fields([ { name: 'file', maxCount: 1 } ]),
+    validate(updateUserSchema),
+    updateUser,
+  );
 
   /**
    * @swagger
-   * /admin-login:
+   * /convert-user-to-rider:
    *   post:
-   *     summary: Admin login
-   *     tags: [Authentication]
+   *     summary: Convert a user to rider role (Vendor Admin only)
+   *     tags: [Users]
+   *     security:
+   *       - bearerAuth: []
    *     requestBody:
    *       required: true
    *       content:
@@ -349,120 +248,27 @@ module.exports = (router) => {
    *           schema:
    *             type: object
    *             required:
-   *               - password
+   *               - userId
    *             properties:
-   *               email:
-   *                 type: string
-   *                 format: email
-   *                 example: "admin@example.com"
-   *               mobile_number:
-   *                 type: string
-   *                 example: "+1234567890"
-   *               password:
-   *                 type: string
-   *                 format: password
-   *                 example: "AdminPassword123"
+   *               userId:
+   *                 type: integer
+   *                 description: User ID to convert to rider
+   *                 example: 1
    *     responses:
    *       200:
-   *         description: Admin login successful
-   *         headers:
-   *           token:
-   *             schema:
-   *               type: string
-   *             description: JWT authentication token
-   *         content:
-   *           application/json:
-   *             schema:
-   *               type: object
-   *               properties:
-   *                 success:
-   *                   type: boolean
-   *                   example: true
-   *                 doc:
-   *                   type: object
-   *                   properties:
-   *                     publicId:
-   *                       type: string
-   *                     role:
-   *                       type: string
-   *                       example: "ADMIN"
-   *                     access_token:
-   *                       type: string
-   *       401:
-   *         description: Invalid credentials
-   */
-  router.post('/admin-login', adminLogin)
-
-  /**
-   * @swagger
-   * /customer-sign-up:
-   *   post:
-   *     summary: Customer sign up
-   *     tags: [Authentication]
-   *     requestBody:
-   *       required: true
-   *       content:
-   *         multipart/form-data:
-   *           schema:
-   *             type: object
-   *             required:
-   *               - name
-   *               - password
-   *               - confirm_password
-   *               - mobile_number
-   *               - email
-   *             properties:
-   *               name:
-   *                 type: string
-   *                 example: "Jane Customer"
-   *               mobile_number:
-   *                 type: string
-   *                 example: "+1234567890"
-   *               email:
-   *                 type: string
-   *                 format: email
-   *                 example: "jane.customer@example.com"
-   *               password:
-   *                 type: string
-   *                 format: password
-   *                 example: "SecurePassword123"
-   *               confirm_password:
-   *                 type: string
-   *                 format: password
-   *                 example: "SecurePassword123"
-   *               date_of_birth:
-   *                 type: string
-   *                 format: date
-   *                 example: "1995-05-15"
-   *               gender:
-   *                 type: string
-   *                 example: "Female"
-   *               file:
-   *                 type: string
-   *                 format: binary
-   *                 description: Profile image file
-   *     responses:
-   *       200:
-   *         description: Customer registered successfully
-   *         content:
-   *           application/json:
-   *             schema:
-   *               type: object
-   *               properties:
-   *                 success:
-   *                   type: boolean
-   *                   example: true
-   *                 message:
-   *                   type: string
-   *                   example: "Customer registered successfully"
-   *                 doc:
-   *                   type: object
+   *         description: User successfully converted to rider
    *       400:
-   *         description: Validation error
+   *         description: Validation error or user is already a rider
+   *       403:
+   *         description: Access denied. Vendor admin role required.
+   *       404:
+   *         description: User not found
    */
   router.post(
-    '/customer-sign-up',
-    upload.fields([{ name: 'file', maxCount: 1 }]),
-    customerSignUp
-  )
-}
+    '/convert-user-to-rider',
+    isAuthenticated,
+    isVendorAdmin,
+    validate(convertUserToRiderSchema),
+    convertUserToRider,
+  );
+};

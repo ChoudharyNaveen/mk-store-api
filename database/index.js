@@ -1,11 +1,13 @@
 /* eslint-disable no-fallthrough */
-const Sequelize = require("sequelize");
+const Sequelize = require('sequelize');
 
 const {
-  DATABASE: { name, username, password, options },
-} = require("./../config");
+  DATABASE: {
+    name, username, password, options,
+  },
+} = require('../config');
 
-const models = require("./models");
+const models = require('./models');
 
 let database = {};
 

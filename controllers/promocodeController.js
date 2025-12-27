@@ -1,123 +1,68 @@
-const { Promocode: PromocodeService } = require('../services')
-const {
-  savePromocode: savePromocodeSchema,
-  getPromocode: getPromocodeSchema,
-  updatePromocode: updatePromocodeSchema,
-} = require('../schemas')
-const Validator = require('../utils/validator')
+const { Promocode: PromocodeService } = require('../services');
+const { handleServerError } = require('../utils/helper');
 
 const savePromocode = async (req, res) => {
   try {
-    const {
-      body,
-      user: { publicId: createdBy },
-    } = req
+    const data = req.validatedData;
 
-    const data = { ...body, createdBy }
+    const { errors: err, doc } = await PromocodeService.savePromocode(data);
 
-    const { errors } = Validator.isSchemaValid({
-      data,
-      schema: savePromocodeSchema,
-    })
-    if (errors) {
-      return res.badRequest('field-validation', errors)
-    }
-
-    const { errors: err, doc } = await PromocodeService.savePromocode(data)
     if (doc) {
-      return res.postSuccessfully({ message: 'successfully added' })
+      return res.status(201).json({ success: true, message: 'successfully added' });
     }
-    return res.status(400).json(err)
+
+    return res.status(400).json(err);
   } catch (error) {
-    console.log(error)
-    return res.serverError(error)
+    console.log(error);
+
+    return handleServerError(error, req, res);
   }
-}
+};
 
 const updatePromocode = async (req, res) => {
   try {
-    const {
-      body,
-      params: { publicId },
-      user: { publicId: updatedBy },
-      headers: { 'x-concurrencystamp': concurrencyStamp },
-    } = req
+    const data = { ...req.validatedData, id: req.params.id };
 
-    const data = {
-      ...body,
-      publicId,
-      concurrencyStamp,
-      updatedBy,
-    }
-    const { errors } = Validator.isSchemaValid({
-      data,
-      schema: updatePromocodeSchema,
-    })
-    if (errors) {
-      return res.badRequest('field-validation', errors)
-    }
     const {
       errors: err,
       concurrencyError,
       doc,
-    } = await PromocodeService.updatePromocode(data)
+    } = await PromocodeService.updatePromocode(data);
 
     if (concurrencyError) {
-      return res.concurrencyError()
+      return res.status(409).json({ success: false, message: 'Concurrency error' });
     }
     if (doc) {
-      const { concurrencyStamp: stamp } = doc
-      res.setHeader('x-concurrencystamp', stamp)
-      res.setHeader('message', 'successfully updated.')
+      const { concurrencyStamp: stamp } = doc;
 
-      return res.updated()
+      res.setHeader('x-concurrencystamp', stamp);
+      res.setHeader('message', 'successfully updated.');
+
+      return res.status(200).json({ success: true, message: 'successfully updated' });
     }
 
-    return res.status(400).json(err)
+    return res.status(400).json(err);
   } catch (error) {
-    console.log(error)
-    return res.serverError(error)
+    console.log(error);
+
+    return handleServerError(error, req, res);
   }
-}
+};
 
 const getPromocode = async (req, res) => {
   try {
-    const {
-      query: {
-        pageSize: pageSizeString,
-        pageNumber: pageNumberString,
-        ...query
-      },
-    } = req
+    const data = req.validatedData;
 
-    const pageNumber = parseInt(pageNumberString || 1)
-    const pageSize = parseInt(pageSizeString || 10)
+    const { count, doc } = await PromocodeService.getPromocode(data);
 
-    const data = {
-      ...query,
-      pageNumber,
-      pageSize,
-    }
-
-    const { errors } = Validator.isSchemaValid({
-      data,
-      schema: getPromocodeSchema,
-    })
-
-    if (errors) {
-      return res.badRequest('field-validation', errors)
-    }
-
-    const { count, doc } = await PromocodeService.getPromocode(data)
-
-    return res.getRequest({ doc, count })
+    return res.status(200).json({ success: true, doc, count });
   } catch (error) {
-    return res.serverError(error)
+    return handleServerError(error, req, res);
   }
-}
+};
 
 module.exports = {
   savePromocode,
   updatePromocode,
   getPromocode,
-}
+};

@@ -1,32 +1,18 @@
-const { OrderItem: OrderItemService } = require('../services')
+const { OrderItem: OrderItemService } = require('../services');
+const { handleServerError } = require('../utils/helper');
 
 const getOrderItem = async (req, res) => {
   try {
-    const {
-      query: {
-        pageSize: pageSizeString,
-        pageNumber: pageNumberString,
-        ...query
-      },
-    } = req
+    const data = req.validatedData;
 
-    const pageNumber = parseInt(pageNumberString || 1)
-    const pageSize = parseInt(pageSizeString || 10)
+    const { count, doc } = await OrderItemService.getOrderItem(data);
 
-    const data = {
-      ...query,
-      pageNumber,
-      pageSize,
-    }
-
-    const { count, doc } = await OrderItemService.getOrderItem(data)
-
-    return res.getRequest({ doc, count })
+    return res.status(200).json({ success: true, doc, count });
   } catch (error) {
-    return res.serverError(error)
+    return handleServerError(error, req, res);
   }
-}
+};
 
 module.exports = {
   getOrderItem,
-}
+};

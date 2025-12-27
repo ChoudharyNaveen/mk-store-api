@@ -14,12 +14,8 @@ const options = {
     },
     servers: [
       {
-        url: 'http://localhost:4000/api',
+        url: '/api',
         description: 'Development server',
-      },
-      {
-        url: 'https://api.mkstore.com/api',
-        description: 'Production server',
       },
     ],
     components: {
@@ -76,6 +72,8 @@ const options = {
     tags: [
       { name: 'Authentication', description: 'User authentication endpoints' },
       { name: 'Users', description: 'User management endpoints' },
+      { name: 'Vendors', description: 'Vendor management endpoints' },
+      { name: 'Branches', description: 'Branch management endpoints' },
       { name: 'Categories', description: 'Category management endpoints' },
       { name: 'SubCategories', description: 'SubCategory management endpoints' },
       { name: 'Products', description: 'Product management endpoints' },
@@ -90,7 +88,7 @@ const options = {
       { name: 'Test', description: 'Test endpoints' },
     ],
   },
-  apis: ['./routes/*.js'],
+  apis: [ './routes/*.js' ],
 };
 
 const swaggerSpec = swaggerJsdoc(options);

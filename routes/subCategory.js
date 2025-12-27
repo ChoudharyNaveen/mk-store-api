@@ -1,11 +1,18 @@
+const multer = require('multer');
 const {
   saveSubCategory,
   getSubCategory,
   updateSubCategory,
-} = require('../controllers/subCategoryController')
-const { isAuthenticated } = require('../middleware/auth')
-const multer = require('multer')
-const upload = multer()
+} = require('../controllers/subCategoryController');
+const { isAuthenticated } = require('../middleware/auth');
+const validate = require('../middleware/validation');
+const {
+  saveSubCategory: saveSubCategorySchema,
+  getSubCategory: getSubCategorySchema,
+  updateSubCategory: updateSubCategorySchema,
+} = require('../schemas');
+
+const upload = multer();
 
 module.exports = (router) => {
   /**
@@ -23,26 +30,41 @@ module.exports = (router) => {
    *           schema:
    *             type: object
    *             required:
-   *               - name
+   *               - title
+   *               - description
    *               - categoryId
+   *               - vendorId
+   *               - branchId
    *             properties:
-   *               name:
+   *               title:
    *                 type: string
    *                 example: "Smartphones"
+   *                 description: Subcategory title (required)
    *               description:
    *                 type: string
    *                 example: "Mobile phones and smartphones"
+   *                 description: Subcategory description (required)
    *               categoryId:
-   *                 type: string
-   *                 example: "category-uuid-here"
+   *                 type: integer
+   *                 example: 1
+   *                 description: Category ID (required)
+   *               vendorId:
+   *                 type: integer
+   *                 example: 1
+   *                 description: Vendor ID (required)
+   *               branchId:
+   *                 type: integer
+   *                 example: 1
+   *                 description: Branch ID (required)
    *               status:
    *                 type: string
    *                 enum: [ACTIVE, INACTIVE]
    *                 example: ACTIVE
+   *                 description: Subcategory status (optional, defaults to ACTIVE)
    *               file:
    *                 type: string
    *                 format: binary
-   *                 description: Subcategory image file
+   *                 description: Subcategory image file (required)
    *     responses:
    *       200:
    *         description: Subcategory created successfully
@@ -65,9 +87,10 @@ module.exports = (router) => {
   router.post(
     '/save-sub-category',
     isAuthenticated,
-    upload.fields([{ name: 'file', maxCount: 1 }]),
-    saveSubCategory
-  )
+    upload.fields([ { name: 'file', maxCount: 1 } ]),
+    validate(saveSubCategorySchema),
+    saveSubCategory,
+  );
 
   /**
    * @swagger
@@ -95,7 +118,7 @@ module.exports = (router) => {
    *       - in: query
    *         name: categoryId
    *         schema:
-   *           type: string
+   *           type: integer
    *         description: Filter by category ID
    *     responses:
    *       200:
@@ -113,20 +136,22 @@ module.exports = (router) => {
    *                   items:
    *                     type: object
    *                     properties:
-   *                       publicId:
+   *                       id:
+   *                         type: integer
+   *                         example: 1
+   *                       title:
    *                         type: string
-   *                       name:
-   *                         type: string
-   *                       categoryId:
-   *                         type: string
+   *                       category_id:
+   *                         type: integer
+   *                         example: 1
    *                 count:
    *                   type: integer
    */
-  router.get('/get-sub-category', isAuthenticated, getSubCategory)
+  router.get('/get-sub-category', isAuthenticated, validate(getSubCategorySchema), getSubCategory);
 
   /**
    * @swagger
-   * /update-sub-category/{publicId}:
+   * /update-sub-category/{id}:
    *   patch:
    *     summary: Update a subcategory
    *     tags: [SubCategories]
@@ -134,28 +159,58 @@ module.exports = (router) => {
    *       - bearerAuth: []
    *     parameters:
    *       - in: path
-   *         name: publicId
+   *         name: id
+   *         required: true
+   *         schema:
+   *           type: integer
+   *         description: Subcategory ID
+   *       - in: header
+   *         name: x-concurrencystamp
    *         required: true
    *         schema:
    *           type: string
-   *         description: Subcategory public ID
+   *           format: uuid
+   *         description: Concurrency stamp for optimistic locking
    *     requestBody:
    *       required: true
    *       content:
    *         multipart/form-data:
    *           schema:
    *             type: object
+   *             required:
+   *               - updatedBy
+   *               - concurrencyStamp
    *             properties:
-   *               name:
+   *               title:
    *                 type: string
+   *                 example: "Updated Subcategory Name"
+   *                 description: Subcategory title (optional)
    *               description:
    *                 type: string
+   *                 example: "Updated description"
+   *                 description: Subcategory description (optional)
+   *               categoryId:
+   *                 type: integer
+   *                 example: 1
+   *                 description: Category ID (optional)
    *               status:
    *                 type: string
    *                 enum: [ACTIVE, INACTIVE]
+   *                 example: ACTIVE
+   *                 description: Subcategory status (optional)
+   *               updatedBy:
+   *                 type: integer
+   *                 example: 1
+   *                 description: User ID who is updating the subcategory
+   *               concurrencyStamp:
+   *                 type: string
+   *                 format: uuid
+   *                 example: "123e4567-e89b-12d3-a456-426614174000"
+   *                 description: Concurrency stamp from previous response
    *               file:
    *                 type: string
    *                 format: binary
+   *                 description: Subcategory image file (optional)
    *     responses:
    *       200:
    *         description: Subcategory updated successfully
@@ -176,9 +231,10 @@ module.exports = (router) => {
    *                   example: true
    */
   router.patch(
-    '/update-sub-category/:publicId',
+    '/update-sub-category/:id',
     isAuthenticated,
-    upload.fields([{ name: 'file', maxCount: 1 }]),
-    updateSubCategory
-  )
-}
+    upload.fields([ { name: 'file', maxCount: 1 } ]),
+    validate(updateSubCategorySchema),
+    updateSubCategory,
+  );
+};

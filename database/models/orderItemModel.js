@@ -8,18 +8,12 @@ module.exports = (sequelize, DataTypes) => {
         primaryKey: true,
         type: DataTypes.INTEGER,
       },
-      public_id: {
-        type: DataTypes.UUID,
-        allowNull: false,
-        index: true,
-        unique: true,
-      },
       order_id: {
-        type: DataTypes.UUID,
+        type: DataTypes.INTEGER,
         allowNull: false,
       },
       product_id: {
-        type: DataTypes.UUID,
+        type: DataTypes.INTEGER,
         allowNull: false,
       },
       quantity: {
@@ -35,36 +29,36 @@ module.exports = (sequelize, DataTypes) => {
         allowNull: false,
       },
       created_by: {
-        type: DataTypes.UUID,
+        type: DataTypes.INTEGER,
       },
       updated_by: {
-        type: DataTypes.UUID,
+        type: DataTypes.INTEGER,
       },
     },
     {
       freezeTableName: true,
       underscored: true,
       timestamps: true,
-    }
-  )
+    },
+  );
 
   orderItem.associate = (models) => {
-    orderItem.hasOne(models.order, {
-      foreignKey: 'public_id',
-      sourceKey: 'order_id',
+    orderItem.belongsTo(models.order, {
+      foreignKey: 'order_id',
+      targetKey: 'id',
       as: 'order',
-    })
-     orderItem.hasOne(models.user, {
-      foreignKey: 'public_id',
-      sourceKey: 'created_by',
+    });
+    orderItem.belongsTo(models.user, {
+      foreignKey: 'created_by',
+      targetKey: 'id',
       as: 'user',
-    })
-    orderItem.hasOne(models.product, {
-      foreignKey: 'public_id',
-      sourceKey: 'product_id',
+    });
+    orderItem.belongsTo(models.product, {
+      foreignKey: 'product_id',
+      targetKey: 'id',
       as: 'product',
-    })
- }
+    });
+  };
 
-  return orderItem
-}
+  return orderItem;
+};

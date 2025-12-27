@@ -8,11 +8,15 @@ module.exports = (sequelize, DataTypes) => {
         primaryKey: true,
         type: DataTypes.INTEGER,
       },
-      public_id: {
-        type: DataTypes.UUID,
+      branch_id: {
+        type: DataTypes.INTEGER,
         allowNull: false,
         index: true,
-        unique: true,
+      },
+      vendor_id: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        index: true,
       },
       title: {
         type: DataTypes.STRING,
@@ -28,7 +32,7 @@ module.exports = (sequelize, DataTypes) => {
       },
       status: {
         type: DataTypes.STRING,
-        enum: ['ACTIVE', 'INACTIVE'],
+        enum: [ 'ACTIVE', 'INACTIVE' ],
         defaultValue: 'ACTIVE',
         index: true,
       },
@@ -38,25 +42,46 @@ module.exports = (sequelize, DataTypes) => {
         allowNull: false,
       },
       created_by: {
-        type: DataTypes.UUID,
+        type: DataTypes.INTEGER,
       },
       updated_by: {
-        type: DataTypes.UUID,
+        type: DataTypes.INTEGER,
       },
     },
     {
       freezeTableName: true,
       underscored: true,
       timestamps: true,
-    }
-  )
+    },
+  );
+
   category.associate = (models) => {
     category.hasMany(models.product, {
       foreignKey: 'category_id',
-      sourceKey: 'public_id',
+      sourceKey: 'id',
       as: 'products',
-    })
-  }
+    });
+    category.hasMany(models.subCategory, {
+      foreignKey: 'category_id',
+      sourceKey: 'id',
+      as: 'subCategories',
+    });
+    category.belongsTo(models.branch, {
+      foreignKey: 'branch_id',
+      targetKey: 'id',
+      as: 'branch',
+    });
+    category.belongsTo(models.vendor, {
+      foreignKey: 'vendor_id',
+      targetKey: 'id',
+      as: 'vendor',
+    });
+    category.belongsTo(models.user, {
+      foreignKey: 'created_by',
+      targetKey: 'id',
+      as: 'createdByUser',
+    });
+  };
 
-  return category
-}
+  return category;
+};

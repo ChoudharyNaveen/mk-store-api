@@ -1,242 +1,450 @@
+const { v4: uuidV4 } = require('uuid');
+const bcrypt = require('bcrypt');
 const {
   user: UserModel,
   role: RoleModel,
-  address: AddressModel,
+  vendor: VendorModel,
+  user_roles_mappings: UserRolesMappingModel,
   sequelize,
   Sequelize: { Op },
-} = require('../database')
-const { v4: uuidV4 } = require('uuid')
-const bcrypt = require('bcrypt')
-const saltRounds = 10
-const Helper = require('../utils/helper')
-const { uploadFile } = require('../config/azure')
+} = require('../database');
 
-const userSignUp = async ({ data, imageFile }) => {
-  let transaction = null
+const saltRounds = 10;
+const {
+  withTransaction,
+  convertCamelToSnake,
+  convertSnakeToCamel,
+} = require('../utils/helper');
+const { uploadFile } = require('../config/azure');
+
+// Create Super Admin
+const createSuperAdmin = async ({ data, imageFile }) => {
+  let transaction = null;
+
   try {
     const {
       name,
-      mobile_number,
+      mobileNumber,
       email,
       password,
-      confirm_password,
-      date_of_birth,
+      confirmPassword,
+      dateOfBirth,
       gender,
-    } = data
+      status,
+    } = data;
+
+    // Check if user already exists
     const userExists = await UserModel.findOne({
       where: {
-        [Op.or]: [{ email: email }, { mobile_number: mobile_number }],
+        [Op.or]: [ { email }, { mobile_number: mobileNumber } ],
       },
-    })
+      attributes: [ 'id', 'name', 'mobile_number', 'email' ],
+    });
+
     if (userExists) {
-      return { errors: 'user already exists with that email or mobile number' }
+      return { errors: 'user already exists with that email or mobile number' };
     }
-    if (password !== confirm_password) {
-      return { errors: 'password missmatched' }
+
+    if (password !== confirmPassword) {
+      return { errors: 'password missmatched' };
     }
-    transaction = await sequelize.transaction()
-    const hashedPassword = await bcrypt.hash(password, saltRounds)
 
-    const riderRole = await RoleModel.findOne({
-      where: { name: 'rider' },
-    })
+    transaction = await sequelize.transaction();
+    const hashedPassword = await bcrypt.hash(password, saltRounds);
 
-    const public_id = uuidV4()
-    const concurrency_stamp = uuidV4()
+    // Get or create SUPER_ADMIN role
+    const superAdminRole = await RoleModel.findOne({
+      where: { name: 'SUPER_ADMIN' },
+      attributes: [ 'id', 'name' ],
+      transaction,
+    });
+
+    if (!superAdminRole) {
+      return { errors: 'Super admin role not found' };
+    }
+
+    const concurrencyStamp = uuidV4();
     const doc = {
-      public_id,
-      concurrency_stamp,
+      concurrency_stamp: concurrencyStamp,
       name,
-      mobile_number,
+      mobile_number: mobileNumber,
       email,
       password: hashedPassword,
-      date_of_birth,
+      date_of_birth: dateOfBirth,
       gender,
-      role_id: riderRole.dataValues.public_id,
-    }
+      status: status || 'ACTIVE',
+      profile_status: 'COMPLETE',
+    };
+
+    const user = await UserModel.create(doc, {
+      transaction,
+    });
 
     if (imageFile) {
-      const blobName = `user-${public_id}-${Date.now()}.jpg`
-      imageUrl = await uploadFile(imageFile, blobName)
-      doc.image = imageUrl
+      const blobName = `user-${user.id}-${Date.now()}.jpg`;
+      const imageUrl = await uploadFile(imageFile, blobName);
+
+      await UserModel.update({ image: imageUrl }, {
+        where: { id: user.id },
+        transaction,
+      });
     }
 
-    const user = await UserModel.create(doc, transaction)
-    await transaction.commit()
-    return { doc: user }
+    // Create mapping entry
+    const mappingConcurrencyStamp = uuidV4();
+
+    await UserRolesMappingModel.create(
+      {
+        user_id: user.id,
+        role_id: superAdminRole.id,
+        status: 'ACTIVE',
+        concurrency_stamp: mappingConcurrencyStamp,
+      },
+      { transaction },
+    );
+
+    await transaction.commit();
+
+    // Return only the created user data - use dataValues to avoid any association loading
+    const userData = user.dataValues;
+
+    return { doc: userData };
   } catch (error) {
     if (transaction) {
-      await transaction.rollback()
+      await transaction.rollback();
     }
-    console.log(error)
-    return { errors: 'failed to register' }
+    console.log(error);
+
+    return { errors: 'failed to create super admin' };
   }
-}
+};
 
-const findUserByEmailOrMobile = async (payload) => {
-  const { email, mobile_number } = payload
-
-  const response = await UserModel.findOne({
-    where: {
-      [Op.or]: [{ email: email }, { mobile_number: mobile_number }],
-    },
-    include: [{ model: RoleModel, as: 'role' }],
-  })
-
-  return response
-}
-
-const getTotalUsers = async () => {
-  const userRole = await RoleModel.findOne({
-    where: {
-      name: 'user',
-    },
-  })
-  const roleId = userRole.dataValues.public_id
-
-  const doc = await UserModel.findAndCountAll({
-    where: {
-      role_id: roleId,
-    },
-  })
-
-  return doc
-}
-const getUserById = async (payload) => {
-  const { publicId } = payload
-
-  const response = await UserModel.findOne({
-    where: { public_id: publicId },
-  })
-  if (response) {
-    const { dataValues } = response
-    const doc = Helper.convertSnakeToCamel(dataValues)
-
-    return { doc }
-  }
-  return {}
-}
-
-const updateUser = async ({ data, imageFile }) => {
-  let transaction = null
-  const { publicId, password, ...datas } = data
-  const { concurrencyStamp, updatedBy } = datas
-
-  try {
-    transaction = await sequelize.transaction()
-    const response = await UserModel.findOne({
-      where: { public_id: publicId },
-    })
-
-    if (response) {
-      const { concurrency_stamp: stamp } = response
-      if (concurrencyStamp === stamp) {
-        const newConcurrencyStamp = uuidV4()
-        const doc = {
-          ...Helper.convertCamelToSnake(data),
-          updatedBy,
-          concurrency_stamp: newConcurrencyStamp,
-        }
-
-        if (imageFile) {
-          const blobName = `user-${publicId}-${Date.now()}.jpg`
-          const imageUrl = await uploadFile(imageFile, blobName)
-          doc.image = imageUrl
-        }
-
-        if (password) {
-          const hashedPassword = await bcrypt.hash(password, saltRounds)
-          doc.password = hashedPassword
-        }
-
-        await UserModel.update(doc, {
-          where: { public_id: publicId },
-          transaction,
-        })
-        await transaction.commit()
-        return { doc: { concurrencyStamp: newConcurrencyStamp } }
-      }
-      await transaction.rollback()
-      return { concurrencyError: { message: 'invalid concurrency stamp' } }
-    }
-    return {}
-  } catch (error) {
-    console.log(error)
-    if (transaction) {
-      await transaction.rollback()
-    }
-    return { errors: { message: 'transaction failed' } }
-  }
-}
-
+// Find user by email
 const findUserByEmail = async (payload) => {
-  const { email } = payload
+  const { email } = payload;
 
   const response = await UserModel.findOne({
     where: {
-      email: email,
+      email,
     },
-    include: [{ model: RoleModel, as: 'role' }],
-  })
+  });
 
-  return response
-}
+  return response;
+};
 
-const customerSignUp = async ({ data, imageFile }) => {
-  let transaction = null
+// Get user by ID
+const getUserById = async (payload) => {
+  const { id } = payload;
+
+  const response = await UserModel.findOne({
+    where: { id },
+    attributes: [ 'id', 'name', 'mobile_number', 'email', 'date_of_birth', 'gender', 'status', 'profile_status', 'image', 'created_at', 'updated_at' ],
+  });
+
+  if (response) {
+    const { dataValues } = response;
+    const doc = convertSnakeToCamel(dataValues);
+
+    return { doc };
+  }
+
+  return { errors: { message: 'User not found' } };
+};
+
+// Create Vendor Admin
+const createVendorAdmin = async ({ data, imageFile }) => {
+  let transaction = null;
+
   try {
-    const { name, mobile_number, email, password, confirm_password } = data
-    const userExists = await UserModel.findOne({
-      where: {
-        [Op.or]: [{ email: email }, { mobile_number: mobile_number }],
-      },
-    })
-    if (userExists) {
-      return { errors: 'user already exists with that email or mobile number' }
+    const {
+      vendorId, name, mobileNumber, email, password, ...otherData
+    } = data;
+
+    transaction = await sequelize.transaction();
+
+    // Verify vendor exists and get admin role in parallel
+    const [ vendor, adminRole ] = await Promise.all([
+      VendorModel.findOne({
+        where: { id: vendorId },
+        attributes: [ 'id' ],
+        transaction,
+      }),
+      RoleModel.findOne({
+        where: { name: 'VENDOR_ADMIN' },
+        attributes: [ 'id', 'name' ],
+        transaction,
+      }),
+    ]);
+
+    if (!vendor) {
+      await transaction.rollback();
+
+      return { errors: { message: 'Vendor not found' } };
     }
-    transaction = await sequelize.transaction()
-    const hashedPassword = await bcrypt.hash(password, saltRounds)
 
-    const riderRole = await RoleModel.findOne({
-      where: { name: 'user' },
-    })
+    if (!adminRole) {
+      await transaction.rollback();
 
-    const public_id = uuidV4()
-    const concurrency_stamp = uuidV4()
+      return { errors: { message: 'Admin role not found' } };
+    }
+
+    // Check if vendor already has an admin and if user exists in parallel
+    const [ existingAdmin, userExists ] = await Promise.all([
+      UserRolesMappingModel.findOne({
+        where: {
+          vendor_id: vendorId,
+          role_id: adminRole.id,
+          status: 'ACTIVE',
+        },
+        attributes: [ 'id' ],
+        transaction,
+      }),
+      UserModel.findOne({
+        where: {
+          [Op.or]: [ { email }, { mobile_number: mobileNumber } ],
+        },
+        attributes: [ 'id' ],
+        transaction,
+      }),
+    ]);
+
+    if (existingAdmin) {
+      await transaction.rollback();
+
+      return { errors: { message: 'Vendor already has an admin assigned' } };
+    }
+
+    if (userExists) {
+      await transaction.rollback();
+
+      return {
+        errors: { message: 'User already exists with that email or mobile number' },
+      };
+    }
+
+    // Hash password if provided
+    let hashedPassword = null;
+
+    if (password) {
+      hashedPassword = await bcrypt.hash(password, saltRounds);
+    }
+
+    const concurrencyStamp = uuidV4();
+
     const doc = {
-      public_id,
-      concurrency_stamp,
+      concurrency_stamp: concurrencyStamp,
       name,
-      mobile_number,
+      mobile_number: mobileNumber,
       email,
       password: hashedPassword,
-      role_id: riderRole.dataValues.public_id,
-    }
+      profile_status: 'COMPLETE',
+      ...otherData,
+    };
+
+    const user = await UserModel.create(doc, { transaction });
 
     if (imageFile) {
-      const blobName = `user-${public_id}-${Date.now()}.jpg`
-      imageUrl = await uploadFile(imageFile, blobName)
-      doc.image = imageUrl
+      const blobName = `user-${user.id}-${Date.now()}.jpg`;
+      const imageUrl = await uploadFile(imageFile, blobName);
+
+      await UserModel.update({ image: imageUrl }, {
+        where: { id: user.id },
+        transaction,
+      });
     }
 
-    const user = await UserModel.create(doc, transaction)
-    await transaction.commit()
-    return { doc: user }
+    // Create mapping entry
+    const mappingConcurrencyStamp = uuidV4();
+
+    await UserRolesMappingModel.create(
+      {
+        vendor_id: vendorId,
+        user_id: user.id,
+        role_id: adminRole.id,
+        status: 'ACTIVE',
+        concurrency_stamp: mappingConcurrencyStamp,
+      },
+      { transaction },
+    );
+
+    await transaction.commit();
+
+    return { doc: { user } };
   } catch (error) {
     if (transaction) {
-      await transaction.rollback()
+      await transaction.rollback();
     }
-    console.log(error)
-    return { errors: 'failed to register' }
+    console.log(error);
+
+    return { errors: { message: 'failed to create vendor admin' } };
   }
-}
+};
+
+// Update User
+const updateUser = async ({ data, imageFile }) => withTransaction(sequelize, async (transaction) => {
+  const { id, password, ...datas } = data;
+  const { concurrencyStamp, updatedBy } = datas;
+
+  const response = await UserModel.findOne({
+    where: { id },
+    attributes: [ 'id', 'concurrency_stamp' ],
+    transaction,
+  });
+
+  if (!response) {
+    return { errors: { message: 'User not found' } };
+  }
+
+  const { concurrency_stamp: stamp } = response;
+
+  if (concurrencyStamp !== stamp) {
+    return { concurrencyError: { message: 'invalid concurrency stamp' } };
+  }
+
+  const newConcurrencyStamp = uuidV4();
+  const doc = {
+    ...convertCamelToSnake(datas),
+    updated_by: updatedBy,
+    profile_status: 'COMPLETE',
+    concurrency_stamp: newConcurrencyStamp,
+  };
+
+  if (imageFile) {
+    const blobName = `user-${id}-${Date.now()}.jpg`;
+    const imageUrl = await uploadFile(imageFile, blobName);
+
+    doc.image = imageUrl;
+  }
+
+  if (password) {
+    const hashedPassword = await bcrypt.hash(password, saltRounds);
+
+    doc.password = hashedPassword;
+  }
+
+  await UserModel.update(doc, {
+    where: { id },
+    transaction,
+  });
+
+  return { doc: { concurrencyStamp: newConcurrencyStamp } };
+}).catch((error) => {
+  console.log(error);
+
+  return { errors: { message: 'transaction failed' } };
+});
+
+// Convert User to Rider
+const convertUserToRider = async ({ userId }) => {
+  let transaction = null;
+
+  try {
+    transaction = await sequelize.transaction();
+
+    // Check if user exists, get RIDER role, and check existing mappings in parallel
+    const [ user, riderRole, existingRiderMapping, existingMapping ] = await Promise.all([
+      UserModel.findOne({
+        where: { id: userId },
+        attributes: [ 'id' ],
+        transaction,
+      }),
+      RoleModel.findOne({
+        where: { name: 'RIDER' },
+        attributes: [ 'id', 'name' ],
+        transaction,
+      }),
+      UserRolesMappingModel.findOne({
+        where: {
+          user_id: userId,
+          status: 'ACTIVE',
+        },
+        attributes: [ 'id', 'role_id' ],
+        include: [ {
+          model: RoleModel,
+          as: 'role',
+          attributes: [ 'id', 'name' ],
+          where: { name: 'RIDER' },
+        } ],
+        transaction,
+      }),
+      UserRolesMappingModel.findOne({
+        where: {
+          user_id: userId,
+          status: 'ACTIVE',
+        },
+        attributes: [ 'id', 'user_id', 'role_id', 'concurrency_stamp' ],
+        transaction,
+      }),
+    ]);
+
+    if (!user) {
+      await transaction.rollback();
+      console.error(`[convertUserToRider] Error: User not found with userId: ${userId}`);
+
+      return { errors: { message: 'User not found' } };
+    }
+
+    if (!riderRole) {
+      await transaction.rollback();
+      console.error('[convertUserToRider] Error: RIDER role not found in database');
+
+      return { errors: { message: 'RIDER role not found' } };
+    }
+
+    if (existingRiderMapping) {
+      await transaction.rollback();
+      console.error(`[convertUserToRider] Error: User ${userId} is already a rider`);
+
+      return { errors: { message: 'User is already a rider' } };
+    }
+
+    if (!existingMapping) {
+      await transaction.rollback();
+      console.error(`[convertUserToRider] Error: No existing role mapping found for user ${userId}`);
+
+      return { errors: { message: 'No existing role mapping found for user' } };
+    }
+
+    // Update existing mapping to RIDER role
+    const mappingConcurrencyStamp = uuidV4();
+
+    await UserRolesMappingModel.update(
+      {
+        role_id: riderRole.id,
+        concurrency_stamp: mappingConcurrencyStamp,
+      },
+      {
+        where: { id: existingMapping.id },
+        transaction,
+      },
+    );
+
+    // Fetch updated mapping
+    const updatedMapping = await UserRolesMappingModel.findOne({
+      where: { id: existingMapping.id },
+      attributes: [ 'id', 'user_id', 'role_id', 'vendor_id', 'status', 'concurrency_stamp', 'created_at', 'updated_at' ],
+      transaction,
+    });
+
+    await transaction.commit();
+
+    return { doc: { message: 'User successfully converted to rider', mapping: updatedMapping } };
+  } catch (error) {
+    if (transaction) {
+      await transaction.rollback();
+    }
+    console.error('[convertUserToRider] Error:', error);
+    console.error('[convertUserToRider] Stack trace:', error.stack);
+
+    return { errors: { message: 'Failed to convert user to rider' } };
+  }
+};
 
 module.exports = {
-  userSignUp,
-  findUserByEmailOrMobile,
-  getTotalUsers,
-  getUserById,
-  updateUser,
+  createSuperAdmin,
   findUserByEmail,
-  customerSignUp,
-}
+  getUserById,
+  createVendorAdmin,
+  updateUser,
+  convertUserToRider,
+};

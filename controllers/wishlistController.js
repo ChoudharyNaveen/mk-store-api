@@ -1,76 +1,59 @@
-const { Wishlist: WishlistService } = require('../services')
+const { Wishlist: WishlistService } = require('../services');
+const { handleServerError } = require('../utils/helper');
 
 const saveWishlist = async (req, res) => {
   try {
-    const {
-      body,
-      user: { publicId: createdBy },
-    } = req
+    const data = req.validatedData;
 
-    const data = { ...body, createdBy }
+    const { errors: err, doc, isexists } = await WishlistService.saveWishlist(data);
 
-    const { errors: err, doc , isexists} = await WishlistService.saveWishlist(data)
     if (isexists) {
-      return res.postSuccessfully({message: 'item already added to wishlist'})
+      return res.status(200).json({ success: true, message: 'item already added to wishlist' });
     }
     if (doc) {
-      return res.postSuccessfully({ message: 'successfully added' })
+      return res.status(201).json({ success: true, message: 'successfully added' });
     }
-    return res.status(400).json(err)
+
+    return res.status(400).json(err);
   } catch (error) {
-    console.log(error)
-    return res.serverError(error)
+    console.log(error);
+
+    return handleServerError(error, req, res);
   }
-}
+};
 
 const getWishlist = async (req, res) => {
   try {
-    const {
-      query: {
-        pageSize: pageSizeString,
-        pageNumber: pageNumberString,
-        ...query
-      },
-      user: { publicId: createdBy },
-    } = req
+    const data = req.validatedData;
 
-    const pageNumber = parseInt(pageNumberString || 1)
-    const pageSize = parseInt(pageSizeString || 10)
+    const { count, doc } = await WishlistService.getWishlist(data);
 
-    const data = {
-      ...query,
-      pageNumber,
-      pageSize,
-      createdBy
-    }
-
-    const { count, doc } = await WishlistService.getWishlist(data)
-
-    return res.getRequest({ doc, count })
+    return res.status(200).json({ success: true, doc, count });
   } catch (error) {
-    return res.serverError(error)
+    return handleServerError(error, req, res);
   }
-}
+};
 
 const deleteWishlist = async (req, res) => {
   try {
-    const { wishlistId } = req.query
+    const { wishlistId } = req.validatedData;
 
-    const { errors, doc } = await WishlistService.deleteWishlist(
-      wishlistId
-    )
+    const { errors, doc } = await WishlistService.deleteWishlist(wishlistId);
+
     if (doc) {
-      res.setHeader('message', 'successfully deleted')
-      return res.deleted()
+      res.setHeader('message', 'successfully deleted');
+
+      return res.status(200).json({ success: true, message: 'successfully deleted' });
     }
-    return res.status(400).json(errors)
+
+    return res.status(400).json(errors);
   } catch (error) {
-    return res, serverError(error)
+    return handleServerError(error, req, res);
   }
-}
+};
 
 module.exports = {
   saveWishlist,
   getWishlist,
-  deleteWishlist
-}
+  deleteWishlist,
+};

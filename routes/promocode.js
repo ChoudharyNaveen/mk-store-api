@@ -2,8 +2,14 @@ const {
   savePromocode,
   getPromocode,
   updatePromocode,
-} = require('../controllers/promocodeController')
-const { isAuthenticated } = require('../middleware/auth')
+} = require('../controllers/promocodeController');
+const { isAuthenticated } = require('../middleware/auth');
+const validate = require('../middleware/validation');
+const {
+  savePromocode: savePromocodeSchema,
+  getPromocode: getPromocodeSchema,
+  updatePromocode: updatePromocodeSchema,
+} = require('../schemas');
 
 module.exports = (router) => {
   /**
@@ -78,7 +84,7 @@ module.exports = (router) => {
    *       400:
    *         description: Validation error
    */
-  router.post('/save-Promocode', isAuthenticated, savePromocode)
+  router.post('/save-Promocode', isAuthenticated, validate(savePromocodeSchema), savePromocode);
 
   /**
    * @swagger
@@ -125,8 +131,9 @@ module.exports = (router) => {
    *                   items:
    *                     type: object
    *                     properties:
-   *                       publicId:
-   *                         type: string
+   *                       id:
+   *                         type: integer
+   *                         example: 1
    *                       code:
    *                         type: string
    *                       discount:
@@ -142,11 +149,11 @@ module.exports = (router) => {
    *                 count:
    *                   type: integer
    */
-  router.get('/get-Promocode', isAuthenticated, getPromocode)
+  router.get('/get-Promocode', isAuthenticated, validate(getPromocodeSchema), getPromocode);
 
   /**
    * @swagger
-   * /update-Promocode/{publicId}:
+   * /update-Promocode/{id}:
    *   patch:
    *     summary: Update a promocode
    *     tags: [Promocodes]
@@ -154,11 +161,11 @@ module.exports = (router) => {
    *       - bearerAuth: []
    *     parameters:
    *       - in: path
-   *         name: publicId
+   *         name: id
    *         required: true
    *         schema:
-   *           type: string
-   *         description: Promocode public ID
+   *           type: integer
+   *         description: Promocode ID
    *     requestBody:
    *       required: true
    *       content:
@@ -201,5 +208,5 @@ module.exports = (router) => {
    *                   type: boolean
    *                   example: true
    */
-  router.patch('/update-Promocode/:publicId', isAuthenticated, updatePromocode)
-}
+  router.patch('/update-Promocode/:id', isAuthenticated, validate(updatePromocodeSchema), updatePromocode);
+};

@@ -1,58 +1,31 @@
-const userSignUp = {
-  title: "Add User form",
-  description: "Defines the structure for HTTP POST request body",
-  type: 'object',
-  properties: {
-    name: {
-      type: 'string',
-      description: 'name of the user',
-    },
-    mobile_number: {
-      type: 'string',
-      description: 'mobile number of the user',
-    },
-    email: {
-      type: 'string',
-      description: 'email of the user',
-    },
-    password: {
-      type: 'string',
-      description: 'password of the user',
-    },
-    confirm_password: {
-      type: 'string',
-      description: 'confirm password',
-    },
-    date_of_birth:{
-      type: 'date',
-      description: 'date of birth'
-    },
-    gender:{
-      type: 'string',
-      description: 'gender'
-    },
-    status: {
-      type: 'string',
-      description: 'status of the user',
-      enum: ['ACTIVE', 'INACTIVE'],
-    },
-    createdBy: {
-      type: 'string',
-      description: 'user created by',
-    },
-  },
-  errorMessage: {
-    required: {
-      name: 'Parameter:Name is required',
-      password: 'Parameter:Password is required',
-      confirm_password: 'Parameter:Please confirm your password',
-      mobile_number: 'Parameter:Mobile number is required',
-      email: 'Parameter:Email is required',
-    },
-    properties: {},
-  },
-  required: ['name', 'password', 'confirm_password', 'mobile_number', 'email'],
-  additionalProperties: false,
-}
+const Joi = require('joi');
 
-module.exports = userSignUp
+const userSignUp = Joi.object({
+  name: Joi.string().required().messages({
+    'any.required': 'Parameter:Name is required',
+    'string.empty': 'Parameter:Name is required',
+  }),
+  mobile_number: Joi.string().required().messages({
+    'any.required': 'Parameter:Mobile number is required',
+    'string.empty': 'Parameter:Mobile number is required',
+  }),
+  email: Joi.string().email().required().messages({
+    'any.required': 'Parameter:Email is required',
+    'string.email': 'Parameter:Email should be a valid email address',
+    'string.empty': 'Parameter:Email is required',
+  }),
+  password: Joi.string().required().messages({
+    'any.required': 'Parameter:Password is required',
+    'string.empty': 'Parameter:Password is required',
+  }),
+  confirm_password: Joi.string().required().messages({
+    'any.required': 'Parameter:Please confirm your password',
+    'string.empty': 'Parameter:Please confirm your password',
+  }),
+  date_of_birth: Joi.date().optional(),
+  gender: Joi.string().optional(),
+  status: Joi.string().valid('ACTIVE', 'INACTIVE').optional(),
+  createdBy: Joi.string().optional(),
+}).unknown(false);
+
+module.exports = userSignUp;

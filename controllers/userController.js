@@ -1,271 +1,204 @@
-const { User: UserService } = require('../services')
-const {
-  userSignUp: userSignUpSchema,
-  userLogin: userLoginSchema,
-} = require('../schemas')
-const Validator = require('../utils/validator')
-const bcrypt = require('bcrypt')
-const config = require('../config/index')
-const jwt = require('jsonwebtoken')
-const Helper = require('../utils/helper')
+const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken');
+const { User: UserService } = require('../services');
+const config = require('../config/index');
+const Helper = require('../utils/helper');
 
-const userSignUp = async (req, res) => {
+const { handleServerError } = Helper;
+const { user_roles_mappings: UserRolesMappingModel, role: RoleModel } = require('../database');
+
+// Create Super Admin
+const createSuperAdmin = async (req, res) => {
   try {
-    const { body } = req
-    const data = { ...body }
+    const data = req.validatedData || req.body;
+    const imageFile = req.files.file ? req.files.file[0] : null;
 
-    const imageFile = req.files['file'] ? req.files['file'][0] : null
-
-    const { errors: err, doc } = await UserService.userSignUp({
+    const { errors: err, doc } = await UserService.createSuperAdmin({
       data,
       imageFile,
-    })
+    });
+
     if (doc) {
-      return res.postRequest(doc)
+      return res.status(201).json({
+        success: true,
+        message: 'Super admin created successfully',
+        doc,
+      });
     }
 
-    return res.status(400).json({ error: err })
+    return res.status(400).json({ error: err });
   } catch (error) {
-    console.log(error)
-    return res.serverError(error)
+    return handleServerError(error, req, res);
   }
-}
+};
 
-const riderLogin = async (req, res) => {
+// Auth Login (similar to verifyOtpSms but with email/password)
+const authLogin = async (req, res) => {
   try {
-    const { body } = req
+    const { email, password } = req.body;
 
-    const data = { ...body }
-    const { errors } = Validator.isSchemaValid({
-      data,
-      schema: userLoginSchema,
-    })
-
-    if (errors) {
-      return res.badRequest('field-validation', errors)
+    if (!email || !password) {
+      return res.status(400).json({
+        errors: [ { message: 'Email and password are required', name: 'validation' } ],
+      });
     }
 
-    var userData = await UserService.findUserByEmailOrMobile(data)
+    // Find user by email
+    const user = await UserService.findUserByEmail({ email });
 
-    if (!userData) {
-      return res
-        .status(401)
-        .send({ success: false, message: 'Invalid Credentials' })
+    if (!user) {
+      return res.status(401).json({
+        errors: [ { message: 'User not found. Please sign up first.', name: 'user' } ],
+      });
     }
 
-    userData = Helper.convertSnakeToCamel(userData.dataValues)
+    const userData = Helper.convertSnakeToCamel(user.dataValues);
 
-    const passwordMatch = await bcrypt.compare(data.password, userData.password)
+    // Check if user has password
+    if (!userData.password) {
+      return res.status(401).json({
+        errors: [ { message: 'Invalid credentials', name: 'password' } ],
+      });
+    }
+
+    // Verify password
+    const passwordMatch = await bcrypt.compare(password, userData.password);
+
     if (!passwordMatch) {
-      return res.status(401).send({
-        success: false,
-        message: 'Incorrect Password. Please check and try again',
-      })
+      return res.status(401).json({
+        errors: [ { message: 'Invalid credentials', name: 'password' } ],
+      });
     }
 
-    const tokenSecret = config.jwt.token_secret + userData.password
+    // Get role mappings and role information
+    const roleMappings = await UserRolesMappingModel.findAll({
+      where: {
+        user_id: userData.id,
+        status: 'ACTIVE',
+      },
+      include: [
+        {
+          model: RoleModel,
+          as: 'role',
+        },
+      ],
+    });
 
-    const token = jwt.sign(userData, tokenSecret, {
+    // Extract role and vendor information
+    const roleMapping = roleMappings && roleMappings[0];
+    const roleData = roleMapping && roleMapping.role
+      ? Helper.convertSnakeToCamel(roleMapping.role.dataValues)
+      : null;
+    const mappingData = roleMapping
+      ? Helper.convertSnakeToCamel(roleMapping.dataValues)
+      : null;
+
+    // Prepare user response (similar to verifyOtpSms response)
+    const userResponse = {
+      id: userData.id,
+      name: userData.name || null,
+      mobileNumber: userData.mobileNumber,
+      email: userData.email || null,
+      status: userData.status,
+      profileStatus: userData.profileStatus,
+      roleName: roleData ? roleData.name : null,
+      vendorId: mappingData ? mappingData.vendorId : null,
+    };
+
+    // Generate JWT token (same as verifyOtpSms)
+    const tokenSecret = config.jwt.token_secret;
+
+    const token = jwt.sign(userResponse, tokenSecret, {
       expiresIn: config.jwt.token_life,
-    })
+    });
 
-    userData.access_token = token
-    delete userData.password
-
-    res.setHeader('token', token)
-    return res.getRequest(userData)
+    // Return same response format as verifyOtpSms
+    return res.status(200).json({
+      doc: {
+        message: 'Login successful. User authenticated.',
+        user: userResponse,
+        token,
+      },
+    });
   } catch (error) {
-    console.log(error)
-    return {
-      errors: [{ name: 'transaction', message: 'Invalid transaction' }],
-    }
+    return handleServerError(error, req, res);
   }
-}
+};
 
-const userLogin = async (req, res) => {
+// Create Vendor Admin
+const createVendorAdmin = async (req, res) => {
   try {
-    const { body } = req
+    const data = req.validatedData;
 
-    const data = { ...body }
-    const { errors } = Validator.isSchemaValid({
-      data,
-      schema: userLoginSchema,
-    })
+    const imageFile = req.files.file ? req.files.file[0] : null;
 
-    if (errors) {
-      return res.badRequest('field-validation', errors)
+    const { errors: err, doc } = await UserService.createVendorAdmin({ data, imageFile });
+
+    if (doc) {
+      return res.status(201).json({ success: true, message: 'Vendor admin created successfully', doc });
     }
 
-    var userData = await UserService.findUserByEmailOrMobile(data)
-
-    if (!userData) {
-      return res
-        .status(401)
-        .send({ success: false, message: 'Invalid Credentials' })
-    }
-
-    userData = Helper.convertSnakeToCamel(userData.dataValues)
-
-    const passwordMatch = await bcrypt.compare(data.password, userData.password)
-    if (!passwordMatch) {
-      return res.status(401).send({
-        success: false,
-        message: 'Incorrect Password. Please check and try again',
-      })
-    }
-
-    const tokenSecret = config.jwt.token_secret + userData.password
-
-    const token = jwt.sign(userData, tokenSecret, {
-      expiresIn: config.jwt.token_life,
-    })
-
-    userData.access_token = token
-    delete userData.password
-
-    res.setHeader('token', token)
-    return res.getRequest(userData)
+    return res.status(400).json({ error: err });
   } catch (error) {
-    console.log(error)
-    return {
-      errors: [{ name: 'transaction', message: 'Invalid transaction' }],
-    }
+    return handleServerError(error, req, res);
   }
-}
+};
 
-const getTotalUsers = async (req, res) => {
-  try {
-    const result = await UserService.getTotalUsers()
-    if (result) {
-      return res.getRequest(result)
-    }
-    return res.badRequest()
-  } catch (error) {
-    return res.serverError(error)
-  }
-}
-
+// Update User
 const updateUser = async (req, res) => {
   try {
-    const {
-      body,
-      params: { publicId },
-      user: { publicId: updatedBy },
-      headers: { 'x-concurrencystamp': concurrencyStamp },
-    } = req
-
-    const imageFile = req.files['file'] ? req.files['file'][0] : null
-
-    const data = {
-      ...body,
-      publicId,
-      concurrencyStamp,
-      updatedBy,
-    }
+    const data = { ...req.validatedData, id: req.params.id };
+    const imageFile = req.files.file ? req.files.file[0] : null;
 
     const {
       errors: err,
       concurrencyError,
       doc,
-    } = await UserService.updateUser({ data, imageFile })
+    } = await UserService.updateUser({ data, imageFile });
 
     if (concurrencyError) {
-      return res.concurrencyError()
+      return res.status(409).json({ success: false, message: 'Concurrency error' });
     }
     if (doc) {
-      const { concurrencyStamp: stamp } = doc
-      res.setHeader('x-concurrencystamp', stamp)
-      res.setHeader('message', 'successfully updated.')
+      const { concurrencyStamp: stamp } = doc;
 
-      return res.updated()
+      res.setHeader('x-concurrencystamp', stamp);
+      res.setHeader('message', 'successfully updated.');
+
+      return res.status(200).json({ success: true, message: 'successfully updated' });
     }
 
-    return res.status(400).json(err)
+    return res.status(400).json(err);
   } catch (error) {
-    return res.serverError(error)
+    return handleServerError(error, req, res);
   }
-}
+};
 
-const adminLogin = async (req, res) => {
+// Convert User to Rider
+const convertUserToRider = async (req, res) => {
   try {
-    const { body } = req
+    const { userId } = req.validatedData || req.body;
 
-    const data = { ...body }
-    const { errors } = Validator.isSchemaValid({
-      data,
-      schema: userLoginSchema,
-    })
+    const { errors: err, doc } = await UserService.convertUserToRider({ userId });
 
-    if (errors) {
-      return res.badRequest('field-validation', errors)
-    }
-
-    var userData = await UserService.findUserByEmail(data)
-
-    if (!userData) {
-      return res
-        .status(401)
-        .send({ success: false, message: 'InValid Credentials' })
-    }
-
-    if (userData?.role?.dataValues?.name !== 'admin') {
-      return res.status(401).send({ success: false, message: 'Access Denied' })
-    }
-    userData = Helper.convertSnakeToCamel(userData.dataValues)
-    const passwordMatch = await bcrypt.compare(data.password, userData.password)
-    if (!passwordMatch) {
-      return res.status(401).send({
-        success: false,
-        message: 'Incorrect Password. Please check and try again',
-      })
-    }
-    const tokenSecret = config.jwt.token_secret + userData.password
-    const refreshTokenSecret =
-      config.jwt.refresh_token_secret + userData.password
-    const token = jwt.sign(userData, tokenSecret, {
-      expiresIn: config.jwt.token_life,
-    })
-    userData.access_token = token
-    delete userData.password
-
-    res.setHeader('token', token)
-    return res.getRequest(userData)
-  } catch (error) {
-    console.log(error)
-    return {
-      errors: [{ name: 'transaction', message: 'InValid transaction' }],
-    }
-  }
-}
-
-const customerSignUp = async (req, res) => {
-  try {
-    const { body } = req
-    const data = { ...body }
-
-    const imageFile = req.files['file'] ? req.files['file'][0] : null
-
-    const { errors: err, doc } = await UserService.customerSignUp({
-      data,
-      imageFile,
-    })
     if (doc) {
-      return res.postRequest(doc)
+      return res.status(201).json({
+        success: true,
+        message: 'User successfully converted to rider',
+        doc,
+      });
     }
 
-    return res.status(400).json({ error: err })
+    return res.status(400).json({ error: err });
   } catch (error) {
-    console.log(error)
-    return res.serverError(error)
+    return handleServerError(error, req, res);
   }
-}
+};
 
 module.exports = {
-  userSignUp,
-  userLogin,
-  getTotalUsers,
+  createSuperAdmin,
+  authLogin,
+  createVendorAdmin,
   updateUser,
-  adminLogin,
-  customerSignUp,
-  riderLogin
-}
+  convertUserToRider,
+};

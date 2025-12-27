@@ -1,3 +1,7 @@
-const verifyOtp = require('./verify-otp')
+const sendOTPToSMS = require('./sendOTPToSMS');
+const verifyOTPBySMS = require('./verifyOTPBySMS');
 
-module.exports = {verifyOtp}
+module.exports = {
+  sendOTPToSMS,
+  verifyOTPBySMS,
+};

@@ -1,229 +1,255 @@
-const moment = require('moment')
-const { otp: OTPModel, user: UserModel, sequelize } = require('../database')
-const Helper = require('../utils/helper')
-const crypto = require('crypto')
-const config = require('../config')
-const nodemailer = require('nodemailer')
+const { v4: uuidV4 } = require('uuid');
+const jwt = require('jsonwebtoken');
+const {
+  otp: OTPModel,
+  user: UserModel,
+  role: RoleModel,
+  user_roles_mappings: UserRolesMappingModel,
+  vendor: VendorModel,
+  sequelize,
+} = require('../database');
+const {
+  generateOTP,
+  convertSnakeToCamel,
+} = require('../utils/helper');
+const config = require('../config');
+const { sendSMS } = require('../config/aws');
 
-const verifyOTP = async (payload) => {
-  const { email, otp } = payload
+const sendOtpSMSForUser = async (mobileNumber, vendorId) => {
+  let transaction = null;
 
-  const transaction = await sequelize.transaction()
+  // Use mock OTP if USE_MOCK_SMS is enabled, otherwise generate random OTP
+  const otp = config.AWS.USE_MOCK_SMS ? config.AWS.MOCK_OTP : generateOTP();
+  const message = `Your One-Time Password (OTP) for MK Online Store is ${otp}. 
+  This OTP is valid for the next 10 minutes. Please do not share this code with anyone.`;
 
   try {
-    const user = await UserModel.findOne({
-      where: { email: email },
-    })
-    const userId = user?.dataValues?.public_id
+    transaction = await sequelize.transaction();
 
-    const otpResult = await OTPModel.findOne({
-      where: { user_id: userId },
-      lock: transaction.LOCK.UPDATE,
-    })
+    // Check if user exists and vendor exists in parallel
+    let user = await UserModel.findOne({
+      where: {
+        mobile_number: mobileNumber,
+      },
+      attributes: [ 'id', 'mobile_number' ],
+      transaction,
+    });
 
-    if (!otpResult || otpResult?.dataValues?.status === 'INACTIVE') {
-      await transaction.rollback()
-      return {
-        errors: [{ message: 'OTP not valid. Please try again', name: 'otp' }],
+    const vendor = await VendorModel.findOne({
+      where: { id: vendorId },
+      attributes: [ 'id' ],
+      transaction,
+    });
+
+    if (!vendor) {
+      return { message: 'failed', error: 'Vendor not found' };
+    }
+
+    // If user doesn't exist for this vendor, create a new user
+    if (!user) {
+      const userRole = await RoleModel.findOne({
+        where: { name: 'USER' },
+        attributes: [ 'id', 'name' ],
+        transaction,
+      });
+
+      if (!userRole) {
+        await transaction.rollback();
+
+        return { message: 'failed', error: 'User role not found' };
       }
+
+      const concurrencyStamp = uuidV4();
+
+      const newUser = await UserModel.create(
+        {
+          concurrency_stamp: concurrencyStamp,
+          mobile_number: mobileNumber,
+          profile_status: 'INCOMPLETE',
+          status: 'ACTIVE',
+        },
+        { transaction },
+      );
+
+      // Create user_roles_mappings entry
+      const mappingConcurrencyStamp = uuidV4();
+
+      await UserRolesMappingModel.create(
+        {
+          vendor_id: vendorId,
+          user_id: newUser.id,
+          role_id: userRole.id,
+          status: 'ACTIVE',
+          concurrency_stamp: mappingConcurrencyStamp,
+        },
+        { transaction },
+      );
+      user = newUser ?? user;
     }
 
-    const { otp: otpResponse } = otpResult
+    // Send SMS
+    const smsResult = await sendSMS(mobileNumber, message);
 
-    if (otpResponse !== otp) {
-      await transaction.rollback()
-      return { errors: [{ message: 'Invalid OTP.', name: 'otp' }] }
+    if (!smsResult.success) {
+      await transaction.rollback();
+
+      return { message: 'failed', error: smsResult.error };
     }
 
-    await OTPModel.update(
-      { status: 'INACTIVE' },
-      { where: { user_id: userId }, transaction }
-    )
-    await transaction.commit()
+    const userId = user.id;
 
-    return { doc: { message: 'OTP has been successfully verfifed.' } }
-  } catch (error) {
-    console.log(error)
-    await transaction.rollback()
-
-    return { errors: [{ message: 'transaction failed', name: 'transaction' }] }
-  }
-}
-
-const sendOTPToMail = async (userEmail) => {
-  let transaction = null
-  const fromEmail = config.NODEMAILER_SMS.EMAIL
-  const fromPassword = config.NODEMAILER_SMS.PASSWORD
-
-  const transporter = nodemailer.createTransport({
-    host: 'smtp.gmail.com',
-    port: 465,
-    secure: true,
-    auth: {
-      user: fromEmail,
-      pass: fromPassword,
-    },
-    tls: {
-      rejectUnauthorized: false,
-    },
-  })
-
-  const otp = Helper.generateOTP()
-
-  const mailOptions = {
-    from: fromEmail,
-    to: userEmail,
-    subject: 'OTP',
-    text: 'Your One-Time Password (OTP) Code',
-    html: `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f4f4f4; border-radius: 8px;">
-        <h2 style="text-align: center; color: #333;">Your One-Time Password (OTP)</h2>
-        <p>Dear User,</p>
-        <p>Thank you for choosing our service. To complete your action, please use the following OTP:</p>
-        <div style="text-align: center; margin: 20px 0;">
-          <span style="font-size: 24px; color: #333; font-weight: bold; background-color: #f8f8f8; padding: 10px 20px; border-radius: 4px;">${otp}</span>
-        </div>
-        <p style="color: #555;">Please enter this code in the OTP verification field to proceed. This OTP is valid for the next 10 minutes.</p>
-        <p>If you did not request this OTP, please ignore this email or contact our support team immediately.</p>
-        <p style="color: #555;">Best regards,<br>MK Online Store</p>
-        <hr style="margin: 20px 0; border: none; border-top: 1px solid #ddd;" />
-        <p style="font-size: 12px; color: #888; text-align: center;">This is an automated message. Please do not reply to this email.</p>
-      </div>`,
-  }
-  try {
-    const info = await transporter.sendMail(mailOptions)
-    transaction = await sequelize.transaction()
-    const user = await UserModel.findOne({
-      where: { email: userEmail },
-    })
-    const userId = user?.dataValues?.public_id
-
+    // Create or update OTP entry
     const otpEntry = await OTPModel.findOne({
       where: { user_id: userId },
-    })
+      attributes: [ 'id', 'user_id' ],
+      transaction,
+    });
+
     if (otpEntry) {
       await OTPModel.update(
-        { otp: otp, status: 'ACTIVE' },
+        { otp, status: 'ACTIVE', mobile_number: mobileNumber },
         {
           where: { user_id: userId },
           transaction,
-        }
-      )
+        },
+      );
     } else {
       const otpData = {
         user_id: userId,
-        otp: otp,
-        mobile_number: user?.dataValues?.mobile_number,
+        otp,
+        mobile_number: mobileNumber,
         status: 'ACTIVE',
-      }
-      await OTPModel.create(otpData, { transaction })
+      };
+
+      await OTPModel.create(otpData, { transaction });
     }
-    await transaction.commit()
-    return info
+
+    await transaction.commit();
+
+    return { messageId: smsResult.messageId, success: true };
   } catch (error) {
     if (transaction) {
-      await transaction.rollback()
+      await transaction.rollback();
     }
-    console.error('Error occurred:', error.message)
-    return { message: 'failed' }
+    console.error('Error occurred:', error.message);
+
+    return { message: 'failed', error: error.message };
   }
-}
+};
 
-const sendOTPToMailForNewUser = async (userEmail) => {
-  let transaction = null
-  const fromEmail = config.NODEMAILER_SMS.EMAIL
-  const fromPassword = config.NODEMAILER_SMS.PASSWORD
+const verifyOtpSMSForUser = async (payload) => {
+  const { mobileNumber, otp, vendorId } = payload;
 
-  const transporter = nodemailer.createTransport({
-    host: 'smtp.gmail.com',
-    port: 465,
-    secure: true,
-    auth: {
-      user: fromEmail,
-      pass: fromPassword,
-    },
-    tls: {
-      rejectUnauthorized: false,
-    },
-  })
-
-  const otp = Helper.generateOTP()
-
-  const mailOptions = {
-    from: fromEmail,
-    to: userEmail,
-    subject: 'OTP',
-    text: 'Your One-Time Password (OTP) Code',
-    html: `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f4f4f4; border-radius: 8px;">
-        <h2 style="text-align: center; color: #333;">Your One-Time Password (OTP)</h2>
-        <p>Dear User,</p>
-        <p>Thank you for choosing our service. To complete your action, please use the following OTP:</p>
-        <div style="text-align: center; margin: 20px 0;">
-          <span style="font-size: 24px; color: #333; font-weight: bold; background-color: #f8f8f8; padding: 10px 20px; border-radius: 4px;">${otp}</span>
-        </div>
-        <p style="color: #555;">Please enter this code in the OTP verification field to proceed. This OTP is valid for the next 10 minutes.</p>
-        <p>If you did not request this OTP, please ignore this email or contact our support team immediately.</p>
-        <p style="color: #555;">Best regards,<br>Learning Management System</p>
-        <hr style="margin: 20px 0; border: none; border-top: 1px solid #ddd;" />
-        <p style="font-size: 12px; color: #888; text-align: center;">This is an automated message. Please do not reply to this email.</p>
-      </div>`,
-  }
-  try {
-    const info = await transporter.sendMail(mailOptions)
-    transaction = await sequelize.transaction()
-
-    const otpData = {
-      text: userEmail,
-      otp: otp,
-      type: 'initial-registration',
-      status: 'ACTIVE',
-    }
-
-    await OTPModel.create(otpData, { transaction })
-
-    await transaction.commit()
-    return info
-  } catch (error) {
-    if (transaction) {
-      await transaction.rollback()
-    }
-    console.error('Error occurred:', error.message)
-    return { message: 'failed' }
-  }
-}
-
-const verifyOtpForNewUser = async (payload) => {
-  const { email, otp } = payload
+  const transaction = await sequelize.transaction();
 
   try {
-    const otpResult = await OTPModel.findOne({
-      where: { text: email},
-    })
-    if (otpResult === null) {
+    const user = await UserModel.findOne({
+      where: {
+        mobile_number: mobileNumber,
+      },
+      attributes: [ 'id', 'name', 'mobile_number', 'email', 'status', 'profile_status', 'concurrency_stamp', 'password' ],
+      include: [
+        {
+          model: UserRolesMappingModel,
+          as: 'roleMappings',
+          where: {
+            vendor_id: vendorId,
+            status: 'ACTIVE',
+          },
+          required: true,
+          attributes: [ 'id', 'user_id', 'role_id', 'vendor_id', 'status' ],
+          include: [ {
+            model: RoleModel,
+            as: 'role',
+            attributes: [ 'id', 'name' ],
+          } ],
+        },
+      ],
+    });
+
+    if (!user) {
+      await transaction.rollback();
+
       return {
-        errors: [{ message: 'OTP not valid. Please try again' }],
-      }
+        errors: [ { message: 'User not found. Please send OTP first.', name: 'user' } ],
+      };
     }
-    const { otp: otpResponse } = otpResult
+
+    const userId = user.id;
+
+    const otpResult = await OTPModel.findOne({
+      where: { user_id: userId },
+      attributes: [ 'id', 'user_id', 'otp', 'status', 'mobile_number' ],
+      lock: transaction.LOCK.UPDATE,
+      transaction,
+    });
+
+    if (!otpResult || otpResult.dataValues.status === 'INACTIVE') {
+      await transaction.rollback();
+
+      return {
+        errors: [ { message: 'OTP not valid. Please try again', name: 'otp' } ],
+      };
+    }
+
+    const { otp: otpResponse } = otpResult;
 
     if (otpResponse !== otp) {
-      return { errors: [{ message: 'Invalid OTP.', name: 'otp' }] }
+      await transaction.rollback();
+
+      return { errors: [ { message: 'Invalid OTP.', name: 'otp' } ] };
     }
 
-    await OTPModel.destroy(
-      { where: { text: email } }
-    )
+    // Mark OTP as inactive
+    await OTPModel.update(
+      { status: 'INACTIVE' },
+      { where: { user_id: userId }, transaction },
+    );
 
-    return { doc: { message: 'OTP has been successfully verfifed.' } }
+    await transaction.commit();
+
+    // Extract only required fields and role name from user_roles_mappings
+    const userData = convertSnakeToCamel(user.dataValues);
+    const roleMapping = user.dataValues.roleMappings && user.dataValues.roleMappings[0];
+    const roleData = roleMapping && roleMapping.role ? convertSnakeToCamel(roleMapping.role.dataValues) : null;
+    const mappingData = roleMapping ? convertSnakeToCamel(roleMapping.dataValues) : null;
+
+    // Prepare user response with only required fields
+    const userResponse = {
+      id: userData.id,
+      name: userData.name || null,
+      mobileNumber: userData.mobileNumber,
+      email: userData.email || null,
+      status: userData.status,
+      profileStatus: userData.profileStatus,
+      roleName: roleData ? roleData.name : null,
+      vendorId: mappingData ? mappingData.vendorId : null,
+    };
+
+    // Generate JWT token
+    // Use password if available, otherwise use concurrency_stamp for token secret
+    const tokenSecret = config.jwt.token_secret;
+
+    const token = jwt.sign(userData, tokenSecret, {
+      expiresIn: config.jwt.token_life,
+    });
+
+    return {
+      doc: {
+        message: 'OTP verified successfully. User logged in.',
+        user: userResponse,
+        token,
+      },
+    };
   } catch (error) {
-    await transaction.rollback()
+    console.log(error);
+    await transaction.rollback();
 
-    return { errors: [{ message: 'transaction failed', name: 'transaction' }] }
+    return { errors: [ { message: 'transaction failed', name: 'transaction' } ] };
   }
-}
+};
 
 module.exports = {
-  verifyOTP,
-  sendOTPToMail,
-  sendOTPToMailForNewUser,
-  verifyOtpForNewUser,
-}
+  sendOtpSMSForUser,
+  verifyOtpSMSForUser,
+};

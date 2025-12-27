@@ -1,11 +1,18 @@
+const multer = require('multer');
 const {
   saveOffer,
   getOffer,
   updateOffer,
-} = require('../controllers/offerController')
-const { isAuthenticated } = require('../middleware/auth')
-const multer = require('multer')
-const upload = multer()
+} = require('../controllers/offerController');
+const { isAuthenticated } = require('../middleware/auth');
+const validate = require('../middleware/validation');
+const {
+  saveOffer: saveOfferSchema,
+  getOffer: getOfferSchema,
+  updateOffer: updateOfferSchema,
+} = require('../schemas');
+
+const upload = multer();
 
 module.exports = (router) => {
   /**
@@ -77,9 +84,10 @@ module.exports = (router) => {
   router.post(
     '/save-offer',
     isAuthenticated,
-    upload.fields([{ name: 'file', maxCount: 1 }]),
-    saveOffer
-  )
+    upload.fields([ { name: 'file', maxCount: 1 } ]),
+    validate(saveOfferSchema),
+    saveOffer,
+  );
 
   /**
    * @swagger
@@ -126,8 +134,9 @@ module.exports = (router) => {
    *                   items:
    *                     type: object
    *                     properties:
-   *                       publicId:
-   *                         type: string
+   *                       id:
+   *                         type: integer
+   *                         example: 1
    *                       title:
    *                         type: string
    *                       discount:
@@ -145,11 +154,11 @@ module.exports = (router) => {
    *                 count:
    *                   type: integer
    */
-  router.get('/get-offer', isAuthenticated, getOffer)
+  router.get('/get-offer', isAuthenticated, validate(getOfferSchema), getOffer);
 
   /**
    * @swagger
-   * /update-offer/{publicId}:
+   * /update-offer/{id}:
    *   patch:
    *     summary: Update an offer
    *     tags: [Offers]
@@ -157,11 +166,11 @@ module.exports = (router) => {
    *       - bearerAuth: []
    *     parameters:
    *       - in: path
-   *         name: publicId
+   *         name: id
    *         required: true
    *         schema:
-   *           type: string
-   *         description: Offer public ID
+   *           type: integer
+   *         description: Offer ID
    *     requestBody:
    *       required: true
    *       content:
@@ -207,9 +216,10 @@ module.exports = (router) => {
    *                   example: true
    */
   router.patch(
-    '/update-offer/:publicId',
+    '/update-offer/:id',
     isAuthenticated,
-    upload.fields([{ name: 'file', maxCount: 1 }]),
-    updateOffer
-  )
-}
+    upload.fields([ { name: 'file', maxCount: 1 } ]),
+    validate(updateOfferSchema),
+    updateOffer,
+  );
+};

@@ -1,14 +1,15 @@
-const { version } = require('../package.json');
 const path = require('path');
+const { version } = require('../package.json');
+
 require('dotenv').config({
   path: path.resolve(
     process.cwd(),
-    `.env.${process.env.NODE_ENV || 'development'}`
+    `.env.${process.env.NODE_ENV || 'production'}`,
   ),
 });
 
-// Get the current environment, default to 'development'
-const env = process.env.NODE_ENV || 'development';
+// Get the current environment, default to 'production' for Plesk compatibility
+const env = process.env.NODE_ENV || 'production';
 
 // All configuration reads from .env file
 module.exports = {
@@ -57,4 +58,14 @@ module.exports = {
   AZURE_BLOB_KEY: process.env.AZURE_BLOB_KEY,
   AZURE_BLOB_CONNECTION_STRING: process.env.AZURE_BLOB_CONNECTION_STRING,
   AZURE_CONTAINER_NAME: process.env.AZURE_CONTAINER_NAME,
+  AWS: {
+    REGION: process.env.AWS_REGION || 'us-east-1',
+    ACCESS_KEY_ID: process.env.AWS_ACCESS_KEY_ID,
+    SECRET_ACCESS_KEY: process.env.AWS_SECRET_ACCESS_KEY,
+    SNS: {
+      SMS_TYPE: process.env.AWS_SNS_SMS_TYPE || 'Transactional',
+    },
+    USE_MOCK_SMS: process.env.USE_MOCK_SMS === 'true' || false,
+    MOCK_OTP: process.env.MOCK_OTP || '654321',
+  },
 };

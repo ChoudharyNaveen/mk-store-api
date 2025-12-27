@@ -1,9 +1,15 @@
 const {
   saveWishlist,
   getWishlist,
-  deleteWishlist
-} = require('../controllers/wishlistController')
-const { isAuthenticated } = require('../middleware/auth')
+  deleteWishlist,
+} = require('../controllers/wishlistController');
+const { isAuthenticated } = require('../middleware/auth');
+const validate = require('../middleware/validation');
+const {
+  saveWishlist: saveWishlistSchema,
+  getWishlist: getWishlistSchema,
+  deleteWishlist: deleteWishlistSchema,
+} = require('../schemas');
 
 module.exports = (router) => {
   /**
@@ -43,9 +49,10 @@ module.exports = (router) => {
    *                 doc:
    *                   type: object
    *                   properties:
-   *                     publicId:
-   *                       type: string
-   *                     productId:
+   *                     id:
+   *                       type: integer
+   *                       example: 1
+   *                     product_id:
    *                       type: string
    *       400:
    *         description: Validation error or item already in wishlist
@@ -53,8 +60,9 @@ module.exports = (router) => {
   router.post(
     '/save-wishlist',
     isAuthenticated,
-    saveWishlist
-  )
+    validate(saveWishlistSchema),
+    saveWishlist,
+  );
 
   /**
    * @swagger
@@ -95,9 +103,10 @@ module.exports = (router) => {
    *                   items:
    *                     type: object
    *                     properties:
-   *                       publicId:
-   *                         type: string
-   *                       productId:
+   *                       id:
+   *                         type: integer
+   *                         example: 1
+   *                       product_id:
    *                         type: string
    *                       product:
    *                         type: object
@@ -111,7 +120,7 @@ module.exports = (router) => {
    *                 count:
    *                   type: integer
    */
-  router.get('/get-wishlist', isAuthenticated, getWishlist)
+  router.get('/get-wishlist', isAuthenticated, validate(getWishlistSchema), getWishlist);
 
   /**
    * @swagger
@@ -147,5 +156,5 @@ module.exports = (router) => {
    *       400:
    *         description: Error deleting wishlist item
    */
-  router.delete('/delete-wishlist', isAuthenticated, deleteWishlist)
-}
+  router.delete('/delete-wishlist', isAuthenticated, validate(deleteWishlistSchema), deleteWishlist);
+};

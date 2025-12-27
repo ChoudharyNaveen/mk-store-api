@@ -1,0 +1,1536 @@
+{
+	"info": {
+		"_postman_id": "mk-store-api-collection",
+		"name": "MK Store API",
+		"description": "Complete API collection for MK Store Backend with automatic token injection",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"auth": {
+		"type": "bearer",
+		"bearer": [
+			{
+				"key": "token",
+				"value": "{{token}}",
+				"type": "string"
+			}
+		]
+	},
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"exec": [
+					"// Auto-inject token from environment if available",
+					"if (pm.environment.get('token')) {",
+					"    pm.request.headers.add({",
+					"        key: 'Authorization',",
+					"        value: 'Bearer ' + pm.environment.get('token')",
+					"    });",
+					"}"
+				],
+				"type": "text/javascript"
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"exec": [
+					"// Auto-save token from response headers",
+					"if (pm.response.headers.get('token')) {",
+					"    pm.environment.set('token', pm.response.headers.get('token'));",
+					"    console.log('Token saved to environment');",
+					"}"
+				],
+				"type": "text/javascript"
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "baseUrl",
+			"value": "{{baseUrl}}",
+			"type": "string"
+		}
+	],
+	"item": [
+		{
+			"name": "Authentication",
+			"item": [
+				{
+					"name": "Create Super Admin",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "name",
+									"value": "Super Admin",
+									"type": "text"
+								},
+								{
+									"key": "mobile_number",
+									"value": "+1234567890",
+									"type": "text"
+								},
+								{
+									"key": "email",
+									"value": "admin@example.com",
+									"type": "text"
+								},
+								{
+									"key": "password",
+									"value": "password123",
+									"type": "text"
+								},
+								{
+									"key": "confirm_password",
+									"value": "password123",
+									"type": "text"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/create-super-admin",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "create-super-admin"]
+						}
+					}
+				},
+				{
+					"name": "Auth Login",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"// Save token from response header",
+									"if (pm.response.headers.get('token')) {",
+									"    pm.environment.set('token', pm.response.headers.get('token'));",
+									"    console.log('Token saved: ' + pm.response.headers.get('token'));",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"mobileNumber\": \"+1234567890\",\n  \"password\": \"password123\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/auth-login",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "auth-login"]
+						}
+					}
+				},
+				{
+					"name": "Create Vendor Admin",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "name",
+									"value": "Vendor Admin",
+									"type": "text"
+								},
+								{
+									"key": "mobile_number",
+									"value": "+1234567891",
+									"type": "text"
+								},
+								{
+									"key": "email",
+									"value": "vendoradmin@example.com",
+									"type": "text"
+								},
+								{
+									"key": "password",
+									"value": "password123",
+									"type": "text"
+								},
+								{
+									"key": "confirm_password",
+									"value": "password123",
+									"type": "text"
+								},
+								{
+									"key": "vendorId",
+									"value": "1",
+									"type": "text"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/create-vendor-admin",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "create-vendor-admin"]
+						}
+					}
+				},
+				{
+					"name": "User Sign Up",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "name",
+									"value": "John Doe",
+									"type": "text"
+								},
+								{
+									"key": "mobile_number",
+									"value": "+1234567892",
+									"type": "text"
+								},
+								{
+									"key": "email",
+									"value": "user@example.com",
+									"type": "text"
+								},
+								{
+									"key": "password",
+									"value": "password123",
+									"type": "text"
+								},
+								{
+									"key": "confirm_password",
+									"value": "password123",
+									"type": "text"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/user-sign-up",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "user-sign-up"]
+						}
+					}
+				},
+				{
+					"name": "Convert User to Rider",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"userId\": 1,\n  \"vendorId\": 1\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/convert-user-to-rider",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "convert-user-to-rider"]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "Users",
+			"item": [
+				{
+					"name": "Update User",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "x-concurrencystamp",
+								"value": "{{concurrencyStamp}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"id\": 1,\n  \"name\": \"Updated Name\",\n  \"email\": \"updated@example.com\",\n  \"updatedBy\": 1,\n  \"concurrencyStamp\": \"{{concurrencyStamp}}\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/update-user/:id",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "update-user", ":id"],
+							"variable": [
+								{
+									"key": "id",
+									"value": "1"
+								}
+							]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "OTP",
+			"item": [
+				{
+					"name": "Send OTP SMS for User",
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"mobileNumber\": \"+1234567890\",\n  \"vendorId\": 1\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/send-otp-sms-for-user",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "send-otp-sms-for-user"]
+						}
+					}
+				},
+				{
+					"name": "Verify OTP SMS for User",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"// Save token from response header",
+									"if (pm.response.headers.get('token')) {",
+									"    pm.environment.set('token', pm.response.headers.get('token'));",
+									"    console.log('Token saved: ' + pm.response.headers.get('token'));",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"mobileNumber\": \"+1234567890\",\n  \"otp\": \"123456\",\n  \"vendorId\": 1\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/verify-otp-sms-for-user",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "verify-otp-sms-for-user"]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "Vendors",
+			"item": [
+				{
+					"name": "Save Vendor",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"ABC Vendor\",\n  \"email\": \"vendor@example.com\",\n  \"mobile_number\": \"+1234567890\",\n  \"code\": \"VENDOR001\",\n  \"address\": \"123 Main St\",\n  \"status\": \"ACTIVE\",\n  \"branchName\": \"Main Branch\",\n  \"branchCode\": \"BRANCH001\",\n  \"addressLine1\": \"123 Main Street\",\n  \"addressLine2\": \"Suite 100\",\n  \"street\": \"Main Street\",\n  \"city\": \"New York\",\n  \"state\": \"NY\",\n  \"pincode\": \"10001\",\n  \"latitude\": 40.7128,\n  \"longitude\": -74.0060,\n  \"branchPhone\": \"+1234567890\",\n  \"branchEmail\": \"branch@example.com\",\n  \"branchStatus\": \"ACTIVE\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/save-vendor",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "save-vendor"]
+						}
+					}
+				},
+				{
+					"name": "Get Vendor",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/get-vendor?pageSize=10&pageNumber=1",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "get-vendor"],
+							"query": [
+								{
+									"key": "pageSize",
+									"value": "10"
+								},
+								{
+									"key": "pageNumber",
+									"value": "1"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Update Vendor",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "x-concurrencystamp",
+								"value": "{{concurrencyStamp}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"Updated Vendor Name\",\n  \"email\": \"updated@example.com\",\n  \"mobile_number\": \"+1234567890\",\n  \"updatedBy\": 1,\n  \"concurrencyStamp\": \"{{concurrencyStamp}}\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/update-vendor/:id",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "update-vendor", ":id"],
+							"variable": [
+								{
+									"key": "id",
+									"value": "1"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Get Vendor by Code",
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/get-vendor-by-code?code=VENDOR001",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "get-vendor-by-code"],
+							"query": [
+								{
+									"key": "code",
+									"value": "VENDOR001"
+								}
+							]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "Branches",
+			"item": [
+				{
+					"name": "Save Branch",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"vendorId\": 1,\n  \"name\": \"Downtown Branch\",\n  \"code\": \"BRANCH001\",\n  \"addressLine1\": \"123 Main Street\",\n  \"addressLine2\": \"Suite 100\",\n  \"street\": \"Main Street\",\n  \"city\": \"New York\",\n  \"state\": \"NY\",\n  \"pincode\": \"10001\",\n  \"latitude\": 40.7128,\n  \"longitude\": -74.0060,\n  \"phone\": \"+1234567890\",\n  \"email\": \"branch@example.com\",\n  \"status\": \"ACTIVE\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/save-branch",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "save-branch"]
+						}
+					}
+				},
+				{
+					"name": "Get Branch",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/get-branch?pageSize=10&pageNumber=1",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "get-branch"],
+							"query": [
+								{
+									"key": "pageSize",
+									"value": "10"
+								},
+								{
+									"key": "pageNumber",
+									"value": "1"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Update Branch",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "x-concurrencystamp",
+								"value": "{{concurrencyStamp}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"Updated Branch Name\",\n  \"code\": \"BRANCH001\",\n  \"updatedBy\": 1,\n  \"concurrencyStamp\": \"{{concurrencyStamp}}\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/update-branch/:id",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "update-branch", ":id"],
+							"variable": [
+								{
+									"key": "id",
+									"value": "1"
+								}
+							]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "Categories",
+			"item": [
+				{
+					"name": "Save Category",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "title",
+									"value": "Electronics",
+									"type": "text"
+								},
+								{
+									"key": "description",
+									"value": "Electronic devices and accessories",
+									"type": "text"
+								},
+								{
+									"key": "branchId",
+									"value": "1",
+									"type": "text"
+								},
+								{
+									"key": "vendorId",
+									"value": "1",
+									"type": "text"
+								},
+								{
+									"key": "status",
+									"value": "ACTIVE",
+									"type": "text"
+								},
+								{
+									"key": "file",
+									"type": "file",
+									"src": []
+								}
+							]
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/save-category",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "save-category"]
+						}
+					}
+				},
+				{
+					"name": "Get Category",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/get-category?pageSize=10&pageNumber=1",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "get-category"],
+							"query": [
+								{
+									"key": "pageSize",
+									"value": "10"
+								},
+								{
+									"key": "pageNumber",
+									"value": "1"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Update Category",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "x-concurrencystamp",
+								"value": "{{concurrencyStamp}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "title",
+									"value": "Updated Category",
+									"type": "text"
+								},
+								{
+									"key": "description",
+									"value": "Updated description",
+									"type": "text"
+								},
+								{
+									"key": "updatedBy",
+									"value": "1",
+									"type": "text"
+								},
+								{
+									"key": "concurrencyStamp",
+									"value": "{{concurrencyStamp}}",
+									"type": "text"
+								},
+								{
+									"key": "file",
+									"type": "file",
+									"src": []
+								}
+							]
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/update-category/:id",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "update-category", ":id"],
+							"variable": [
+								{
+									"key": "id",
+									"value": "1"
+								}
+							]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "SubCategories",
+			"item": [
+				{
+					"name": "Save SubCategory",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "title",
+									"value": "Smartphones",
+									"type": "text"
+								},
+								{
+									"key": "description",
+									"value": "Mobile phones and smartphones",
+									"type": "text"
+								},
+								{
+									"key": "categoryId",
+									"value": "1",
+									"type": "text"
+								},
+								{
+									"key": "vendorId",
+									"value": "1",
+									"type": "text"
+								},
+								{
+									"key": "branchId",
+									"value": "1",
+									"type": "text"
+								},
+								{
+									"key": "status",
+									"value": "ACTIVE",
+									"type": "text"
+								},
+								{
+									"key": "file",
+									"type": "file",
+									"src": []
+								}
+							]
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/save-sub-category",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "save-sub-category"]
+						}
+					}
+				},
+				{
+					"name": "Get SubCategory",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/get-sub-category?pageSize=10&pageNumber=1",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "get-sub-category"],
+							"query": [
+								{
+									"key": "pageSize",
+									"value": "10"
+								},
+								{
+									"key": "pageNumber",
+									"value": "1"
+								},
+								{
+									"key": "categoryId",
+									"value": "1",
+									"disabled": true
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Update SubCategory",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "x-concurrencystamp",
+								"value": "{{concurrencyStamp}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "title",
+									"value": "Updated SubCategory",
+									"type": "text"
+								},
+								{
+									"key": "description",
+									"value": "Updated description",
+									"type": "text"
+								},
+								{
+									"key": "updatedBy",
+									"value": "1",
+									"type": "text"
+								},
+								{
+									"key": "concurrencyStamp",
+									"value": "{{concurrencyStamp}}",
+									"type": "text"
+								},
+								{
+									"key": "file",
+									"type": "file",
+									"src": []
+								}
+							]
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/update-sub-category/:id",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "update-sub-category", ":id"],
+							"variable": [
+								{
+									"key": "id",
+									"value": "1"
+								}
+							]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "Products",
+			"item": [
+				{
+					"name": "Save Product",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "title",
+									"value": "Wireless Headphones",
+									"type": "text"
+								},
+								{
+									"key": "description",
+									"value": "High-quality wireless headphones",
+									"type": "text"
+								},
+								{
+									"key": "price",
+									"value": "9999",
+									"type": "text"
+								},
+								{
+									"key": "categoryId",
+									"value": "1",
+									"type": "text"
+								},
+								{
+									"key": "subCategoryId",
+									"value": "1",
+									"type": "text"
+								},
+								{
+									"key": "vendorId",
+									"value": "1",
+									"type": "text"
+								},
+								{
+									"key": "branchId",
+									"value": "1",
+									"type": "text"
+								},
+								{
+									"key": "status",
+									"value": "ACTIVE",
+									"type": "text"
+								},
+								{
+									"key": "file",
+									"type": "file",
+									"src": []
+								}
+							]
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/save-product",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "save-product"]
+						}
+					}
+				},
+				{
+					"name": "Get Product",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/get-product?pageSize=10&pageNumber=1",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "get-product"],
+							"query": [
+								{
+									"key": "pageSize",
+									"value": "10"
+								},
+								{
+									"key": "pageNumber",
+									"value": "1"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Get Products Grouped by Category",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/get-products-by-category",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "get-products-by-category"]
+						}
+					}
+				},
+				{
+					"name": "Update Product",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "x-concurrencystamp",
+								"value": "{{concurrencyStamp}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "title",
+									"value": "Updated Product",
+									"type": "text"
+								},
+								{
+									"key": "price",
+									"value": "12999",
+									"type": "text"
+								},
+								{
+									"key": "updatedBy",
+									"value": "1",
+									"type": "text"
+								},
+								{
+									"key": "concurrencyStamp",
+									"value": "{{concurrencyStamp}}",
+									"type": "text"
+								},
+								{
+									"key": "file",
+									"type": "file",
+									"src": []
+								}
+							]
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/update-product/:id",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "update-product", ":id"],
+							"variable": [
+								{
+									"key": "id",
+									"value": "1"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Delete Product",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"id\": 1\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/delete-product",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "delete-product"]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "Cart",
+			"item": [
+				{
+					"name": "Add to Cart",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"productId\": 1,\n  \"quantity\": 2\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/add-to-cart",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "add-to-cart"]
+						}
+					}
+				},
+				{
+					"name": "Get Cart",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/get-cart",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "get-cart"]
+						}
+					}
+				},
+				{
+					"name": "Update Cart",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "x-concurrencystamp",
+								"value": "{{concurrencyStamp}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"quantity\": 3,\n  \"updatedBy\": 1,\n  \"concurrencyStamp\": \"{{concurrencyStamp}}\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/update-cart/:id",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "update-cart", ":id"],
+							"variable": [
+								{
+									"key": "id",
+									"value": "1"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Delete Cart",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"id\": 1\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/delete-cart",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "delete-cart"]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "Orders",
+			"item": [
+				{
+					"name": "Place Order",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"branchId\": 1,\n  \"addressId\": 1,\n  \"items\": [\n    {\n      \"productId\": 1,\n      \"quantity\": 2,\n      \"priceAtPurchase\": 9999\n    }\n  ]\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/place-order",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "place-order"]
+						}
+					}
+				},
+				{
+					"name": "Get Order",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/get-order?pageSize=10&pageNumber=1",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "get-order"],
+							"query": [
+								{
+									"key": "pageSize",
+									"value": "10"
+								},
+								{
+									"key": "pageNumber",
+									"value": "1"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Get Stats of Orders Completed",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/get-stats-of-orders-completed",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "get-stats-of-orders-completed"]
+						}
+					}
+				},
+				{
+					"name": "Update Order",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "x-concurrencystamp",
+								"value": "{{concurrencyStamp}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"status\": \"CONFIRMED\",\n  \"updatedBy\": 1,\n  \"concurrencyStamp\": \"{{concurrencyStamp}}\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/update-order/:id",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "update-order", ":id"],
+							"variable": [
+								{
+									"key": "id",
+									"value": "1"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Get Total Returns of Today",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/get-total-returns-of-today",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "get-total-returns-of-today"]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "Order Items",
+			"item": [
+				{
+					"name": "Get Order Item",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/get-order-item?pageSize=10&pageNumber=1",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "get-order-item"],
+							"query": [
+								{
+									"key": "pageSize",
+									"value": "10"
+								},
+								{
+									"key": "pageNumber",
+									"value": "1"
+								}
+							]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "Addresses",
+			"item": [
+				{
+					"name": "Save Address",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"house_no\": \"123\",\n  \"streetDetails\": \"Main Street\",\n  \"landmark\": \"Near Park\",\n  \"name\": \"John Doe\",\n  \"mobileNumber\": \"+1234567890\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/save-address",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "save-address"]
+						}
+					}
+				},
+				{
+					"name": "Get Address",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/get-address?pageSize=10&pageNumber=1",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "get-address"],
+							"query": [
+								{
+									"key": "pageSize",
+									"value": "10"
+								},
+								{
+									"key": "pageNumber",
+									"value": "1"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Update Address",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "x-concurrencystamp",
+								"value": "{{concurrencyStamp}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"id\": 1,\n  \"house_no\": \"456\",\n  \"updatedBy\": 1,\n  \"concurrencyStamp\": \"{{concurrencyStamp}}\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/update-address/:id",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "update-address", ":id"],
+							"variable": [
+								{
+									"key": "id",
+									"value": "1"
+								}
+							]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "Wishlist",
+			"item": [
+				{
+					"name": "Add to Wishlist",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"productId\": 1\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/add-to-wishlist",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "add-to-wishlist"]
+						}
+					}
+				},
+				{
+					"name": "Get Wishlist",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/get-wishlist?pageSize=10&pageNumber=1",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "get-wishlist"],
+							"query": [
+								{
+									"key": "pageSize",
+									"value": "10"
+								},
+								{
+									"key": "pageNumber",
+									"value": "1"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Delete Wishlist",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"id\": 1\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/delete-wishlist",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "delete-wishlist"]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "Promocodes",
+			"item": [
+				{
+					"name": "Save Promocode",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"code\": \"SAVE20\",\n  \"discount\": 20,\n  \"expiryDate\": \"2024-12-31\",\n  \"status\": \"ACTIVE\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/save-Promocode",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "save-Promocode"]
+						}
+					}
+				},
+				{
+					"name": "Get Promocode",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/get-Promocode?pageSize=10&pageNumber=1",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "get-Promocode"],
+							"query": [
+								{
+									"key": "pageSize",
+									"value": "10"
+								},
+								{
+									"key": "pageNumber",
+									"value": "1"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Update Promocode",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "x-concurrencystamp",
+								"value": "{{concurrencyStamp}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"id\": 1,\n  \"discount\": 25,\n  \"updatedBy\": 1,\n  \"concurrencyStamp\": \"{{concurrencyStamp}}\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/update-Promocode/:id",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "update-Promocode", ":id"],
+							"variable": [
+								{
+									"key": "id",
+									"value": "1"
+								}
+							]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "Offers",
+			"item": [
+				{
+					"name": "Save Offer",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"title\": \"Summer Sale\",\n  \"description\": \"50% off on all items\",\n  \"discount\": 50,\n  \"startDate\": \"2024-06-01\",\n  \"endDate\": \"2024-08-31\",\n  \"status\": \"ACTIVE\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/save-offer",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "save-offer"]
+						}
+					}
+				},
+				{
+					"name": "Get Offer",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/get-offer?pageSize=10&pageNumber=1",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "get-offer"],
+							"query": [
+								{
+									"key": "pageSize",
+									"value": "10"
+								},
+								{
+									"key": "pageNumber",
+									"value": "1"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Update Offer",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "x-concurrencystamp",
+								"value": "{{concurrencyStamp}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"id\": 1,\n  \"title\": \"Updated Offer\",\n  \"updatedBy\": 1,\n  \"concurrencyStamp\": \"{{concurrencyStamp}}\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/update-offer/:id",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "update-offer", ":id"],
+							"variable": [
+								{
+									"key": "id",
+									"value": "1"
+								}
+							]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "Test",
+			"item": [
+				{
+					"name": "Test Endpoint",
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/test",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "test"]
+						}
+					}
+				}
+			]
+		}
+	]
+}
+
+
+
+

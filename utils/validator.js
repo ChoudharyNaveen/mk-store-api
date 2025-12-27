@@ -1,15 +1,3 @@
-const Ajv = require('ajv')
-const Helper = require('./helper')
-
-const ajv = new Ajv({
-  verbose: true,
-  allErrors: true,
-  //jsonPointers: true,
-  $data: true,
-})
-
-require('ajv-errors')(ajv, { singleError: true })
-require('ajv-keywords')(ajv)
 
 const isValidUuid = (uuid) => {
   /**
@@ -18,63 +6,51 @@ const isValidUuid = (uuid) => {
    * link:- https://www.npmjs.com/package/is-uuid
    * https://github.com/afram/is-uuid
    */
-  const expression =
-    /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/
+  const expression = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
 
-  return expression.test(uuid)
-}
+  return expression.test(uuid);
+};
 
 const isSchemaValid = ({ schema, data }) => {
-  const validator = ajv.compile(schema)
-  const isValid = validator(data)
-  const errors = []
+  try {
+    // Override .unknown(false) by creating a new schema that allows unknown fields
+    // This prevents errors when extra fields are present in the request
+    const schemaWithUnknownAllowed = schema.unknown(true);
 
-  if (!isValid) {
-    validator.errors.forEach((error) => {
-      const {
-        message,
-        params: { errors: paramErrors },
-      } = error
+    const { error } = schemaWithUnknownAllowed.validate(data, {
+      abortEarly: false,
+      stripUnknown: true,
+      errors: {
+        wrap: {
+          label: false,
+        },
+      },
+    });
 
-      let errorDetails
+    if (error) {
+      const errors = error.details.map((detail) => {
+        const fieldName = detail.path.join('.') || detail.context?.label || 'unknown';
 
-      let errorParams
+        return {
+          name: fieldName,
+          message: detail.message,
+        };
+      });
 
-      if (paramErrors && paramErrors.length) {
-        errorParams = { ...paramErrors[0] }
-      } else {
-        errorParams = error
-      }
-      const {
-        params: { missingProperty: name, additionalProperty },
-        dataPath,
-      } = errorParams
+      return { errors };
+    }
 
-      if (name) {
-        errorDetails = {
-          name,
-          message,
-        }
-      } else {
-        errorDetails = {
-          name:
-            Helper.sanitizeStr(/[#_.'"/\\]/g, dataPath, '') ||
-            additionalProperty ||
-            'type',
-          message,
-        }
-      }
+    return {};
+  } catch (err) {
+    console.error('Validation error:', err);
 
-      errors.push(errorDetails)
-    })
-
-    return { errors }
+    return {
+      errors: [ { name: 'validation', message: 'Validation failed' } ],
+    };
   }
-
-  return {}
-}
+};
 
 module.exports = {
   isValidUuid,
   isSchemaValid,
-}
+};

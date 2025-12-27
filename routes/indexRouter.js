@@ -15,7 +15,7 @@ module.exports = (router) => {
    *               type: string
    *               example: "Welcome to mk store backend"
    */
-  router.get('/api/test', function (req, res, next) {
-    res.send('Welcome to mk store backend')
-  })
-}
+  router.get('/', (req, res) => {
+    res.send('Welcome to mk store backend');
+  });
+};

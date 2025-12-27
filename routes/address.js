@@ -2,8 +2,14 @@ const {
   saveAddress,
   getAddress,
   updateAddress,
-} = require('../controllers/addressController')
-const { isAuthenticated } = require('../middleware/auth')
+} = require('../controllers/addressController');
+const { isAuthenticated } = require('../middleware/auth');
+const validate = require('../middleware/validation');
+const {
+  saveAddress: saveAddressSchema,
+  getAddress: getAddressSchema,
+  updateAddress: updateAddressSchema,
+} = require('../schemas');
 
 module.exports = (router) => {
   /**
@@ -63,8 +69,9 @@ module.exports = (router) => {
    *                 doc:
    *                   type: object
    *                   properties:
-   *                     publicId:
-   *                       type: string
+   *                     id:
+   *                       type: integer
+   *                       example: 1
    *                     house_no:
    *                       type: string
    *                     streetDetails:
@@ -75,8 +82,9 @@ module.exports = (router) => {
   router.post(
     '/save-address',
     isAuthenticated,
-    saveAddress
-  )
+    validate(saveAddressSchema),
+    saveAddress,
+  );
 
   /**
    * @swagger
@@ -117,8 +125,9 @@ module.exports = (router) => {
    *                   items:
    *                     type: object
    *                     properties:
-   *                       publicId:
-   *                         type: string
+   *                       id:
+   *                         type: integer
+   *                         example: 1
    *                       house_no:
    *                         type: string
    *                       streetDetails:
@@ -132,11 +141,11 @@ module.exports = (router) => {
    *                 count:
    *                   type: integer
    */
-  router.get('/get-address', isAuthenticated, getAddress)
+  router.get('/get-address', isAuthenticated, validate(getAddressSchema), getAddress);
 
   /**
    * @swagger
-   * /update-address/{publicId}:
+   * /update-address/{id}:
    *   patch:
    *     summary: Update an address
    *     tags: [Addresses]
@@ -144,11 +153,11 @@ module.exports = (router) => {
    *       - bearerAuth: []
    *     parameters:
    *       - in: path
-   *         name: publicId
+   *         name: id
    *         required: true
    *         schema:
-   *           type: string
-   *         description: Address public ID
+   *           type: integer
+   *         description: Address ID
    *     requestBody:
    *       required: true
    *       content:
@@ -189,8 +198,9 @@ module.exports = (router) => {
    *                   example: true
    */
   router.patch(
-    '/update-address/:publicId',
+    '/update-address/:id',
     isAuthenticated,
-    updateAddress
-  )
-}
+    validate(updateAddressSchema),
+    updateAddress,
+  );
+};

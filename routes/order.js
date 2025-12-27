@@ -1,11 +1,17 @@
 const {
- placeOrder ,
- getOrder,
- getStatsOfOrdersCompleted,
- updateOrder,
- getTotalReturnsOfToday
-} = require('../controllers/orderController')
-const { isAuthenticated } = require('../middleware/auth')
+  placeOrder,
+  getOrder,
+  getStatsOfOrdersCompleted,
+  updateOrder,
+  getTotalReturnsOfToday,
+} = require('../controllers/orderController');
+const { isAuthenticated } = require('../middleware/auth');
+const validate = require('../middleware/validation');
+const {
+  placeOrder: placeOrderSchema,
+  getOrder: getOrderSchema,
+  updateOrder: updateOrderSchema,
+} = require('../schemas');
 
 module.exports = (router) => {
   /**
@@ -63,9 +69,10 @@ module.exports = (router) => {
    *                 doc:
    *                   type: object
    *                   properties:
-   *                     publicId:
-   *                       type: string
-   *                     orderNumber:
+   *                     id:
+   *                       type: integer
+   *                       example: 1
+   *                     branch_id:
    *                       type: string
    *                     totalAmount:
    *                       type: number
@@ -78,8 +85,9 @@ module.exports = (router) => {
   router.post(
     '/place-order',
     isAuthenticated,
-    placeOrder
-  )
+    validate(placeOrderSchema),
+    placeOrder,
+  );
 
   /**
    * @swagger
@@ -125,9 +133,10 @@ module.exports = (router) => {
    *                   items:
    *                     type: object
    *                     properties:
-   *                       publicId:
-   *                         type: string
-   *                       orderNumber:
+   *                       id:
+   *                         type: integer
+   *                         example: 1
+   *                       branch_id:
    *                         type: string
    *                       totalAmount:
    *                         type: number
@@ -139,7 +148,7 @@ module.exports = (router) => {
    *                 count:
    *                   type: integer
    */
-  router.get('/get-order', isAuthenticated, getOrder)
+  router.get('/get-order', isAuthenticated, validate(getOrderSchema), getOrder);
 
   /**
    * @swagger
@@ -170,11 +179,11 @@ module.exports = (router) => {
    *                       type: number
    *                       example: 45000.50
    */
-  router.get('/get-stats-of-orders-completed', isAuthenticated, getStatsOfOrdersCompleted)
+  router.get('/get-stats-of-orders-completed', isAuthenticated, getStatsOfOrdersCompleted);
 
   /**
    * @swagger
-   * /update-order/{publicId}:
+   * /update-order/{id}:
    *   patch:
    *     summary: Update order status
    *     tags: [Orders]
@@ -182,11 +191,11 @@ module.exports = (router) => {
    *       - bearerAuth: []
    *     parameters:
    *       - in: path
-   *         name: publicId
+   *         name: id
    *         required: true
    *         schema:
-   *           type: string
-   *         description: Order public ID
+   *           type: integer
+   *         description: Order ID
    *     requestBody:
    *       required: true
    *       content:
@@ -218,10 +227,11 @@ module.exports = (router) => {
    *                   example: true
    */
   router.patch(
-    '/update-order/:publicId',
+    '/update-order/:id',
     isAuthenticated,
-    updateOrder
-  )
+    validate(updateOrderSchema),
+    updateOrder,
+  );
 
   /**
    * @swagger
@@ -249,5 +259,5 @@ module.exports = (router) => {
    *                       type: integer
    *                       example: 5
    */
-  router.get('/get-total-returns-of-today', isAuthenticated, getTotalReturnsOfToday)
-}
+  router.get('/get-total-returns-of-today', isAuthenticated, getTotalReturnsOfToday);
+};

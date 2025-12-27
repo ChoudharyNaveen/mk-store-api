@@ -1,50 +1,28 @@
-const addAddress = {
-  title: 'Add address form',
-  description: 'Defines the structure for HTTP POST request body',
-  type: 'object',
-  properties: {
-    house_no: {
-      type: 'string',
-      description: 'nouse number',
-    },
-    streetDetails: {
-      type: 'string',
-      description: 'street details',
-    },
-    landmark: {
-      type: 'string',
-      description: 'landmark',
-    },
-    name: {
-      type: 'string',
-      description: 'name',
-    },
-    mobileNumber: {
-      type: 'string',
-      description: 'mobile number',
-    },
-    status: {
-      type: 'string',
-      description: 'status of the assignment',
-      enum: ['ACTIVE', 'INACTIVE'],
-    },
-    createdBy: {
-      type: 'string',
-      description: 'address created by',
-    },
-  },
-  errorMessage: {
-    required: {
-      houseNo: 'Parameter: house no is requried',
-      streetDetails: 'Parameter: streetDetails is required',
-      landmark: 'Parameter: landmark is requried',
-      name: 'Parameter: name is requried',
-      mobileNumber: 'Parameter:mobileNumber is requried',
-    },
-    properties: {},
-  },
-  required: ['houseNo', 'streetDetails', 'landmark', 'name', 'mobileNumber'],
-  additionalProperties: false,
-}
+const Joi = require('joi');
 
-module.exports = addAddress
+const saveAddress = Joi.object({
+  house_no: Joi.string().required().messages({
+    'any.required': 'Parameter: house_no is required',
+    'string.empty': 'Parameter: house_no is required',
+  }),
+  streetDetails: Joi.string().required().messages({
+    'any.required': 'Parameter: streetDetails is required',
+    'string.empty': 'Parameter: streetDetails is required',
+  }),
+  landmark: Joi.string().required().messages({
+    'any.required': 'Parameter: landmark is required',
+    'string.empty': 'Parameter: landmark is required',
+  }),
+  name: Joi.string().required().messages({
+    'any.required': 'Parameter: name is required',
+    'string.empty': 'Parameter: name is required',
+  }),
+  mobileNumber: Joi.string().required().messages({
+    'any.required': 'Parameter: mobileNumber is required',
+    'string.empty': 'Parameter: mobileNumber is required',
+  }),
+  status: Joi.string().valid('ACTIVE', 'INACTIVE').optional(),
+  createdBy: Joi.number().integer().optional(),
+}).unknown(false);
+
+module.exports = saveAddress;

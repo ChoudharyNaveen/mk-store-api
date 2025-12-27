@@ -1,7 +1,11 @@
-const saveCart = require('./saveCart')
-const getCart = require('./getCart')
+const saveCart = require('./saveCart');
+const getCart = require('./getCart');
+const updateCart = require('./updateCart');
+const deleteCart = require('./deleteCart');
 
 module.exports = {
-    saveCart,
-    getCart
-}
+  saveCart,
+  getCart,
+  updateCart,
+  deleteCart,
+};

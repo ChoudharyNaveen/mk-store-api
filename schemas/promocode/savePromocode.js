@@ -1,66 +1,32 @@
-const addPromocode = {
-  title: 'Add promocode form',
-  description: 'Defines the structure for HTTP POST request body',
-  type: 'object',
-  properties: {
-    type: {
-      type: 'string',
-      description: 'type',
-    },
-    code: {
-      type: 'string',
-      description: 'code',
-    },
-    description: {
-      type: 'text',
-      description: 'description',
-    },
-    description: {
-      type: 'string',
-      description: 'description',
-    },
-    percentage: {
-      type: 'integer',
-      description: 'percentage',
-    },
-    startDate: {
-      type: 'string',
-      description: 'start date',
-    },
-    endDate: {
-      type: 'string',
-      description: 'end date',
-    },
-    status: {
-      type: 'string',
-      description: 'status of the assignment',
-      enum: ['ACTIVE', 'INACTIVE'],
-    },
-    createdBy: {
-      type: 'string',
-      description: 'badges created by',
-    },
-  },
-  errorMessage: {
-    required: {
-      type: 'Parameter: type is requried',
-      code: 'Parameter: code is required',
-      description: 'Parameter: description is requried',
-      percentage: 'Parameter: percentage is requried',
-      startDate: 'Parameter:startDate is requried',
-      endDate: 'Parameter: endDate is requried',
-    },
-    properties: {},
-  },
-  required: [
-    'type',
-    'code',
-    'description',
-    'percentage',
-    'startDate',
-    'endDate',
-  ],
-  additionalProperties: false,
-}
+const Joi = require('joi');
 
-module.exports = addPromocode
+const savePromocode = Joi.object({
+  type: Joi.string().required().messages({
+    'any.required': 'Parameter: type is requried',
+    'string.empty': 'Parameter: type is requried',
+  }),
+  code: Joi.string().required().messages({
+    'any.required': 'Parameter: code is required',
+    'string.empty': 'Parameter: code is required',
+  }),
+  description: Joi.string().required().messages({
+    'any.required': 'Parameter: description is requried',
+    'string.empty': 'Parameter: description is requried',
+  }),
+  percentage: Joi.number().integer().required().messages({
+    'any.required': 'Parameter: percentage is requried',
+    'number.base': 'Parameter: percentage is requried',
+  }),
+  startDate: Joi.string().required().messages({
+    'any.required': 'Parameter:startDate is requried',
+    'string.empty': 'Parameter:startDate is requried',
+  }),
+  endDate: Joi.string().required().messages({
+    'any.required': 'Parameter: endDate is requried',
+    'string.empty': 'Parameter: endDate is requried',
+  }),
+  status: Joi.string().valid('ACTIVE', 'INACTIVE').optional(),
+  createdBy: Joi.number().integer().optional(),
+}).unknown(false);
+
+module.exports = savePromocode;

@@ -8,10 +8,10 @@ module.exports = (sequelize, DataTypes) => {
         primaryKey: true,
         type: DataTypes.INTEGER,
       },
-      public_id: {
-        type: DataTypes.UUID,
+      branch_id: {
+        type: DataTypes.INTEGER,
         allowNull: false,
-        unique: true,
+        index: true,
       },
       total_amount: {
         type: DataTypes.FLOAT,
@@ -19,28 +19,28 @@ module.exports = (sequelize, DataTypes) => {
       },
       status: {
         type: DataTypes.STRING,
-        enum: ['PENDING', 'CONFIRMED', 'SHIPPED', 'DELIVERED', 'CANCELLED'],
+        enum: [ 'PENDING', 'CONFIRMED', 'SHIPPED', 'DELIVERED', 'CANCELLED' ],
         defaultValue: 'PENDING',
         allowNull: false,
       },
       payment_status: {
         type: DataTypes.STRING,
-        enum: ['PAID', 'UNPAID', 'FAILED'],
+        enum: [ 'PAID', 'UNPAID', 'FAILED' ],
         allowNull: false,
         defaultValue: 'UNPAID',
       },
       pickup_status: {
         type: DataTypes.STRING,
-        enum: ['OPEN', 'ACCEPT'],
+        enum: [ 'OPEN', 'ACCEPT' ],
         allowNull: true,
         defaultValue: 'OPEN',
       },
-      rider_id:{
-        type:DataTypes.UUID,
-        allowNull: true
+      rider_id: {
+        type: DataTypes.INTEGER,
+        allowNull: true,
       },
       address_id: {
-        type: DataTypes.UUID,
+        type: DataTypes.INTEGER,
         allowNull: false,
       },
       concurrency_stamp: {
@@ -48,36 +48,46 @@ module.exports = (sequelize, DataTypes) => {
         allowNull: false,
       },
       created_by: {
-        type: DataTypes.UUID,
+        type: DataTypes.INTEGER,
       },
       updated_by: {
-        type: DataTypes.UUID,
+        type: DataTypes.INTEGER,
       },
     },
     {
       freezeTableName: true,
       underscored: true,
       timestamps: true,
-    }
-  )
+    },
+  );
 
   order.associate = (models) => {
-    order.hasOne(models.user, {
-      foreignKey: 'public_id',
-      sourceKey: 'created_by',
+    order.belongsTo(models.user, {
+      foreignKey: 'created_by',
+      targetKey: 'id',
       as: 'user',
-    })
-    order.hasOne(models.address, {
-      foreignKey: 'public_id',
-      sourceKey: 'address_id',
+    });
+    order.belongsTo(models.address, {
+      foreignKey: 'address_id',
+      targetKey: 'id',
       as: 'address',
-    })
-    order.hasOne(models.user, {
-      foreignKey: 'public_id',
-      sourceKey: 'rider_id',
+    });
+    order.belongsTo(models.user, {
+      foreignKey: 'rider_id',
+      targetKey: 'id',
       as: 'riderDetails',
-    })
-  }
+    });
+    order.belongsTo(models.branch, {
+      foreignKey: 'branch_id',
+      targetKey: 'id',
+      as: 'branch',
+    });
+    order.hasMany(models.orderItem, {
+      foreignKey: 'order_id',
+      sourceKey: 'id',
+      as: 'orderItems',
+    });
+  };
 
-  return order
-}
+  return order;
+};
