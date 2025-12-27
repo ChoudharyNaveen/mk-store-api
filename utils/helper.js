@@ -167,13 +167,13 @@ const postRequest = async ({ url, data, headers }) => {
     if (status === 404) {
       return {
         status,
-        errors: [ { name: 'server', message: 'Resources are not available' } ],
+        errors: [{ name: 'server', message: 'Resources are not available' }],
       };
     }
     if (status === 401) {
       return {
         status,
-        errors: [ { name: 'server', message: 'Resources are not available' } ],
+        errors: [{ name: 'server', message: 'Resources are not available' }],
       };
     }
     if (status === 400 && responseData) {
@@ -185,7 +185,7 @@ const postRequest = async ({ url, data, headers }) => {
 
       return {
         status,
-        errors: [ { name: 'server', message: 'Resources are not available' } ],
+        errors: [{ name: 'server', message: 'Resources are not available' }],
       };
     }
 
@@ -217,7 +217,7 @@ const getRequest = async ({ url, headers }) => {
 
     if (status === 404) {
       return {
-        errors: [ { name: 'server', message: 'Resources are not available.' } ],
+        errors: [{ name: 'server', message: 'Resources are not available.' }],
       };
     }
 
@@ -238,13 +238,13 @@ const generateWhereCondition = (data) => {
   (data || []).forEach((element) => {
     const { key: KeyCamelCase, ...values } = element;
 
-    const [ key1, key2 ] = KeyCamelCase.split('.');
+    const [key1, key2] = KeyCamelCase.split('.');
 
     const key = key2
       ? `${key1}.${convertSnakeCase(key2)}`
       : convertSnakeCase(key1);
 
-    const [ secondKey ] = Object.keys(values);
+    const [secondKey] = Object.keys(values);
 
     let value;
 
@@ -314,7 +314,7 @@ const generateOrderCondition = (data) => {
   const order = (data || []).map((element) => {
     const { direction, key } = element;
 
-    return [ convertSnakeCase(key), direction ];
+    return [convertSnakeCase(key), direction];
   });
 
   return order;
@@ -449,8 +449,8 @@ const handleServerError = (error, req, res) => {
 
   return res.status(500).json({
     success: false,
-    message: 'Internal server error',
-    error: process.env.NODE_ENV === 'development' ? error.message : undefined,
+    errors: { message: 'Internal server error', code: 'INTERNAL_SERVER_ERROR' },
+    message: process.env.NODE_ENV === 'development' ? error.message : undefined,
   });
 };
 

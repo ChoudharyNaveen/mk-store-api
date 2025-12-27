@@ -21,7 +21,8 @@ const isAuthenticated = async (req, res, next) => {
     console.log('auth error', error);
 
     return res.status(401).json({
-      errors: [ { message: 'Unauthorized Access', name: 'AUTHENTICATION_FAILED' } ],
+      success: false,
+      errors: { message: 'Unauthorized Access', code: 'AUTHENTICATION_FAILED' },
     });
   }
 };
@@ -31,19 +32,16 @@ const isVendorAdmin = async (req, res, next) => {
     // Ensure user is authenticated first
     if (!req.user || !req.user.userId) {
       return res.status(401).json({
-        errors: [ { message: 'Unauthorized Access', name: 'AUTHENTICATION_FAILED' } ],
+        success: false,
+        errors: { message: 'Unauthorized Access', code: 'AUTHENTICATION_FAILED' },
       });
     }
 
     // Check role from JWT token
     if (!req.user.roleName || req.user.roleName !== 'VENDOR_ADMIN') {
       return res.status(403).json({
-        errors: [
-          {
-            message: 'Access denied. Vendor admin role required.',
-            name: 'FORBIDDEN',
-          },
-        ],
+        success: false,
+        errors: { message: 'Access denied. Vendor admin role required.', code: 'FORBIDDEN' },
       });
     }
 
@@ -52,7 +50,8 @@ const isVendorAdmin = async (req, res, next) => {
     console.log('vendor admin auth error', error);
 
     return res.status(500).json({
-      errors: [ { message: 'Internal server error', name: 'INTERNAL_SERVER_ERROR' } ],
+      success: false,
+      errors: { message: 'Internal server error', code: 'INTERNAL_SERVER_ERROR' },
     });
   }
 };

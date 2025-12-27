@@ -6,7 +6,7 @@ const {
   getProductsGroupedByCategory,
   deleteProduct,
 } = require('../controllers/productController');
-const { isAuthenticated } = require('../middleware/auth');
+const { isAuthenticated, isVendorAdmin } = require('../middleware/auth');
 const validate = require('../middleware/validation');
 const {
   saveProduct: saveProductSchema,
@@ -109,6 +109,7 @@ module.exports = (router) => {
   router.post(
     '/save-product',
     isAuthenticated,
+    isVendorAdmin,
     upload.fields([ { name: 'file', maxCount: 1 } ]),
     validate(saveProductSchema),
     saveProduct,
@@ -269,6 +270,7 @@ module.exports = (router) => {
   router.patch(
     '/update-product/:id',
     isAuthenticated,
+    isVendorAdmin,
     upload.fields([ { name: 'file', maxCount: 1 } ]),
     validate(updateProductSchema),
     updateProduct,
