@@ -199,6 +199,7 @@ const getProductsGroupedByCategory = async (payload) => {
     : [ [ 'createdAt', 'DESC' ] ];
 
   const response = await CategoryModel.findAndCountAll({
+    subQuery: false,
     where: { status: 'ACTIVE' },
     attributes: [ 'id', 'title', 'description', 'image', 'status' ],
     include: [
