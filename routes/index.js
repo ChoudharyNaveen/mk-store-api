@@ -17,6 +17,7 @@ const order = require('./order');
 const orderItem = require('./orderItem');
 const vendor = require('./vendor');
 const branch = require('./branch');
+const brand = require('./brand');
 
 user(router);
 category(router);
@@ -33,5 +34,6 @@ order(router);
 orderItem(router);
 vendor(router);
 branch(router);
+brand(router);
 
 module.exports = router;
