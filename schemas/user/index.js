@@ -6,7 +6,8 @@ const updateUserProfile = require('./updateUserProfile');
 const createVendorAdmin = require('./createVendorAdmin');
 const authLogin = require('./authLogin');
 const convertUserToRider = require('./convertUserToRider');
+const refreshToken = require('./refreshToken');
 
 module.exports = {
-  userSignUp, getUser, userLogin, updateUser, updateUserProfile, createVendorAdmin, authLogin, convertUserToRider,
+  userSignUp, getUser, userLogin, updateUser, updateUserProfile, createVendorAdmin, authLogin, convertUserToRider, refreshToken,
 };

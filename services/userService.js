@@ -1,5 +1,7 @@
+/* eslint-disable max-lines */
 const { v4: uuidV4 } = require('uuid');
 const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken');
 const {
   user: UserModel,
   role: RoleModel,
@@ -16,6 +18,7 @@ const {
   convertSnakeToCamel,
 } = require('../utils/helper');
 const { uploadFile } = require('../config/azure');
+const config = require('../config/index');
 
 // Create Super Admin
 const createSuperAdmin = async ({ data, imageFile }) => {
@@ -488,6 +491,180 @@ const convertUserToRider = async ({ userId }) => {
   }
 };
 
+// Auth Login
+const authLogin = async (payload) => {
+  const { email, password } = payload;
+
+  try {
+    // Find user by email
+    const user = await UserModel.findOne({
+      where: {
+        email,
+      },
+    });
+
+    if (!user) {
+      return { errors: { message: 'User not found. Please sign up first.' } };
+    }
+
+    const userData = convertSnakeToCamel(user.dataValues);
+
+    // Check if user has password
+    if (!userData.password) {
+      return { errors: { message: 'Invalid credentials' } };
+    }
+
+    // Verify password
+    const passwordMatch = await bcrypt.compare(password, userData.password);
+
+    if (!passwordMatch) {
+      return { errors: { message: 'Invalid credentials' } };
+    }
+
+    // Get role mappings and role information
+    const roleMappings = await UserRolesMappingModel.findAll({
+      where: {
+        user_id: userData.id,
+        status: 'ACTIVE',
+      },
+      include: [
+        {
+          model: RoleModel,
+          as: 'role',
+        },
+      ],
+    });
+
+    // Extract role and vendor information
+    const roleMapping = roleMappings && roleMappings[0];
+    const roleData = roleMapping && roleMapping.role
+      ? convertSnakeToCamel(roleMapping.role.dataValues)
+      : null;
+    const mappingData = roleMapping
+      ? convertSnakeToCamel(roleMapping.dataValues)
+      : null;
+
+    // Prepare user response
+    const userResponse = {
+      id: userData.id,
+      name: userData.name || null,
+      mobileNumber: userData.mobileNumber,
+      email: userData.email || null,
+      status: userData.status,
+      profileStatus: userData.profileStatus,
+      roleName: roleData ? roleData.name : null,
+      vendorId: mappingData ? mappingData.vendorId : null,
+    };
+
+    // Generate JWT token
+    const tokenSecret = config.jwt.token_secret;
+
+    const token = jwt.sign(userResponse, tokenSecret, {
+      expiresIn: config.jwt.token_life,
+    });
+
+    return {
+      doc: {
+        message: 'Login successful. User authenticated.',
+        user: userResponse,
+        token,
+      },
+    };
+  } catch (error) {
+    console.log('authLogin error', error);
+
+    return { errors: { message: 'Failed to authenticate user' } };
+  }
+};
+
+// Refresh Token
+const refreshToken = async (payload) => {
+  const { token } = payload;
+
+  try {
+    const tokenSecret = config.jwt.token_secret;
+
+    // Verify token even if expired (ignoreExpiration: true)
+    let decoded;
+
+    try {
+      decoded = jwt.verify(token, tokenSecret);
+    } catch (error) {
+      // If token is expired, try to decode without verification
+      if (error.name === 'TokenExpiredError') {
+        decoded = jwt.decode(token);
+
+        if (!decoded) {
+          return { errors: { message: 'Invalid token' } };
+        }
+      } else {
+        return { errors: { message: 'Invalid token' } };
+      }
+    }
+
+    // Verify user still exists and is active
+    const user = await UserModel.findOne({
+      where: {
+        id: decoded.id,
+        status: 'ACTIVE',
+      },
+      attributes: [ 'id', 'name', 'mobile_number', 'email', 'status', 'profile_status' ],
+    });
+
+    if (!user) {
+      return { errors: { message: 'User not found or inactive' } };
+    }
+
+    const userData = convertSnakeToCamel(user.dataValues);
+
+    // Get role mappings and role information
+    const roleMappings = await UserRolesMappingModel.findAll({
+      where: {
+        user_id: userData.id,
+        status: 'ACTIVE',
+      },
+      include: [
+        {
+          model: RoleModel,
+          as: 'role',
+        },
+      ],
+    });
+
+    // Extract role and vendor information
+    const roleMapping = roleMappings && roleMappings[0];
+    const roleData = roleMapping && roleMapping.role
+      ? convertSnakeToCamel(roleMapping.role.dataValues)
+      : null;
+    const mappingData = roleMapping
+      ? convertSnakeToCamel(roleMapping.dataValues)
+      : null;
+
+    // Prepare user response
+    const userResponse = {
+      id: userData.id,
+      name: userData.name || null,
+      mobileNumber: userData.mobileNumber,
+      email: userData.email || null,
+      status: userData.status,
+      profileStatus: userData.profileStatus,
+      roleName: roleData ? roleData.name : null,
+      vendorId: mappingData ? mappingData.vendorId : null,
+    };
+
+    // Generate new JWT token
+    const newToken = jwt.sign(userResponse, tokenSecret, {
+      expiresIn: config.jwt.token_life,
+    });
+
+    return { doc: { token: newToken, user: userResponse } };
+  } catch (error) {
+    console.log('refreshToken error', error);
+
+    return { errors: { message: 'Failed to refresh token' } };
+  }
+};
+
 module.exports = {
   createSuperAdmin,
   findUserByEmail,
@@ -496,4 +673,6 @@ module.exports = {
   createVendorAdmin,
   updateUser,
   convertUserToRider,
+  authLogin,
+  refreshToken,
 };

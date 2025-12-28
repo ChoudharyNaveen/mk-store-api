@@ -1,11 +1,7 @@
-const bcrypt = require('bcrypt');
-const jwt = require('jsonwebtoken');
 const { User: UserService } = require('../services');
-const config = require('../config/index');
 const Helper = require('../utils/helper');
 
 const { handleServerError, sendErrorResponse, extractErrorMessage } = Helper;
-const { user_roles_mappings: UserRolesMappingModel, role: RoleModel } = require('../database');
 
 // Create Super Admin
 const createSuperAdmin = async (req, res) => {
@@ -32,85 +28,19 @@ const createSuperAdmin = async (req, res) => {
   }
 };
 
-// Auth Login (similar to verifyOtpSms but with email/password)
+// Auth Login
 const authLogin = async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const data = req.validatedData || req.body;
 
-    if (!email || !password) {
-      return sendErrorResponse(res, 400, 'Email and password are required', 'VALIDATION_ERROR');
+    const { errors: err, doc } = await UserService.authLogin(data);
+
+    if (err) {
+      return sendErrorResponse(res, 401, extractErrorMessage(err), 'AUTHENTICATION_FAILED');
     }
 
-    // Find user by email
-    const user = await UserService.findUserByEmail({ email });
-
-    if (!user) {
-      return sendErrorResponse(res, 401, 'User not found. Please sign up first.', 'AUTHENTICATION_FAILED');
-    }
-
-    const userData = Helper.convertSnakeToCamel(user.dataValues);
-
-    // Check if user has password
-    if (!userData.password) {
-      return sendErrorResponse(res, 401, 'Invalid credentials', 'AUTHENTICATION_FAILED');
-    }
-
-    // Verify password
-    const passwordMatch = await bcrypt.compare(password, userData.password);
-
-    if (!passwordMatch) {
-      return sendErrorResponse(res, 401, 'Invalid credentials', 'AUTHENTICATION_FAILED');
-    }
-
-    // Get role mappings and role information
-    const roleMappings = await UserRolesMappingModel.findAll({
-      where: {
-        user_id: userData.id,
-        status: 'ACTIVE',
-      },
-      include: [
-        {
-          model: RoleModel,
-          as: 'role',
-        },
-      ],
-    });
-
-    // Extract role and vendor information
-    const roleMapping = roleMappings && roleMappings[0];
-    const roleData = roleMapping && roleMapping.role
-      ? Helper.convertSnakeToCamel(roleMapping.role.dataValues)
-      : null;
-    const mappingData = roleMapping
-      ? Helper.convertSnakeToCamel(roleMapping.dataValues)
-      : null;
-
-    // Prepare user response (similar to verifyOtpSms response)
-    const userResponse = {
-      id: userData.id,
-      name: userData.name || null,
-      mobileNumber: userData.mobileNumber,
-      email: userData.email || null,
-      status: userData.status,
-      profileStatus: userData.profileStatus,
-      roleName: roleData ? roleData.name : null,
-      vendorId: mappingData ? mappingData.vendorId : null,
-    };
-
-    // Generate JWT token (same as verifyOtpSms)
-    const tokenSecret = config.jwt.token_secret;
-
-    const token = jwt.sign(userResponse, tokenSecret, {
-      expiresIn: config.jwt.token_life,
-    });
-
-    // Return same response format as verifyOtpSms
     return res.status(200).json({
-      doc: {
-        message: 'Login successful. User authenticated.',
-        user: userResponse,
-        token,
-      },
+      doc,
     });
   } catch (error) {
     return handleServerError(error, req, res);
@@ -211,6 +141,33 @@ const getUserProfile = async (req, res) => {
   }
 };
 
+// Refresh Token
+const refreshToken = async (req, res) => {
+  try {
+    const { token } = req.body;
+
+    if (!token) {
+      return sendErrorResponse(res, 400, 'Token is required', 'VALIDATION_ERROR');
+    }
+
+    const { errors: err, doc } = await UserService.refreshToken({ token });
+
+    if (err) {
+      return sendErrorResponse(res, 401, extractErrorMessage(err), 'AUTHENTICATION_FAILED');
+    }
+
+    return res.status(200).json({
+      doc: {
+        message: 'Token refreshed successfully',
+        token: doc.token,
+        user: doc.user,
+      },
+    });
+  } catch (error) {
+    return handleServerError(error, req, res);
+  }
+};
+
 module.exports = {
   createSuperAdmin,
   authLogin,
@@ -218,4 +175,5 @@ module.exports = {
   updateUser,
   convertUserToRider,
   getUserProfile,
+  refreshToken,
 };

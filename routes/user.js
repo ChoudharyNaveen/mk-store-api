@@ -6,6 +6,7 @@ const {
   updateUser,
   convertUserToRider,
   getUserProfile,
+  refreshToken,
 } = require('../controllers/userController');
 
 const upload = multer();
@@ -17,6 +18,7 @@ const {
   createVendorAdmin: createVendorAdminSchema,
   updateUser: updateUserSchema,
   convertUserToRider: convertUserToRiderSchema,
+  refreshToken: refreshTokenSchema,
 } = require('../schemas');
 
 module.exports = (router) => {
@@ -346,4 +348,66 @@ module.exports = (router) => {
     validate(convertUserToRiderSchema),
     convertUserToRider,
   );
+
+  /**
+   * @swagger
+   * /refresh-token:
+   *   post:
+   *     summary: Refresh access token using old token
+   *     tags: [Authentication]
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             required:
+   *               - token
+   *             properties:
+   *               token:
+   *                 type: string
+   *                 description: The old/expired access token
+   *                 example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+   *     responses:
+   *       200:
+   *         description: Token refreshed successfully
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 doc:
+   *                   type: object
+   *                   properties:
+   *                     message:
+   *                       type: string
+   *                       example: "Token refreshed successfully"
+   *                     token:
+   *                       type: string
+   *                       example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+   *                     user:
+   *                       type: object
+   *                       properties:
+   *                         id:
+   *                           type: integer
+   *                         name:
+   *                           type: string
+   *                         mobileNumber:
+   *                           type: string
+   *                         email:
+   *                           type: string
+   *                         status:
+   *                           type: string
+   *                         profileStatus:
+   *                           type: string
+   *                         roleName:
+   *                           type: string
+   *                         vendorId:
+   *                           type: integer
+   *       401:
+   *         description: Invalid or expired token
+   *       400:
+   *         description: Validation error
+   */
+  router.post('/refresh-token', validate(refreshTokenSchema), refreshToken);
 };

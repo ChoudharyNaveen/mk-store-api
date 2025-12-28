@@ -4,7 +4,7 @@ const { handleServerError, sendErrorResponse, extractErrorMessage } = require('.
 const saveBrand = async (req, res) => {
   try {
     const data = req.validatedData;
-    const logoFile = req.files.file ? req.files.file[0] : null;
+    const logoFile = req?.files?.file ? req.files.file[0] : null;
 
     const { errors: err, doc } = await BrandService.saveBrand({
       data,
