@@ -12,6 +12,7 @@ const Order = require('./orderService');
 const OrderItem = require('./orderItemService');
 const Vendor = require('./vendorService');
 const Branch = require('./branchService');
+const Brand = require('./brandService');
 
 module.exports = {
   User,
@@ -28,4 +29,5 @@ module.exports = {
   OrderItem,
   Vendor,
   Branch,
+  Brand,
 };

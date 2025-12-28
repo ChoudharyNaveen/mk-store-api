@@ -18,6 +18,11 @@ module.exports = (sequelize, DataTypes) => {
         allowNull: false,
         index: true,
       },
+      brand_id: {
+        type: DataTypes.INTEGER,
+        allowNull: true,
+        index: true,
+      },
       title: {
         type: DataTypes.STRING,
         allowNull: false,
@@ -109,6 +114,11 @@ module.exports = (sequelize, DataTypes) => {
       foreignKey: 'vendor_id',
       targetKey: 'id',
       as: 'vendor',
+    });
+    product.belongsTo(models.brand, {
+      foreignKey: 'brand_id',
+      targetKey: 'id',
+      as: 'brand',
     });
     product.belongsTo(models.user, {
       foreignKey: 'created_by',

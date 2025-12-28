@@ -17,6 +17,9 @@ const saveProduct = Joi.object({
     'any.required': 'Parameter: categoryId is required',
   }),
   subCategoryId: Joi.number().integer().optional(),
+  brandId: Joi.number().integer().optional().messages({
+    'number.base': 'Parameter: brandId must be a number',
+  }),
   vendorId: Joi.number().integer().required().messages({
     'any.required': 'Parameter: vendorId is required',
   }),

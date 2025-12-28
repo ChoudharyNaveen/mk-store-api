@@ -1,3 +1,5 @@
+const config = require('../config');
+
 module.exports = (router) => {
   /**
    * @swagger
@@ -16,6 +18,6 @@ module.exports = (router) => {
    *               example: "Welcome to mk store backend"
    */
   router.get('/', (req, res) => {
-    res.send('Welcome to mk store backend');
+    res.send(`Welcome to mk store backend ${config.ENV} environment`);
   });
 };

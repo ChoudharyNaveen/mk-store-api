@@ -1,19 +1,31 @@
 module.exports = {
   up: async (queryInterface, Sequelize) => {
-    await queryInterface.createTable('cart', {
+    await queryInterface.createTable('brand', {
       id: {
         allowNull: false,
         autoIncrement: true,
         primaryKey: true,
         type: Sequelize.INTEGER,
       },
-      product_id: {
+      branch_id: {
         type: Sequelize.INTEGER,
         allowNull: false,
       },
-      quantity: {
+      vendor_id: {
         type: Sequelize.INTEGER,
         allowNull: false,
+      },
+      name: {
+        type: Sequelize.STRING,
+        allowNull: false,
+      },
+      description: {
+        type: Sequelize.TEXT,
+        allowNull: true,
+      },
+      logo: {
+        type: Sequelize.STRING,
+        allowNull: true,
       },
       status: {
         type: Sequelize.ENUM('ACTIVE', 'INACTIVE'),
@@ -45,41 +57,55 @@ module.exports = {
       },
     });
 
-    await queryInterface.addIndex('cart', [ 'product_id' ]);
-    await queryInterface.addIndex('cart', [ 'status' ]);
+    await queryInterface.addIndex('brand', [ 'branch_id' ]);
+    await queryInterface.addIndex('brand', [ 'vendor_id' ]);
+    await queryInterface.addIndex('brand', [ 'status' ]);
+    // Make name unique per vendor (same brand name can exist for different vendors)
+    await queryInterface.addIndex('brand', [ 'vendor_id', 'name' ], {
+      unique: true,
+      name: 'unique_brand_per_vendor',
+    });
 
     // Add foreign key constraints
-    await queryInterface.addConstraint('cart', {
-      fields: [ 'product_id' ],
+    await queryInterface.addConstraint('brand', {
+      fields: [ 'branch_id' ],
       type: 'foreign key',
-      name: 'fk_cart_product',
+      name: 'fk_brand_branch',
       references: {
-        table: 'product',
+        table: 'branch',
         field: 'id',
       },
       onDelete: 'CASCADE',
       onUpdate: 'CASCADE',
     });
 
-    await queryInterface.addConstraint('cart', {
+    await queryInterface.addConstraint('brand', {
+      fields: [ 'vendor_id' ],
+      type: 'foreign key',
+      name: 'fk_brand_vendor',
+      references: {
+        table: 'vendor',
+        field: 'id',
+      },
+      onDelete: 'CASCADE',
+      onUpdate: 'CASCADE',
+    });
+
+    await queryInterface.addConstraint('brand', {
       fields: [ 'created_by' ],
       type: 'foreign key',
-      name: 'fk_cart_user',
+      name: 'fk_brand_created_by',
       references: {
         table: 'user',
         field: 'id',
       },
-      onDelete: 'CASCADE',
+      onDelete: 'SET NULL',
       onUpdate: 'CASCADE',
     });
   },
 
   down: async (queryInterface) => {
-    await queryInterface.dropTable('cart');
+    await queryInterface.dropTable('brand');
   },
 };
-
-
-
-
 

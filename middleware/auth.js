@@ -28,7 +28,7 @@ const isAuthenticated = async (req, res, next) => {
 const isVendorAdmin = async (req, res, next) => {
   try {
     // Ensure user is authenticated first
-    if (!req.user || !req.user.userId) {
+    if (!req.user) {
       return sendErrorResponse(res, 401, 'Unauthorized Access', 'AUTHENTICATION_FAILED');
     }
 

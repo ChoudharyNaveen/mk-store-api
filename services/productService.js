@@ -3,6 +3,7 @@ const {
   product: ProductModel,
   category: CategoryModel,
   subCategory: SubCategoryModel,
+  brand: BrandModel,
   cart: CartModel,
   orderItem: OrderItemModel,
   wishlist: WishlistModel,
@@ -22,7 +23,9 @@ const saveProduct = async ({ data, imageFile }) => {
   let transaction = null;
 
   try {
-    const { createdBy, branchId, ...datas } = data;
+    const {
+      createdBy, branchId, brandId, ...datas
+    } = data;
 
     transaction = await sequelize.transaction();
 
@@ -43,6 +46,37 @@ const saveProduct = async ({ data, imageFile }) => {
       // Set vendor_id from branch
       datas.vendorId = branch.vendor_id;
       datas.branchId = branchId;
+    }
+
+    // Verify brand exists and belongs to the same vendor (if brandId is provided)
+    if (brandId) {
+      const brand = await BrandModel.findOne({
+        where: { id: brandId },
+        attributes: [ 'id', 'vendor_id', 'branch_id', 'status' ],
+        transaction,
+      });
+
+      if (!brand) {
+        await transaction.rollback();
+
+        return { errors: { message: 'Brand not found' } };
+      }
+
+      // Verify brand belongs to the same vendor as the product
+      if (brand.vendor_id !== datas.vendorId) {
+        await transaction.rollback();
+
+        return { errors: { message: 'Brand does not belong to the same vendor' } };
+      }
+
+      // Verify brand is active
+      if (brand.status !== 'ACTIVE') {
+        await transaction.rollback();
+
+        return { errors: { message: 'Brand is not active' } };
+      }
+
+      datas.brandId = brandId;
     }
 
     const concurrencyStamp = uuidV4();
@@ -84,11 +118,13 @@ const saveProduct = async ({ data, imageFile }) => {
 
 const updateProduct = async ({ data, imageFile }) => withTransaction(sequelize, async (transaction) => {
   const { id, ...datas } = data;
-  const { concurrencyStamp, updatedBy } = datas;
+  const {
+    concurrencyStamp, updatedBy, brandId, vendorId,
+  } = datas;
 
   const response = await ProductModel.findOne({
     where: { id },
-    attributes: [ 'id', 'concurrency_stamp' ],
+    attributes: [ 'id', 'concurrency_stamp', 'vendor_id', 'branch_id' ],
     transaction,
   });
 
@@ -100,6 +136,37 @@ const updateProduct = async ({ data, imageFile }) => withTransaction(sequelize, 
 
   if (concurrencyStamp !== stamp) {
     return { concurrencyError: { message: 'invalid concurrency stamp' } };
+  }
+
+  // Get the final vendor_id (from existing product or update)
+  const finalVendorId = vendorId || response.vendor_id;
+
+  // Verify brand exists and belongs to the same vendor (if brandId is provided)
+  if (brandId !== undefined) {
+    if (brandId === null) {
+      // Allow setting brand_id to null
+      datas.brandId = null;
+    } else {
+      const brand = await BrandModel.findOne({
+        where: { id: brandId },
+        attributes: [ 'id', 'vendor_id', 'branch_id', 'status' ],
+        transaction,
+      });
+
+      if (!brand) {
+        return { errors: { message: 'Brand not found' } };
+      }
+
+      // Verify brand belongs to the same vendor as the product
+      if (brand.vendor_id !== finalVendorId) {
+        return { errors: { message: 'Brand does not belong to the same vendor' } };
+      }
+
+      // Verify brand is active
+      if (brand.status !== 'ACTIVE') {
+        return { errors: { message: 'Brand is not active' } };
+      }
+    }
   }
 
   const newConcurrencyStamp = uuidV4();
@@ -165,6 +232,12 @@ const getProduct = async (payload) => {
         as: 'subCategory',
         attributes: [ 'id', 'title', 'image' ],
       },
+      {
+        model: BrandModel,
+        as: 'brand',
+        attributes: [ 'id', 'name', 'logo' ],
+        required: false,
+      },
     ],
     order,
     limit,
@@ -220,6 +293,14 @@ const getProductsGroupedByCategory = async (payload) => {
           'status',
           'units',
           'nutritional',
+        ],
+        include: [
+          {
+            model: BrandModel,
+            as: 'brand',
+            attributes: [ 'id', 'name', 'logo' ],
+            required: false,
+          },
         ],
       },
     ],

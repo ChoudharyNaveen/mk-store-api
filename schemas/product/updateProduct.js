@@ -9,6 +9,10 @@ const updateProduct = Joi.object({
   branchId: Joi.number().integer().optional(),
   vendorId: Joi.number().integer().optional(),
   subCategoryId: Joi.number().integer().optional(),
+  brandId: Joi.number().integer().allow(null).optional()
+    .messages({
+      'number.base': 'Parameter: brandId must be a number',
+    }),
   status: Joi.string().valid('ACTIVE', 'INACTIVE').optional(),
   updatedBy: Joi.number().integer().required(),
   concurrencyStamp: Joi.string().required(),
