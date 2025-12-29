@@ -3,7 +3,7 @@ const config = require('../config');
 module.exports = (router) => {
   /**
    * @swagger
-   * /api/test:
+   * /test:
    *   get:
    *     summary: Test endpoint
    *     tags: [Test]
