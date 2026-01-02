@@ -57,10 +57,17 @@ const updateCategory = async (req, res) => {
 const getCategory = async (req, res) => {
   try {
     const data = req.validatedData;
+    const { pageSize, pageNumber } = data;
+    const { totalCount, doc } = await CategoryService.getCategory(data);
 
-    const { count, doc } = await CategoryService.getCategory(data);
+    const pagination = {
+      pageSize: Number(pageSize) || 10,
+      pageNumber: Number(pageNumber) || 1,
+      totalCount: totalCount || 0,
+      paginationEnabled: !!(pageSize && pageNumber),
+    };
 
-    return res.status(200).json({ success: true, doc, count });
+    return res.status(200).json({ success: true, doc, pagination });
   } catch (error) {
     return handleServerError(error, req, res);
   }

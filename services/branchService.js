@@ -11,6 +11,7 @@ const {
   calculatePagination,
   generateWhereCondition,
   generateOrderCondition,
+  findAndCountAllWithTotal,
 } = require('../utils/helper');
 
 const saveBranch = async ({ data }) => {
@@ -170,30 +171,33 @@ const getBranch = async (payload) => {
     ? generateOrderCondition(sorting)
     : [ [ 'createdAt', 'DESC' ] ];
 
-  const response = await BranchModel.findAndCountAll({
-    where: { ...where },
-    order,
-    limit,
-    offset,
-    include: [
-      {
-        model: VendorModel,
-        as: 'vendor',
-        attributes: [ 'id', 'name', 'email' ],
-      },
-    ],
-  });
+  const response = await findAndCountAllWithTotal(
+    BranchModel,
+    {
+      where: { ...where },
+      order,
+      limit,
+      offset,
+      include: [
+        {
+          model: VendorModel,
+          as: 'vendor',
+          attributes: [ 'id', 'name', 'email' ],
+        },
+      ],
+    },
+  );
   const doc = [];
 
   if (response) {
-    const { count, rows } = response;
+    const { count, totalCount, rows } = response;
 
     rows.map((element) => doc.push(element.dataValues));
 
-    return { count, doc };
+    return { count, totalCount, doc };
   }
 
-  return { count: 0, doc: [] };
+  return { count: 0, totalCount: 0, doc: [] };
 };
 
 module.exports = {

@@ -53,10 +53,18 @@ const updateProduct = async (req, res) => {
 const getProduct = async (req, res) => {
   try {
     const data = req.validatedData;
+    const { pageSize, pageNumber } = data;
 
-    const { count, doc } = await ProductService.getProduct(data);
+    const { totalCount, doc } = await ProductService.getProduct(data);
 
-    return res.status(200).json({ success: true, doc, count });
+    const pagination = {
+      pageSize: Number(pageSize) || 10,
+      pageNumber: Number(pageNumber) || 1,
+      totalCount: totalCount || 0,
+      paginationEnabled: !!(pageSize && pageNumber),
+    };
+
+    return res.status(200).json({ success: true, doc, pagination });
   } catch (error) {
     return handleServerError(error, req, res);
   }
@@ -65,10 +73,18 @@ const getProduct = async (req, res) => {
 const getProductsGroupedByCategory = async (req, res) => {
   try {
     const data = req.validatedData;
+    const { pageSize, pageNumber } = data;
 
-    const { doc } = await ProductService.getProductsGroupedByCategory(data);
+    const { totalCount, doc } = await ProductService.getProductsGroupedByCategory(data);
 
-    return res.status(200).json({ success: true, doc });
+    const pagination = {
+      pageSize: Number(pageSize) || 10,
+      pageNumber: Number(pageNumber) || 1,
+      totalCount: totalCount || 0,
+      paginationEnabled: !!(pageSize && pageNumber),
+    };
+
+    return res.status(200).json({ success: true, doc, pagination });
   } catch (error) {
     return handleServerError(error, req, res);
   }

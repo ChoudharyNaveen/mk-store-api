@@ -10,6 +10,7 @@ const {
   calculatePagination,
   generateWhereCondition,
   generateOrderCondition,
+  findAndCountAllWithTotal,
 } = require('../utils/helper');
 
 const saveAddress = async (data) => withTransaction(sequelize, async (transaction) => {
@@ -83,32 +84,35 @@ const getAddress = async (payload) => {
     ? generateOrderCondition(sorting)
     : [ [ 'createdAt', 'DESC' ] ];
 
-  const response = await AddressModel.findAndCountAll({
-    where: { ...where },
-    attributes: [ 'id', 'house_no', 'street_details', 'landmark', 'name', 'mobile_number', 'created_by', 'created_at', 'updated_at', 'concurrency_stamp' ],
-    include: [
-      {
-        model: UserModel,
-        as: 'user',
-        attributes: [ 'id', 'name', 'email', 'mobile_number' ],
-      },
-    ],
-    order,
-    limit,
-    offset,
-    distinct: true,
-  });
+  const response = await findAndCountAllWithTotal(
+    AddressModel,
+    {
+      where: { ...where },
+      attributes: [ 'id', 'house_no', 'street_details', 'landmark', 'name', 'mobile_number', 'created_by', 'created_at', 'updated_at', 'concurrency_stamp' ],
+      include: [
+        {
+          model: UserModel,
+          as: 'user',
+          attributes: [ 'id', 'name', 'email', 'mobile_number' ],
+        },
+      ],
+      order,
+      limit,
+      offset,
+      distinct: true,
+    },
+  );
   const doc = [];
 
   if (response) {
-    const { count, rows } = response;
+    const { count, totalCount, rows } = response;
 
     rows.map((element) => doc.push(element.dataValues));
 
-    return { count, doc };
+    return { count, totalCount, doc };
   }
 
-  return { count: 0, doc: [] };
+  return { count: 0, totalCount: 0, doc: [] };
 };
 
 module.exports = {
