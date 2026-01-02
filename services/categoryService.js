@@ -135,11 +135,12 @@ const getCategory = async (payload) => {
     CategoryModel,
     {
       where: { ...where },
-      attributes: [ 'id', 'title', 'description', 'image', 'status' ],
+      attributes: [ 'id', 'title', 'description', 'image', 'status', 'concurrency_stamp' ],
       order,
       limit,
       offset,
     },
+    pageNumber,
   );
   const doc = [];
 

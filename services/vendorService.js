@@ -188,6 +188,7 @@ const getVendor = async (payload) => {
       limit,
       offset,
     },
+    pageNumber,
   );
   const doc = [];
 

@@ -142,6 +142,7 @@ const getBrand = async (payload) => {
       limit,
       offset,
     },
+    pageNumber,
   );
   const doc = [];
 

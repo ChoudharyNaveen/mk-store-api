@@ -120,6 +120,7 @@ const getOffer = async (payload) => {
       limit,
       offset,
     },
+    pageNumber,
   );
   const doc = [];
 

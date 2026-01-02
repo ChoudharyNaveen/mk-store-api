@@ -572,14 +572,25 @@ const updateWithConcurrencyStamp = async (Model, id, updateData, options = {}) =
  * Get paginated results with both filtered count and total count
  * Performs findAndCountAll for filtered results and a separate count query for total records
  * Uses the same queryOptions for total count (excluding limit and offset)
+ * Optimizes by skipping total count query if pageNumber > 1 (pagination already enabled)
  * @param {Object} Model - Sequelize model
  * @param {Object} queryOptions - Query options for findAndCountAll (where, include, order, limit, offset, attributes, distinct, etc.)
+ * @param {number|string} pageNumber - Current page number (1-indexed). If > 1, total count query is skipped
  * @returns {Promise<Object>} Object with count (filtered), totalCount (total records), and rows
  */
-const findAndCountAllWithTotal = async (Model, queryOptions = {}) => {
+const findAndCountAllWithTotal = async (Model, queryOptions = {}, pageNumber = 1) => {
   try {
-    // Perform findAndCountAll for filtered results
+    const pageNum = Number(pageNumber) || 1;
     const response = await Model.findAndCountAll(queryOptions);
+
+    // If pageNumber > 1, pagination is already enabled, so skip total count query for performance
+    if (pageNum > 1) {
+      return {
+        count: response.count, // Filtered count
+        totalCount: null, // Not needed when pageNumber > 1
+        rows: response.rows,
+      };
+    }
 
     // Build total count query options - use same options but exclude limit and offset
     const { limit, offset, order, attributes, ...totalCountQueryOptions } = queryOptions;
@@ -596,6 +607,34 @@ const findAndCountAllWithTotal = async (Model, queryOptions = {}) => {
     console.error('Error in findAndCountAllWithTotal:', error);
     throw error;
   }
+};
+
+/**
+ * Create pagination object with dynamic paginationEnabled flag
+ * paginationEnabled is true only if totalCount is greater than pageSize
+ * If totalCount is null (when pageNumber > 1), paginationEnabled defaults to true
+ * @param {number|string} pageSize - Number of items per page
+ * @param {number|string} pageNumber - Current page number (1-indexed)
+ * @param {number|null} totalCount - Total count of records (null when pageNumber > 1)
+ * @returns {Object} Pagination object with pageSize, pageNumber, totalCount, and paginationEnabled
+ */
+const createPaginationObject = (pageSize, pageNumber, totalCount) => {
+  const pageSizeNum = Number(pageSize) || 10;
+  const pageNum = Number(pageNumber) || 1;
+  const totalCountNum = totalCount !== null && totalCount !== undefined ? totalCount : null;
+
+  // If totalCount is null (pageNumber > 1), pagination is already enabled
+  // Otherwise, check if totalCount > pageSize
+  const paginationEnabled = totalCountNum === null
+    ? true
+    : totalCountNum > pageSizeNum;
+
+  return {
+    pageSize: pageSizeNum,
+    pageNumber: pageNum,
+    totalCount: totalCountNum,
+    paginationEnabled,
+  };
 };
 
 module.exports = {
@@ -623,4 +662,5 @@ module.exports = {
   withTransaction,
   updateWithConcurrencyStamp,
   findAndCountAllWithTotal,
+  createPaginationObject,
 };

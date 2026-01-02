@@ -96,31 +96,67 @@ module.exports = (router) => {
   /**
    * @swagger
    * /get-sub-category:
-   *   get:
+   *   post:
    *     summary: Get subcategories with pagination
    *     tags: [SubCategories]
    *     security:
    *       - bearerAuth: []
-   *     parameters:
-   *       - in: query
-   *         name: pageSize
-   *         schema:
-   *           type: integer
-   *           enum: [10, 20, 30, 40, 50, 100, 500]
-   *           default: 10
-   *         description: Number of results per page
-   *       - in: query
-   *         name: pageNumber
-   *         schema:
-   *           type: integer
-   *           minimum: 1
-   *           default: 1
-   *         description: Page number
-   *       - in: query
-   *         name: categoryId
-   *         schema:
-   *           type: integer
-   *         description: Filter by category ID
+   *     requestBody:
+   *       required: false
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             properties:
+   *               pageSize:
+   *                 type: integer
+   *                 enum: [1, 5, 10, 20, 30, 40, 50, 100, 500]
+   *                 default: 10
+   *                 description: Number of results per page
+   *               pageNumber:
+   *                 type: integer
+   *                 minimum: 1
+   *                 default: 1
+   *                 description: Page number
+   *               filters:
+   *                 type: array
+   *                 items:
+   *                   type: object
+   *                   properties:
+   *                     key:
+   *                       type: string
+   *                     eq:
+   *                       type: string
+   *                     in:
+   *                       type: array
+   *                       items:
+   *                         type: string
+   *                     neq:
+   *                       type: string
+   *                     gt:
+   *                       type: string
+   *                     gte:
+   *                       type: string
+   *                     lt:
+   *                       type: string
+   *                     lte:
+   *                       type: string
+   *                     like:
+   *                       type: string
+   *                     iLike:
+   *                       type: string
+   *                 description: Array of filter objects
+   *               sorting:
+   *                 type: array
+   *                 items:
+   *                   type: object
+   *                   properties:
+   *                     key:
+   *                       type: string
+   *                     direction:
+   *                       type: string
+   *                       enum: [ASC, DESC]
+   *                 description: Array of sorting objects
    *     responses:
    *       200:
    *         description: Subcategories retrieved successfully
@@ -148,7 +184,7 @@ module.exports = (router) => {
    *                 count:
    *                   type: integer
    */
-  router.get('/get-sub-category', isAuthenticated, validate(getSubCategorySchema), getSubCategory);
+  router.post('/get-sub-category', isAuthenticated, validate(getSubCategorySchema), getSubCategory);
 
   /**
    * @swagger

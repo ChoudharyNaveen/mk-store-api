@@ -1,5 +1,7 @@
 const { Product: ProductService } = require('../services');
-const { handleServerError, sendErrorResponse, extractErrorMessage } = require('../utils/helper');
+const {
+  handleServerError, sendErrorResponse, extractErrorMessage, createPaginationObject,
+} = require('../utils/helper');
 
 const saveProduct = async (req, res) => {
   try {
@@ -57,12 +59,7 @@ const getProduct = async (req, res) => {
 
     const { totalCount, doc } = await ProductService.getProduct(data);
 
-    const pagination = {
-      pageSize: Number(pageSize) || 10,
-      pageNumber: Number(pageNumber) || 1,
-      totalCount: totalCount || 0,
-      paginationEnabled: !!(pageSize && pageNumber),
-    };
+    const pagination = createPaginationObject(pageSize, pageNumber, totalCount);
 
     return res.status(200).json({ success: true, doc, pagination });
   } catch (error) {
@@ -77,12 +74,7 @@ const getProductsGroupedByCategory = async (req, res) => {
 
     const { totalCount, doc } = await ProductService.getProductsGroupedByCategory(data);
 
-    const pagination = {
-      pageSize: Number(pageSize) || 10,
-      pageNumber: Number(pageNumber) || 1,
-      totalCount: totalCount || 0,
-      paginationEnabled: !!(pageSize && pageNumber),
-    };
+    const pagination = createPaginationObject(pageSize, pageNumber, totalCount);
 
     return res.status(200).json({ success: true, doc, pagination });
   } catch (error) {

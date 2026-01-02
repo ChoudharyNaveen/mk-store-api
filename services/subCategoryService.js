@@ -127,6 +127,7 @@ const getSubCategory = async (payload) => {
       limit,
       offset,
     },
+    pageNumber,
   );
   const doc = [];
 
