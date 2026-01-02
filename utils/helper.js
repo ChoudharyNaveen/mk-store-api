@@ -568,6 +568,36 @@ const updateWithConcurrencyStamp = async (Model, id, updateData, options = {}) =
   return { success: true, concurrencyStamp: newConcurrencyStamp };
 };
 
+/**
+ * Get paginated results with both filtered count and total count
+ * Performs findAndCountAll for filtered results and a separate count query for total records
+ * Uses the same queryOptions for total count (excluding limit and offset)
+ * @param {Object} Model - Sequelize model
+ * @param {Object} queryOptions - Query options for findAndCountAll (where, include, order, limit, offset, attributes, distinct, etc.)
+ * @returns {Promise<Object>} Object with count (filtered), totalCount (total records), and rows
+ */
+const findAndCountAllWithTotal = async (Model, queryOptions = {}) => {
+  try {
+    // Perform findAndCountAll for filtered results
+    const response = await Model.findAndCountAll(queryOptions);
+
+    // Build total count query options - use same options but exclude limit and offset
+    const { limit, offset, order, attributes, ...totalCountQueryOptions } = queryOptions;
+
+    // Get total count using the same query options (without pagination)
+    const totalCount = await Model.count(totalCountQueryOptions);
+
+    return {
+      count: response.count, // Filtered count
+      totalCount, // Total count of all records matching the same conditions
+      rows: response.rows,
+    };
+  } catch (error) {
+    console.error('Error in findAndCountAllWithTotal:', error);
+    throw error;
+  }
+};
+
 module.exports = {
   convertCamelObjectToSnake,
   convertCamelToSnake,
@@ -592,4 +622,5 @@ module.exports = {
   handleServerError,
   withTransaction,
   updateWithConcurrencyStamp,
+  findAndCountAllWithTotal,
 };

@@ -8,6 +8,7 @@ const {
   calculatePagination,
   generateWhereCondition,
   generateOrderCondition,
+  findAndCountAllWithTotal,
 } = require('../utils/helper');
 const { uploadFile } = require('../config/azure');
 
@@ -111,23 +112,26 @@ const getOffer = async (payload) => {
     ? generateOrderCondition(sorting)
     : [ [ 'createdAt', 'DESC' ] ];
 
-  const response = await OfferModel.findAndCountAll({
-    where: { ...where, status: 'ACTIVE' },
-    order,
-    limit,
-    offset,
-  });
+  const response = await findAndCountAllWithTotal(
+    OfferModel,
+    {
+      where: { ...where, status: 'ACTIVE' },
+      order,
+      limit,
+      offset,
+    },
+  );
   const doc = [];
 
   if (response) {
-    const { count, rows } = response;
+    const { count, totalCount, rows } = response;
 
     rows.map((element) => doc.push(element.dataValues));
 
-    return { count, doc };
+    return { count, totalCount, doc };
   }
 
-  return { count: 0, doc: [] };
+  return { count: 0, totalCount: 0, doc: [] };
 };
 
 async function cronJobForUpdatingOfferStatus() {

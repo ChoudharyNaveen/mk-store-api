@@ -13,6 +13,7 @@ const {
   calculatePagination,
   generateWhereCondition,
   generateOrderCondition,
+  findAndCountAllWithTotal,
 } = require('../utils/helper');
 
 const saveVendor = async ({ data }) => {
@@ -179,23 +180,26 @@ const getVendor = async (payload) => {
     ? generateOrderCondition(sorting)
     : [ [ 'createdAt', 'DESC' ] ];
 
-  const response = await VendorModel.findAndCountAll({
-    where: { ...where },
-    order,
-    limit,
-    offset,
-  });
+  const response = await findAndCountAllWithTotal(
+    VendorModel,
+    {
+      where: { ...where },
+      order,
+      limit,
+      offset,
+    },
+  );
   const doc = [];
 
   if (response) {
-    const { count, rows } = response;
+    const { count, totalCount, rows } = response;
 
     rows.map((element) => doc.push(element.dataValues));
 
-    return { count, doc };
+    return { count, totalCount, doc };
   }
 
-  return { count: 0, doc: [] };
+  return { count: 0, totalCount: 0, doc: [] };
 };
 
 const getVendorByCode = async (code) => {

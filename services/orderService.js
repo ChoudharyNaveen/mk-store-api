@@ -19,6 +19,7 @@ const {
   calculatePagination,
   generateWhereCondition,
   generateOrderCondition,
+  findAndCountAllWithTotal,
 } = require('../utils/helper');
 
 const placeOrder = async (data) => withTransaction(sequelize, async (transaction) => {
@@ -269,49 +270,52 @@ const getOrder = async (payload) => {
     ? generateOrderCondition(sorting)
     : [ [ 'createdAt', 'DESC' ] ];
 
-  const response = await OrderModel.findAndCountAll({
-    where: { ...where },
-    attributes: [
-      'id',
-      'total_amount',
-      'status',
-      'payment_status',
-      'rider_id',
-      'branch_id',
-      'address_id',
-      'created_by',
-      'created_at',
-      'updated_at',
-      'concurrency_stamp',
-    ],
-    include: [
-      {
-        model: AddressModel,
-        as: 'address',
-        attributes: [ 'id', 'house_no', 'street_details', 'landmark', 'name', 'mobile_number' ],
-      },
-      {
-        model: UserModel,
-        as: 'user',
-        attributes: [ 'id', 'name', 'email', 'mobile_number' ],
-      },
-    ],
-    order,
-    limit,
-    offset,
-    distinct: true,
-  });
+  const response = await findAndCountAllWithTotal(
+    OrderModel,
+    {
+      where: { ...where },
+      attributes: [
+        'id',
+        'total_amount',
+        'status',
+        'payment_status',
+        'rider_id',
+        'branch_id',
+        'address_id',
+        'created_by',
+        'created_at',
+        'updated_at',
+        'concurrency_stamp',
+      ],
+      include: [
+        {
+          model: AddressModel,
+          as: 'address',
+          attributes: [ 'id', 'house_no', 'street_details', 'landmark', 'name', 'mobile_number' ],
+        },
+        {
+          model: UserModel,
+          as: 'user',
+          attributes: [ 'id', 'name', 'email', 'mobile_number' ],
+        },
+      ],
+      order,
+      limit,
+      offset,
+      distinct: true,
+    },
+  );
   const doc = [];
 
   if (response) {
-    const { count, rows } = response;
+    const { count, totalCount, rows } = response;
 
     rows.map((element) => doc.push(element.dataValues));
 
-    return { count, doc };
+    return { count, totalCount, doc };
   }
 
-  return { count: 0, doc: [] };
+  return { count: 0, totalCount: 0, doc: [] };
 };
 
 const getStatsOfOrdersCompleted = async () => {

@@ -11,6 +11,7 @@ const {
   calculatePagination,
   generateWhereCondition,
   generateOrderCondition,
+  findAndCountAllWithTotal,
 } = require('../utils/helper');
 
 const saveCart = async (data) => withTransaction(sequelize, async (transaction) => {
@@ -56,37 +57,40 @@ const getCartOfUser = async (payload) => {
     ? generateOrderCondition(sorting)
     : [ [ 'createdAt', 'DESC' ] ];
 
-  const response = await CartModel.findAndCountAll({
-    where: { ...where, status: 'ACTIVE' },
-    attributes: [ 'id', 'product_id', 'quantity', 'status', 'created_by', 'created_at', 'updated_at', 'concurrency_stamp' ],
-    include: [
-      {
-        model: ProductModel,
-        as: 'productDetails',
-        attributes: [ 'id', 'title', 'selling_price', 'quantity', 'image', 'product_status' ],
-      },
-      {
-        model: UserModel,
-        as: 'user',
-        attributes: [ 'id', 'name', 'email', 'mobile_number' ],
-      },
-    ],
-    order,
-    limit,
-    offset,
-    distinct: true,
-  });
+  const response = await findAndCountAllWithTotal(
+    CartModel,
+    {
+      where: { ...where, status: 'ACTIVE' },
+      attributes: [ 'id', 'product_id', 'quantity', 'status', 'created_by', 'created_at', 'updated_at', 'concurrency_stamp' ],
+      include: [
+        {
+          model: ProductModel,
+          as: 'productDetails',
+          attributes: [ 'id', 'title', 'selling_price', 'quantity', 'image', 'product_status' ],
+        },
+        {
+          model: UserModel,
+          as: 'user',
+          attributes: [ 'id', 'name', 'email', 'mobile_number' ],
+        },
+      ],
+      order,
+      limit,
+      offset,
+      distinct: true,
+    },
+  );
   const doc = [];
 
   if (response) {
-    const { count, rows } = response;
+    const { count, totalCount, rows } = response;
 
     rows.map((element) => doc.push(element.dataValues));
 
-    return { count, doc };
+    return { count, totalCount, doc };
   }
 
-  return { count: 0, doc: [] };
+  return { count: 0, totalCount: 0, doc: [] };
 };
 
 const deleteCart = async (cartId) => {

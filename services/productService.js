@@ -16,6 +16,7 @@ const {
   calculatePagination,
   generateWhereCondition,
   generateOrderCondition,
+  findAndCountAllWithTotal,
 } = require('../utils/helper');
 const { uploadFile } = require('../config/azure');
 
@@ -206,54 +207,57 @@ const getProduct = async (payload) => {
     ? generateOrderCondition(sorting)
     : [ [ 'createdAt', 'DESC' ] ];
 
-  const response = await ProductModel.findAndCountAll({
-    where: { ...where },
-    attributes: [
-      'id',
-      'title',
-      'description',
-      'price',
-      'selling_price',
-      'quantity',
-      'image',
-      'product_status',
-      'status',
-      'units',
-      'nutritional',
-    ],
-    include: [
-      {
-        model: CategoryModel,
-        as: 'category',
-        attributes: [ 'id', 'title', 'image' ],
-      },
-      {
-        model: SubCategoryModel,
-        as: 'subCategory',
-        attributes: [ 'id', 'title', 'image' ],
-      },
-      {
-        model: BrandModel,
-        as: 'brand',
-        attributes: [ 'id', 'name', 'logo' ],
-        required: false,
-      },
-    ],
-    order,
-    limit,
-    offset,
-  });
+  const response = await findAndCountAllWithTotal(
+    ProductModel,
+    {
+      where: { ...where },
+      attributes: [
+        'id',
+        'title',
+        'description',
+        'price',
+        'selling_price',
+        'quantity',
+        'image',
+        'product_status',
+        'status',
+        'units',
+        'nutritional',
+      ],
+      include: [
+        {
+          model: CategoryModel,
+          as: 'category',
+          attributes: [ 'id', 'title', 'image' ],
+        },
+        {
+          model: SubCategoryModel,
+          as: 'subCategory',
+          attributes: [ 'id', 'title', 'image' ],
+        },
+        {
+          model: BrandModel,
+          as: 'brand',
+          attributes: [ 'id', 'name', 'logo' ],
+          required: false,
+        },
+      ],
+      order,
+      limit,
+      offset,
+    },
+  );
   const doc = [];
 
   if (response) {
-    const { count, rows } = response;
+    const { count, totalCount, rows } = response;
 
     rows.map((element) => doc.push(element.dataValues));
 
-    return { count, doc };
+    return { count, totalCount, doc };
   }
 
-  return { count: 0, doc: [] };
+  return { count: 0, totalCount: 0, doc: [] };
 };
 
 const getProductsGroupedByCategory = async (payload) => {
@@ -271,56 +275,59 @@ const getProductsGroupedByCategory = async (payload) => {
     ? generateOrderCondition(sorting)
     : [ [ 'createdAt', 'DESC' ] ];
 
-  const response = await CategoryModel.findAndCountAll({
-    subQuery: false,
-    where: { status: 'ACTIVE' },
-    attributes: [ 'id', 'title', 'description', 'image', 'status' ],
-    include: [
-      {
-        model: ProductModel,
-        as: 'products',
-        where: { ...productWhere, status: 'ACTIVE' },
-        required: false,
-        attributes: [
-          'id',
-          'title',
-          'description',
-          'price',
-          'selling_price',
-          'quantity',
-          'image',
-          'product_status',
-          'status',
-          'units',
-          'nutritional',
-        ],
-        include: [
-          {
-            model: BrandModel,
-            as: 'brand',
-            attributes: [ 'id', 'name', 'logo' ],
-            required: false,
-          },
-        ],
-      },
-    ],
-    distinct: true,
-    order,
-    limit,
-    offset,
-  });
+  const response = await findAndCountAllWithTotal(
+    CategoryModel,
+    {
+      subQuery: false,
+      where: { status: 'ACTIVE' },
+      attributes: [ 'id', 'title', 'description', 'image', 'status' ],
+      include: [
+        {
+          model: ProductModel,
+          as: 'products',
+          where: { ...productWhere, status: 'ACTIVE' },
+          required: false,
+          attributes: [
+            'id',
+            'title',
+            'description',
+            'price',
+            'selling_price',
+            'quantity',
+            'image',
+            'product_status',
+            'status',
+            'units',
+            'nutritional',
+          ],
+          include: [
+            {
+              model: BrandModel,
+              as: 'brand',
+              attributes: [ 'id', 'name', 'logo' ],
+              required: false,
+            },
+          ],
+        },
+      ],
+      distinct: true,
+      order,
+      limit,
+      offset,
+    },
+  );
 
   const doc = [];
 
   if (response) {
-    const { count, rows } = response;
+    const { count, totalCount, rows } = response;
 
     rows.map((element) => doc.push(element.dataValues));
 
-    return { count, doc };
+    return { count, totalCount, doc };
   }
 
-  return { count: 0, doc: [] };
+  return { count: 0, totalCount: 0, doc: [] };
 };
 
 const deleteProduct = async (productId) => withTransaction(sequelize, async (transaction) => {

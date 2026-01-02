@@ -25,10 +25,18 @@ const saveWishlist = async (req, res) => {
 const getWishlist = async (req, res) => {
   try {
     const data = req.validatedData;
+    const { pageSize, pageNumber } = data;
 
-    const { count, doc } = await WishlistService.getWishlist(data);
+    const { totalCount, doc } = await WishlistService.getWishlist(data);
 
-    return res.status(200).json({ success: true, doc, count });
+    const pagination = {
+      pageSize: Number(pageSize) || 10,
+      pageNumber: Number(pageNumber) || 1,
+      totalCount: totalCount || 0,
+      paginationEnabled: !!(pageSize && pageNumber),
+    };
+
+    return res.status(200).json({ success: true, doc, pagination });
   } catch (error) {
     return handleServerError(error, req, res);
   }
