@@ -223,6 +223,8 @@ const getProduct = async (payload) => {
         'status',
         'units',
         'nutritional',
+        'concurrency_stamp',
+        'created_at',
       ],
       include: [
         {
@@ -300,6 +302,8 @@ const getProductsGroupedByCategory = async (payload) => {
             'status',
             'units',
             'nutritional',
+            'concurrency_stamp',
+            'created_at',
           ],
           include: [
             {

@@ -107,6 +107,7 @@ const getSubCategory = async (payload) => {
   const { limit, offset } = calculatePagination(pageSize, pageNumber);
 
   const where = generateWhereCondition(filters);
+
   const order = sorting
     ? generateOrderCondition(sorting)
     : [ [ 'createdAt', 'DESC' ] ];
@@ -115,7 +116,7 @@ const getSubCategory = async (payload) => {
     SubCategoryModel,
     {
       where: { ...where },
-      attributes: [ 'id', 'title', 'description', 'image', 'status' ],
+      attributes: [ 'id', 'title', 'description', 'image', 'status', 'concurrency_stamp' ],
       include: [
         {
           model: CategoryModel,
@@ -126,6 +127,7 @@ const getSubCategory = async (payload) => {
       order,
       limit,
       offset,
+      subQuery: false,
     },
     pageNumber,
   );

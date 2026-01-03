@@ -530,7 +530,14 @@ const authLogin = async (payload) => {
       include: [
         {
           model: RoleModel,
+          attributes: [ 'id', 'name' ],
           as: 'role',
+        },
+        {
+          model: VendorModel,
+          as: 'vendor',
+          attributes: [ 'id', 'name' ],
+          required: false,
         },
       ],
     });
@@ -543,6 +550,9 @@ const authLogin = async (payload) => {
     const mappingData = roleMapping
       ? convertSnakeToCamel(roleMapping.dataValues)
       : null;
+    const vendorData = roleMapping && roleMapping.vendor
+      ? convertSnakeToCamel(roleMapping.vendor.dataValues)
+      : null;
 
     // Prepare user response
     const userResponse = {
@@ -554,6 +564,7 @@ const authLogin = async (payload) => {
       profileStatus: userData.profileStatus,
       roleName: roleData ? roleData.name : null,
       vendorId: mappingData ? mappingData.vendorId : null,
+      vendorName: vendorData ? vendorData.name : null,
     };
 
     // Generate JWT token

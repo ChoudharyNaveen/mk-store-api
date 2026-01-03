@@ -3,7 +3,7 @@ const {
   getBranch,
   updateBranch,
 } = require('../controllers/branchController');
-const { isAuthenticated } = require('../middleware/auth');
+const { isAuthenticated, isVendorAdmin } = require('../middleware/auth');
 const validate = require('../middleware/validation');
 const {
   saveBranch: saveBranchSchema,
@@ -142,7 +142,7 @@ module.exports = (router) => {
    *       400:
    *         description: Bad request - validation error or duplicate code
    */
-  router.post('/save-branch', isAuthenticated, validate(saveBranchSchema), saveBranch);
+  router.post('/save-branch', isAuthenticated, isVendorAdmin, validate(saveBranchSchema), saveBranch);
 
   /**
    * @swagger

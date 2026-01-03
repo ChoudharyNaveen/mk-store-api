@@ -226,6 +226,14 @@ module.exports = (router) => {
    *                 type: string
    *                 example: "Updated description"
    *                 description: Subcategory description (optional)
+   *               branchId:
+   *                 type: integer
+   *                 example: 1
+   *                 description: Branch ID (optional)
+   *               vendorId:
+   *                 type: integer
+   *                 example: 1
+   *                 description: Vendor ID (optional)
    *               categoryId:
    *                 type: integer
    *                 example: 1

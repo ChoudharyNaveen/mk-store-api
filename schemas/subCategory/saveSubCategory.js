@@ -9,6 +9,12 @@ const saveSubCategory = Joi.object({
     'any.required': 'Parameter: description is required',
     'string.empty': 'Parameter: description is required',
   }),
+  branchId: Joi.number().integer().required().messages({
+    'any.required': 'Parameter: branchId is required',
+  }),
+  vendorId: Joi.number().integer().required().messages({
+    'any.required': 'Parameter: vendorId is required',
+  }),
   categoryId: Joi.number().integer().required().messages({
     'any.required': 'Parameter: categoryId is required',
   }),
