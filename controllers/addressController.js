@@ -6,8 +6,9 @@ const {
 const saveAddress = async (req, res) => {
   try {
     const data = req.validatedData;
+    const { user } = req;
 
-    const { errors: err, doc } = await AddressService.saveAddress(data);
+    const { errors: err, doc } = await AddressService.saveAddress({ ...data, createdBy: user.id });
 
     if (doc) {
       return res.status(201).json({ success: true, message: 'successfully added' });

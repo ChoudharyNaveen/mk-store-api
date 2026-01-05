@@ -29,6 +29,12 @@ const getCart = Joi.object({
     .messages({
       'number.min': 'Parameter: pageNumber should be valid.',
     }),
+  vendorId: Joi.number().integer().optional().messages({
+    'number.base': 'Parameter: vendorId must be a number',
+  }),
+  branchId: Joi.number().integer().optional().messages({
+    'number.base': 'Parameter: branchId must be a number',
+  }),
   filters: Joi.array().items(filterSchema).optional(),
   sorting: Joi.array().items(sortingSchema).optional(),
 }).unknown(false);

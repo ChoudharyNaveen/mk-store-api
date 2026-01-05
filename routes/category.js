@@ -3,6 +3,7 @@ const {
   saveCategory,
   getCategory,
   updateCategory,
+  getCategoryDetails,
 } = require('../controllers/categoryController');
 const { isAuthenticated, isVendorAdmin } = require('../middleware/auth');
 const validate = require('../middleware/validation');
@@ -273,6 +274,63 @@ module.exports = (router) => {
    *                   type: boolean
    *                   example: true
    */
+  /**
+   * @swagger
+   * /get-category-details/{categoryId}:
+   *   get:
+   *     summary: Get detailed category information
+   *     tags: [Categories]
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: path
+   *         name: categoryId
+   *         required: true
+   *         schema:
+   *           type: integer
+   *         description: Category ID
+   *     responses:
+   *       200:
+   *         description: Category details retrieved successfully
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 success:
+   *                   type: boolean
+   *                   example: true
+   *                 doc:
+   *                   type: object
+   *                   properties:
+   *                     id:
+   *                       type: integer
+   *                     title:
+   *                       type: string
+   *                     description:
+   *                       type: string
+   *                     image:
+   *                       type: string
+   *                     statistics:
+   *                       type: object
+   *                       properties:
+   *                         subcategory_count:
+   *                           type: integer
+   *                         product_count:
+   *                           type: integer
+   *                     sub_categories:
+   *                       type: array
+   *                       items:
+   *                         type: object
+   *                     products:
+   *                       type: array
+   *                       items:
+   *                         type: object
+   *       404:
+   *         description: Category not found
+   */
+  router.get('/get-category-details/:categoryId', isAuthenticated, getCategoryDetails);
+
   router.patch(
     '/update-category/:id',
     isAuthenticated,

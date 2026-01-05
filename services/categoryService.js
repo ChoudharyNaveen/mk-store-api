@@ -1,5 +1,13 @@
 const { v4: uuidV4 } = require('uuid');
-const { category: CategoryModel, branch: BranchModel, sequelize } = require('../database');
+const {
+  category: CategoryModel,
+  subCategory: SubCategoryModel,
+  product: ProductModel,
+  brand: BrandModel,
+  branch: BranchModel,
+  vendor: VendorModel,
+  sequelize,
+} = require('../database');
 const {
   withTransaction,
   convertCamelToSnake,
@@ -163,8 +171,122 @@ const getCategory = async (payload) => {
   return { count: 0, totalCount: 0, doc: [] };
 };
 
+const getCategoryDetails = async (categoryId) => {
+  try {
+    const category = await CategoryModel.findOne({
+      where: { id: categoryId },
+      attributes: [
+        'id',
+        'title',
+        'description',
+        'image',
+        'status',
+        'concurrency_stamp',
+        'created_at',
+        'updated_at',
+      ],
+      include: [
+        {
+          model: BranchModel,
+          as: 'branch',
+          attributes: [ 'id', 'name', 'address', 'contact_number' ],
+        },
+        {
+          model: VendorModel,
+          as: 'vendor',
+          attributes: [ 'id', 'name', 'code' ],
+        },
+      ],
+    });
+
+    if (!category) {
+      return { error: 'Category not found' };
+    }
+
+    // Get all subcategories
+    const subCategories = await SubCategoryModel.findAll({
+      where: {
+        category_id: categoryId,
+        status: 'ACTIVE',
+      },
+      attributes: [
+        'id',
+        'title',
+        'description',
+        'image',
+        'status',
+        'created_at',
+      ],
+      order: [ [ 'created_at', 'DESC' ] ],
+    });
+
+    // Get all products in this category
+    const products = await ProductModel.findAll({
+      where: {
+        category_id: categoryId,
+        status: 'ACTIVE',
+      },
+      attributes: [
+        'id',
+        'title',
+        'description',
+        'selling_price',
+        'image',
+        'status',
+        'quantity',
+        'created_at',
+      ],
+      include: [
+        {
+          model: BrandModel,
+          as: 'brand',
+          attributes: [ 'id', 'name', 'logo' ],
+          required: false,
+        },
+      ],
+      order: [ [ 'created_at', 'DESC' ] ],
+      limit: 20, // Limit for details page
+    });
+
+    // Get statistics
+    const [ subCategoryCount, productCount ] = await Promise.all([
+      SubCategoryModel.count({
+        where: { category_id: categoryId, status: 'ACTIVE' },
+      }),
+      ProductModel.count({
+        where: { category_id: categoryId, status: 'ACTIVE' },
+      }),
+    ]);
+
+    const categoryData = category.dataValues;
+    const statistics = {
+      subcategory_count: subCategoryCount,
+      product_count: productCount,
+    };
+
+    // Convert image URLs to CloudFront URLs
+    const convertedCategory = convertImageFieldsToCloudFront([ categoryData ])[0];
+    const convertedSubCategories = convertImageFieldsToCloudFront(subCategories.map((sc) => sc.dataValues));
+    const convertedProducts = convertImageFieldsToCloudFront(products.map((p) => p.dataValues));
+
+    return {
+      doc: {
+        ...convertedCategory,
+        statistics,
+        sub_categories: convertedSubCategories,
+        products: convertedProducts,
+      },
+    };
+  } catch (error) {
+    console.error('Error in getCategoryDetails:', error);
+
+    return { error: 'Failed to fetch category details' };
+  }
+};
+
 module.exports = {
   saveCategory,
   updateCategory,
   getCategory,
+  getCategoryDetails,
 };

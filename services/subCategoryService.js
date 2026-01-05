@@ -1,5 +1,13 @@
 const { v4: uuidV4 } = require('uuid');
-const { subCategory: SubCategoryModel, sequelize } = require('../database');
+const {
+  subCategory: SubCategoryModel,
+  category: CategoryModel,
+  product: ProductModel,
+  brand: BrandModel,
+  branch: BranchModel,
+  vendor: VendorModel,
+  sequelize,
+} = require('../database');
 const {
   withTransaction,
   convertCamelToSnake,
@@ -208,8 +216,107 @@ const getSubCategory = async (payload) => {
   return { count: 0, totalCount: 0, doc: [] };
 };
 
+const getSubCategoryDetails = async (subCategoryId) => {
+  try {
+    const subCategory = await SubCategoryModel.findOne({
+      where: { id: subCategoryId },
+      attributes: [
+        'id',
+        'title',
+        'description',
+        'image',
+        'status',
+        'concurrency_stamp',
+        'created_at',
+        'updated_at',
+      ],
+      include: [
+        {
+          model: CategoryModel,
+          as: 'category',
+          attributes: [ 'id', 'title', 'description', 'image', 'status' ],
+        },
+        {
+          model: BranchModel,
+          as: 'branch',
+          attributes: [ 'id', 'name', 'address', 'contact_number' ],
+        },
+        {
+          model: VendorModel,
+          as: 'vendor',
+          attributes: [ 'id', 'name', 'code' ],
+        },
+      ],
+    });
+
+    if (!subCategory) {
+      return { error: 'SubCategory not found' };
+    }
+
+    // Get all products in this subcategory
+    const products = await ProductModel.findAll({
+      where: {
+        sub_category_id: subCategoryId,
+        status: 'ACTIVE',
+      },
+      attributes: [
+        'id',
+        'title',
+        'description',
+        'selling_price',
+        'image',
+        'status',
+        'quantity',
+        'created_at',
+      ],
+      include: [
+        {
+          model: BrandModel,
+          as: 'brand',
+          attributes: [ 'id', 'name', 'logo' ],
+          required: false,
+        },
+        {
+          model: CategoryModel,
+          as: 'category',
+          attributes: [ 'id', 'title', 'image' ],
+        },
+      ],
+      order: [ [ 'created_at', 'DESC' ] ],
+      limit: 20, // Limit for details page
+    });
+
+    // Get statistics
+    const productCount = await ProductModel.count({
+      where: { sub_category_id: subCategoryId, status: 'ACTIVE' },
+    });
+
+    const subCategoryData = subCategory.dataValues;
+    const statistics = {
+      product_count: productCount,
+    };
+
+    // Convert image URLs to CloudFront URLs
+    const convertedSubCategory = convertImageFieldsToCloudFront([ subCategoryData ])[0];
+    const convertedProducts = convertImageFieldsToCloudFront(products.map((p) => p.dataValues));
+
+    return {
+      doc: {
+        ...convertedSubCategory,
+        statistics,
+        products: convertedProducts,
+      },
+    };
+  } catch (error) {
+    console.error('Error in getSubCategoryDetails:', error);
+
+    return { error: 'Failed to fetch subcategory details' };
+  }
+};
+
 module.exports = {
   saveSubCategory,
   updateSubCategory,
   getSubCategory,
+  getSubCategoryDetails,
 };

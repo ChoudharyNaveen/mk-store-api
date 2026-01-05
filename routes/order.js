@@ -18,7 +18,7 @@ module.exports = (router) => {
    * @swagger
    * /place-order:
    *   post:
-   *     summary: Place a new order
+   *     summary: Place a new order from cart items
    *     tags: [Orders]
    *     security:
    *       - bearerAuth: []
@@ -29,58 +29,119 @@ module.exports = (router) => {
    *           schema:
    *             type: object
    *             required:
-   *               - addressId
-   *               - cartItems
+   *               - vendorId
+   *               - branchId
    *             properties:
+   *               vendorId:
+   *                 type: integer
+   *                 example: 1
+   *                 description: Vendor ID (required)
+   *               branchId:
+   *                 type: integer
+   *                 example: 1
+   *                 description: Branch ID where order is placed (required - must belong to vendorId)
+   *               createdBy:
+   *                 type: integer
+   *                 example: 1
+   *                 description: User ID who is placing the order (optional, can be extracted from token)
    *               addressId:
+   *                 type: integer
+   *                 example: 1
+   *                 description: Existing address ID (optional - if not provided, address fields must be provided)
+   *               houseNo:
    *                 type: string
-   *                 example: "address-uuid-here"
-   *               cartItems:
-   *                 type: array
-   *                 items:
-   *                   type: object
-   *                   properties:
-   *                     cartId:
-   *                       type: string
-   *                     productId:
-   *                       type: string
-   *                     quantity:
-   *                       type: integer
+   *                 example: "123"
+   *                 description: House number for new address (optional - required if addressId not provided)
+   *               streetDetails:
+   *                 type: string
+   *                 example: "Main Street"
+   *                 description: Street details for new address (optional - required if addressId not provided)
+   *               landmark:
+   *                 type: string
+   *                 example: "Near Park"
+   *                 description: Landmark for new address (optional - required if addressId not provided)
+   *               name:
+   *                 type: string
+   *                 example: "John Doe"
+   *                 description: Name for delivery address (optional - required if addressId not provided)
+   *               mobileNumber:
+   *                 type: string
+   *                 example: "9876543210"
+   *                 description: Mobile number for delivery address (optional - required if addressId not provided)
+   *               offerCode:
+   *                 type: string
+   *                 example: "SUMMER20"
+   *                 description: Offer code to apply discount (optional - cannot be used with promocodeId)
    *               promocodeId:
+   *                 type: integer
+   *                 example: 5
+   *                 description: Promo code ID to apply discount (optional - cannot be used with offerCode)
+   *               orderPriority:
    *                 type: string
-   *                 example: "promocode-uuid-here"
-   *               paymentMethod:
-   *                 type: string
-   *                 example: "CREDIT_CARD"
+   *                 enum: [NORMAL, EXPRESS, URGENT]
+   *                 example: "NORMAL"
+   *                 default: "NORMAL"
+   *                 description: Order priority level (optional, defaults to NORMAL)
+   *               estimatedDeliveryTime:
+   *                 type: integer
+   *                 example: 60
+   *                 description: Estimated delivery time in minutes (optional)
+   *               shippingCharges:
+   *                 type: number
+   *                 example: 50.00
+   *                 default: 0
+   *                 description: Shipping/delivery charges (optional, defaults to 0)
    *     responses:
-   *       200:
+   *       201:
    *         description: Order placed successfully
    *         content:
    *           application/json:
    *             schema:
    *               type: object
    *               properties:
-   *                 success:
-   *                   type: boolean
-   *                   example: true
    *                 message:
    *                   type: string
    *                   example: "Order placed successfully"
-   *                 doc:
+   *                 data:
    *                   type: object
    *                   properties:
-   *                     id:
+   *                     order_id:
    *                       type: integer
    *                       example: 1
-   *                     branch_id:
+   *                     order_number:
    *                       type: string
-   *                     totalAmount:
+   *                       example: "ORD-20250115-000001"
+   *                     total_amount:
    *                       type: number
-   *                     status:
+   *                       example: 1500.00
+   *                     discount_amount:
+   *                       type: number
+   *                       example: 150.00
+   *                     shipping_charges:
+   *                       type: number
+   *                       example: 50.00
+   *                     final_amount:
+   *                       type: number
+   *                       example: 1400.00
+   *                     order_priority:
    *                       type: string
-   *                       example: "PENDING"
+   *                       example: "NORMAL"
+   *                     estimated_delivery_time:
+   *                       type: integer
+   *                       example: 60
+   *                     item_count:
+   *                       type: integer
+   *                       example: 3
    *       400:
-   *         description: Validation error
+   *         description: Validation error or business logic error
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 error:
+   *                   type: string
+   *                   example: "Cannot apply both offer code and promo code. Please choose one."
    */
   router.post(
     '/place-order',
@@ -93,7 +154,7 @@ module.exports = (router) => {
    * @swagger
    * /get-order:
    *   post:
-   *     summary: Get user orders
+   *     summary: Get user orders with pagination, filters, and sorting
    *     tags: [Orders]
    *     security:
    *       - bearerAuth: []
@@ -121,8 +182,10 @@ module.exports = (router) => {
    *                   properties:
    *                     key:
    *                       type: string
+   *                       example: "status"
    *                     eq:
    *                       type: string
+   *                       example: "PENDING"
    *                     in:
    *                       type: array
    *                       items:
@@ -149,6 +212,7 @@ module.exports = (router) => {
    *                   properties:
    *                     key:
    *                       type: string
+   *                       example: "created_at"
    *                     direction:
    *                       type: string
    *                       enum: [ASC, DESC]
@@ -172,17 +236,27 @@ module.exports = (router) => {
    *                       id:
    *                         type: integer
    *                         example: 1
-   *                       branch_id:
-   *                         type: string
-   *                       totalAmount:
+   *                       total_amount:
    *                         type: number
    *                       status:
    *                         type: string
-   *                       createdAt:
+   *                         enum: [PENDING, CONFIRMED, SHIPPED, DELIVERED, CANCELLED]
+   *                       payment_status:
    *                         type: string
-   *                         format: date-time
+   *                         enum: [PAID, UNPAID, FAILED]
+   *                       branch_id:
+   *                         type: integer
+   *                       address:
+   *                         type: object
+   *                       user:
+   *                         type: object
+   *                       orderDiscount:
+   *                         type: object
+   *                         nullable: true
    *                 count:
    *                   type: integer
+   *                 pagination:
+   *                   type: object
    */
   router.post('/get-order', isAuthenticated, validate(getOrderSchema), getOrder);
 
@@ -205,15 +279,17 @@ module.exports = (router) => {
    *                 success:
    *                   type: boolean
    *                   example: true
-   *                 doc:
-   *                   type: object
-   *                   properties:
-   *                     totalCompleted:
-   *                       type: integer
-   *                       example: 150
-   *                     totalRevenue:
-   *                       type: number
-   *                       example: 45000.50
+   *                 data:
+   *                   type: array
+   *                   items:
+   *                     type: object
+   *                     properties:
+   *                       month:
+   *                         type: string
+   *                         example: "January"
+   *                       totalAmount:
+   *                         type: string
+   *                         example: "15000.00"
    */
   router.get('/get-stats-of-orders-completed', isAuthenticated, getStatsOfOrdersCompleted);
 
@@ -221,7 +297,7 @@ module.exports = (router) => {
    * @swagger
    * /update-order/{id}:
    *   patch:
-   *     summary: Update order status
+   *     summary: Update order status and/or payment status
    *     tags: [Orders]
    *     security:
    *       - bearerAuth: []
@@ -232,17 +308,76 @@ module.exports = (router) => {
    *         schema:
    *           type: integer
    *         description: Order ID
+   *       - in: header
+   *         name: x-concurrencystamp
+   *         required: true
+   *         schema:
+   *           type: string
+   *           format: uuid
+   *         description: Concurrency stamp for optimistic locking
    *     requestBody:
    *       required: true
    *       content:
    *         application/json:
    *           schema:
    *             type: object
+   *             required:
+   *               - updatedBy
+   *               - concurrencyStamp
    *             properties:
    *               status:
    *                 type: string
-   *                 enum: [PENDING, CONFIRMED, PROCESSING, SHIPPED, DELIVERED, CANCELLED, RETURNED]
+   *                 enum: [PENDING, CONFIRMED, SHIPPED, DELIVERED, CANCELLED]
    *                 example: "CONFIRMED"
+   *                 description: New order status (optional)
+   *               paymentStatus:
+   *                 type: string
+   *                 enum: [PAID, UNPAID, FAILED]
+   *                 example: "PAID"
+   *                 description: New payment status (optional)
+   *               orderPriority:
+   *                 type: string
+   *                 enum: [NORMAL, EXPRESS, URGENT]
+   *                 example: "EXPRESS"
+   *                 description: Order priority level (optional)
+   *               estimatedDeliveryTime:
+   *                 type: integer
+   *                 example: 30
+   *                 description: Estimated delivery time in minutes (optional)
+   *               discountAmount:
+   *                 type: number
+   *                 example: 100.00
+   *                 description: Discount amount (optional - will recalculate final_amount if updated)
+   *               shippingCharges:
+   *                 type: number
+   *                 example: 50.00
+   *                 description: Shipping/delivery charges (optional - will recalculate final_amount if updated)
+   *               finalAmount:
+   *                 type: number
+   *                 example: 1450.00
+   *                 description: Final amount after all adjustments (optional - if not provided, will be calculated)
+   *               refundAmount:
+   *                 type: number
+   *                 example: 0.00
+   *                 description: Refund amount (optional)
+   *               refundStatus:
+   *                 type: string
+   *                 enum: [NONE, PENDING, PROCESSED, FAILED]
+   *                 example: "NONE"
+   *                 description: Refund status (optional)
+   *               updatedBy:
+   *                 type: integer
+   *                 example: 1
+   *                 description: User ID who is updating the order (required)
+   *               concurrencyStamp:
+   *                 type: string
+   *                 format: uuid
+   *                 example: "123e4567-e89b-12d3-a456-426614174000"
+   *                 description: Concurrency stamp from previous response (required)
+   *               notes:
+   *                 type: string
+   *                 example: "Order cancelled due to customer request"
+   *                 description: Optional notes for status change (e.g., cancellation reason)
    *     responses:
    *       200:
    *         description: Order updated successfully
@@ -261,6 +396,13 @@ module.exports = (router) => {
    *                 success:
    *                   type: boolean
    *                   example: true
+   *                 message:
+   *                   type: string
+   *                   example: "successfully updated"
+   *       400:
+   *         description: Validation error
+   *       409:
+   *         description: Concurrency error
    */
   router.patch(
     '/update-order/:id',
@@ -288,12 +430,9 @@ module.exports = (router) => {
    *                 success:
    *                   type: boolean
    *                   example: true
-   *                 doc:
-   *                   type: object
-   *                   properties:
-   *                     totalReturns:
-   *                       type: integer
-   *                       example: 5
+   *                 total:
+   *                   type: string
+   *                   example: "5000.00"
    */
   router.get('/get-total-returns-of-today', isAuthenticated, getTotalReturnsOfToday);
 };
