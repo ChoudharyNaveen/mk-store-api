@@ -332,7 +332,7 @@ const findAndCountAllWithTotal = async (Model, queryOptions = {}, pageNumber = 1
       Model.findAndCountAll(queryOptions),
     ]
     if (pageNum <= 1) {
-      promises.push(Model.count(queryOptions));
+      promises.push(Model.count(totalCountQueryOptions));
     }
 
     const response = await Promise.all(promises);
