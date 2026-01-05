@@ -10,7 +10,8 @@ const {
   generateOrderCondition,
   findAndCountAllWithTotal,
 } = require('../utils/helper');
-const { uploadFile } = require('../config/azure');
+const { uploadFile } = require('../config/aws');
+const { convertImageFieldsToCloudFront } = require('../utils/s3Helper');
 
 const saveOffer = async ({ data, imageFile }) => {
   let transaction = null;
@@ -27,6 +28,7 @@ const saveOffer = async ({ data, imageFile }) => {
       ...datas,
       concurrencyStamp,
       createdBy,
+      image: 'NA',
     };
 
     const cat = await OfferModel.create(convertCamelToSnake(doc), {
@@ -34,9 +36,11 @@ const saveOffer = async ({ data, imageFile }) => {
     });
 
     if (imageFile) {
-      const blobName = `offer-${cat.id}-${Date.now()}.jpg`;
+      const filename = `offer-${cat.id}-${Date.now()}.jpg`;
+      const vendorId = datas.vendorId || datas.vendor_id;
+      const branchId = datas.branchId || datas.branch_id;
 
-      imageUrl = await uploadFile(imageFile, blobName);
+      imageUrl = await uploadFile(imageFile, filename, vendorId, branchId);
       await OfferModel.update({ image: imageUrl }, {
         where: { id: cat.id },
         transaction,
@@ -61,7 +65,7 @@ const updateOffer = async ({ data, imageFile }) => withTransaction(sequelize, as
 
   const response = await OfferModel.findOne({
     where: { id },
-    attributes: [ 'id', 'concurrency_stamp' ],
+    attributes: [ 'id', 'concurrency_stamp', 'vendor_id', 'branch_id' ],
     transaction,
   });
 
@@ -83,8 +87,11 @@ const updateOffer = async ({ data, imageFile }) => withTransaction(sequelize, as
   };
 
   if (imageFile) {
-    const blobName = `offer-${id}-${Date.now()}.jpg`;
-    const imageUrl = await uploadFile(imageFile, blobName);
+    const filename = `offer-${id}-${Date.now()}.jpg`;
+    const vendorId = response.vendor_id;
+    const branchId = response.branch_id;
+
+    const imageUrl = await uploadFile(imageFile, filename, vendorId, branchId);
 
     doc.image = imageUrl;
   }
@@ -120,13 +127,17 @@ const getOffer = async (payload) => {
       limit,
       offset,
     },
+    pageNumber,
   );
-  const doc = [];
+  let doc = [];
 
   if (response) {
     const { count, totalCount, rows } = response;
 
-    rows.map((element) => doc.push(element.dataValues));
+    const dataValues = rows.map((element) => element.dataValues);
+
+    // Convert image URLs to CloudFront URLs (automatically handles nested objects/arrays)
+    doc = convertImageFieldsToCloudFront(JSON.parse(JSON.stringify(dataValues)));
 
     return { count, totalCount, doc };
   }

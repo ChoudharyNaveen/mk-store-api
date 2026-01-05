@@ -178,14 +178,8 @@ const getBranch = async (payload) => {
       order,
       limit,
       offset,
-      include: [
-        {
-          model: VendorModel,
-          as: 'vendor',
-          attributes: [ 'id', 'name', 'email' ],
-        },
-      ],
     },
+    pageNumber,
   );
   const doc = [];
 

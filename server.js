@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 process.env.NODE_ENV = process.env.NODE_ENV || 'production';
 
 const express = require('express');
@@ -67,7 +68,7 @@ app.use('/public', routes);
 app.use('/api', routes);
 app.use('/api/test', indexRouter);
 
-app.use((err, req, res) => {
+app.use((err, req, res, next) => {
   console.error('Error caught by middleware:', err);
   res.status(err.status || 500).json({
     success: false,

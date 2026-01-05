@@ -17,7 +17,8 @@ const {
   convertCamelToSnake,
   convertSnakeToCamel,
 } = require('../utils/helper');
-const { uploadFile } = require('../config/azure');
+const { uploadUserFile } = require('../config/aws');
+const { convertImageFieldsToCloudFront } = require('../utils/s3Helper');
 const config = require('../config/index');
 
 // Create Super Admin
@@ -84,8 +85,10 @@ const createSuperAdmin = async ({ data, imageFile }) => {
     });
 
     if (imageFile) {
-      const blobName = `user-${user.id}-${Date.now()}.jpg`;
-      const imageUrl = await uploadFile(imageFile, blobName);
+      const filename = `user-${user.id}-${Date.now()}.jpg`;
+      const userId = user.id;
+
+      const imageUrl = await uploadUserFile(imageFile, filename, userId);
 
       await UserModel.update({ image: imageUrl }, {
         where: { id: user.id },
@@ -148,7 +151,10 @@ const getUserById = async (payload) => {
     const { dataValues } = response;
     const doc = convertSnakeToCamel(dataValues);
 
-    return { doc };
+    // Convert image URL to CloudFront URL (automatically handles nested objects/arrays)
+    const docWithCloudFrontUrl = convertImageFieldsToCloudFront(doc);
+
+    return { doc: docWithCloudFrontUrl };
   }
 
   return { errors: { message: 'User not found' } };
@@ -199,7 +205,10 @@ const getUserProfile = async (payload) => {
     vendorId: mappingData ? mappingData.vendorId : null,
   };
 
-  return { doc: profile };
+  // Convert image URL to CloudFront URL (automatically handles nested objects/arrays)
+  const profileWithCloudFrontUrl = convertImageFieldsToCloudFront(profile);
+
+  return { doc: profileWithCloudFrontUrl };
 };
 
 // Create Vendor Admin
@@ -295,8 +304,10 @@ const createVendorAdmin = async ({ data, imageFile }) => {
     const user = await UserModel.create(doc, { transaction });
 
     if (imageFile) {
-      const blobName = `user-${user.id}-${Date.now()}.jpg`;
-      const imageUrl = await uploadFile(imageFile, blobName);
+      const filename = `user-${user.id}-${Date.now()}.jpg`;
+      const userId = user.id;
+
+      const imageUrl = await uploadUserFile(imageFile, filename, userId);
 
       await UserModel.update({ image: imageUrl }, {
         where: { id: user.id },
@@ -361,8 +372,10 @@ const updateUser = async ({ data, imageFile }) => withTransaction(sequelize, asy
   };
 
   if (imageFile) {
-    const blobName = `user-${id}-${Date.now()}.jpg`;
-    const imageUrl = await uploadFile(imageFile, blobName);
+    const filename = `user-${id}-${Date.now()}.jpg`;
+    const userId = id;
+
+    const imageUrl = await uploadUserFile(imageFile, filename, userId);
 
     doc.image = imageUrl;
   }
@@ -530,7 +543,14 @@ const authLogin = async (payload) => {
       include: [
         {
           model: RoleModel,
+          attributes: [ 'id', 'name' ],
           as: 'role',
+        },
+        {
+          model: VendorModel,
+          as: 'vendor',
+          attributes: [ 'id', 'name' ],
+          required: false,
         },
       ],
     });
@@ -543,6 +563,9 @@ const authLogin = async (payload) => {
     const mappingData = roleMapping
       ? convertSnakeToCamel(roleMapping.dataValues)
       : null;
+    const vendorData = roleMapping && roleMapping.vendor
+      ? convertSnakeToCamel(roleMapping.vendor.dataValues)
+      : null;
 
     // Prepare user response
     const userResponse = {
@@ -554,6 +577,7 @@ const authLogin = async (payload) => {
       profileStatus: userData.profileStatus,
       roleName: roleData ? roleData.name : null,
       vendorId: mappingData ? mappingData.vendorId : null,
+      vendorName: vendorData ? vendorData.name : null,
     };
 
     // Generate JWT token

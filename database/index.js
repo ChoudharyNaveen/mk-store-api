@@ -16,6 +16,7 @@ const sequelize = new Sequelize(name, username, password, { ...options });
 database = models(sequelize);
 
 database.Sequelize = Sequelize;
+database.sequelize = sequelize;
 
 database.authenticate = () => sequelize.authenticate();
 

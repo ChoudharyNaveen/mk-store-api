@@ -20,6 +20,16 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.STRING,
         allowNull: false,
       },
+      branch_id: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        index: true,
+      },
+      vendor_id: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        index: true,
+      },
       category_id: {
         type: DataTypes.INTEGER,
         allowNull: false,
@@ -54,6 +64,16 @@ module.exports = (sequelize, DataTypes) => {
       foreignKey: 'category_id',
       targetKey: 'id',
       as: 'category',
+    });
+    subCategory.belongsTo(models.branch, {
+      foreignKey: 'branch_id',
+      targetKey: 'id',
+      as: 'branch',
+    });
+    subCategory.belongsTo(models.vendor, {
+      foreignKey: 'vendor_id',
+      targetKey: 'id',
+      as: 'vendor',
     });
     subCategory.hasMany(models.product, {
       foreignKey: 'sub_category_id',

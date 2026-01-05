@@ -118,26 +118,67 @@ module.exports = (router) => {
   /**
    * @swagger
    * /get-product:
-   *   get:
+   *   post:
    *     summary: Get products with pagination and filters
    *     tags: [Products]
    *     security:
    *       - bearerAuth: []
-   *     parameters:
-   *       - in: query
-   *         name: pageSize
-   *         schema:
-   *           type: integer
-   *           enum: [10, 20, 30, 40, 50, 100, 500]
-   *           default: 10
-   *         description: Number of results per page
-   *       - in: query
-   *         name: pageNumber
-   *         schema:
-   *           type: integer
-   *           minimum: 1
-   *           default: 1
-   *         description: Page number
+   *     requestBody:
+   *       required: false
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             properties:
+   *               pageSize:
+   *                 type: integer
+   *                 enum: [1, 5, 10, 20, 30, 40, 50, 100, 500]
+   *                 default: 10
+   *                 description: Number of results per page
+   *               pageNumber:
+   *                 type: integer
+   *                 minimum: 1
+   *                 default: 1
+   *                 description: Page number
+   *               filters:
+   *                 type: array
+   *                 items:
+   *                   type: object
+   *                   properties:
+   *                     key:
+   *                       type: string
+   *                     eq:
+   *                       type: string
+   *                     in:
+   *                       type: array
+   *                       items:
+   *                         type: string
+   *                     neq:
+   *                       type: string
+   *                     gt:
+   *                       type: string
+   *                     gte:
+   *                       type: string
+   *                     lt:
+   *                       type: string
+   *                     lte:
+   *                       type: string
+   *                     like:
+   *                       type: string
+   *                     iLike:
+   *                       type: string
+   *                 description: Array of filter objects
+   *               sorting:
+   *                 type: array
+   *                 items:
+   *                   type: object
+   *                   properties:
+   *                     key:
+   *                       type: string
+   *                     direction:
+   *                       type: string
+   *                       enum: [ASC, DESC]
+   *                 description: Array of sorting objects
    *     responses:
    *       200:
    *         description: Products retrieved successfully
@@ -167,7 +208,7 @@ module.exports = (router) => {
    *                   type: integer
    *                   example: 50
    */
-  router.get('/get-product', isAuthenticated, validate(getProductSchema), getProduct);
+  router.post('/get-product', isAuthenticated, validate(getProductSchema), getProduct);
 
   /**
    * @swagger
@@ -279,11 +320,28 @@ module.exports = (router) => {
   /**
    * @swagger
    * /get-products-by-category:
-   *   get:
+   *   post:
    *     summary: Get products grouped by category
    *     tags: [Products]
    *     security:
    *       - bearerAuth: []
+   *     requestBody:
+   *       required: false
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             properties:
+   *               pageSize:
+   *                 type: integer
+   *                 enum: [1, 5, 10, 20, 30, 40, 50, 100, 500]
+   *                 default: 10
+   *                 description: Number of results per page
+   *               pageNumber:
+   *                 type: integer
+   *                 minimum: 1
+   *                 default: 1
+   *                 description: Page number
    *     responses:
    *       200:
    *         description: Products grouped by category
@@ -310,7 +368,7 @@ module.exports = (router) => {
    *                         price:
    *                           type: number
    */
-  router.get(
+  router.post(
     '/get-products-by-category',
     isAuthenticated,
     validate(getProductsGroupedByCategorySchema),

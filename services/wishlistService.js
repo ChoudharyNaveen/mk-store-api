@@ -73,6 +73,7 @@ const getWishlist = async (payload) => {
       offset,
       distinct: true,
     },
+    pageNumber,
   );
   const doc = [];
 

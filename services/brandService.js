@@ -10,7 +10,8 @@ const {
   generateOrderCondition,
   findAndCountAllWithTotal,
 } = require('../utils/helper');
-const { uploadFile } = require('../config/azure');
+const { uploadFile } = require('../config/aws');
+const { convertImageFieldsToCloudFront } = require('../utils/s3Helper');
 
 const saveBrand = async ({ data, logoFile }) => {
   let transaction = null;
@@ -55,9 +56,10 @@ const saveBrand = async ({ data, logoFile }) => {
     });
 
     if (logoFile) {
-      const blobName = `brand-${brand.id}-${Date.now()}.jpg`;
+      const filename = `brand-${brand.id}-${Date.now()}.jpg`;
+      const { vendorId } = datas;
 
-      logoUrl = await uploadFile(logoFile, blobName);
+      logoUrl = await uploadFile(logoFile, filename, vendorId, branchId);
       await BrandModel.update({ logo: logoUrl }, {
         where: { id: brand.id },
         transaction,
@@ -82,7 +84,7 @@ const updateBrand = async ({ data, logoFile }) => withTransaction(sequelize, asy
 
   const response = await BrandModel.findOne({
     where: { id },
-    attributes: [ 'id', 'concurrency_stamp' ],
+    attributes: [ 'id', 'concurrency_stamp', 'vendor_id', 'branch_id' ],
     transaction,
   });
 
@@ -104,8 +106,11 @@ const updateBrand = async ({ data, logoFile }) => withTransaction(sequelize, asy
   };
 
   if (logoFile) {
-    const blobName = `brand-${id}-${Date.now()}.jpg`;
-    const logoUrl = await uploadFile(logoFile, blobName);
+    const filename = `brand-${id}-${Date.now()}.jpg`;
+    const vendorId = response.vendor_id;
+    const branchId = response.branch_id;
+
+    const logoUrl = await uploadFile(logoFile, filename, vendorId, branchId);
 
     doc.logo = logoUrl;
   }
@@ -142,13 +147,17 @@ const getBrand = async (payload) => {
       limit,
       offset,
     },
+    pageNumber,
   );
-  const doc = [];
+  let doc = [];
 
   if (response) {
     const { count, totalCount, rows } = response;
 
-    rows.map((element) => doc.push(element.dataValues));
+    const dataValues = rows.map((element) => element.dataValues);
+
+    // Convert logo URLs to CloudFront URLs (automatically handles nested objects/arrays)
+    doc = convertImageFieldsToCloudFront(dataValues);
 
     return { count, totalCount, doc };
   }

@@ -1,14 +1,31 @@
+/* eslint-disable import/no-extraneous-dependencies */
 const { SNSClient, PublishCommand } = require('@aws-sdk/client-sns');
-const config = require('./index');
+const config = require('../index');
 
-// Initialize AWS SNS Client
+// ============================================================================
+// CONFIGURATION
+// ============================================================================
+
+const AWS_REGION = config.AWS?.REGION || 'us-east-1';
+
+// ============================================================================
+// AWS SNS CLIENT INITIALIZATION
+// ============================================================================
+
+/**
+ * Initialize AWS SNS Client
+ */
 const snsClient = new SNSClient({
-  region: config.AWS.REGION,
+  region: AWS_REGION,
   credentials: {
-    accessKeyId: config.AWS.ACCESS_KEY_ID,
-    secretAccessKey: config.AWS.SECRET_ACCESS_KEY,
+    accessKeyId: config.AWS?.ACCESS_KEY_ID,
+    secretAccessKey: config.AWS?.SECRET_ACCESS_KEY,
   },
 });
+
+// ============================================================================
+// SNS FUNCTIONS
+// ============================================================================
 
 /**
  * Send SMS via AWS SNS
@@ -18,7 +35,7 @@ const snsClient = new SNSClient({
  */
 const sendSMS = async (phoneNumber, message) => {
   // If mock SMS is enabled, return mock success response
-  if (config.AWS.USE_MOCK_SMS) {
+  if (config.AWS?.USE_MOCK_SMS) {
     console.log('Mock SMS mode enabled - SMS not sent via AWS');
     console.log(`Would send SMS to ${phoneNumber}: ${message}`);
 
@@ -36,7 +53,7 @@ const sendSMS = async (phoneNumber, message) => {
       MessageAttributes: {
         'AWS.SNS.SMS.SMSType': {
           DataType: 'String',
-          StringValue: config.AWS.SNS.SMS_TYPE,
+          StringValue: config.AWS?.SNS?.SMS_TYPE || 'Transactional',
         },
       },
     };
@@ -58,6 +75,10 @@ const sendSMS = async (phoneNumber, message) => {
     };
   }
 };
+
+// ============================================================================
+// EXPORTS
+// ============================================================================
 
 module.exports = {
   sendSMS,

@@ -89,26 +89,67 @@ module.exports = (router) => {
   /**
    * @swagger
    * /get-address:
-   *   get:
+   *   post:
    *     summary: Get user addresses
    *     tags: [Addresses]
    *     security:
    *       - bearerAuth: []
-   *     parameters:
-   *       - in: query
-   *         name: pageSize
-   *         schema:
-   *           type: integer
-   *           enum: [10, 20, 30, 40, 50, 100, 500]
-   *           default: 10
-   *         description: Number of results per page
-   *       - in: query
-   *         name: pageNumber
-   *         schema:
-   *           type: integer
-   *           minimum: 1
-   *           default: 1
-   *         description: Page number
+   *     requestBody:
+   *       required: false
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             properties:
+   *               pageSize:
+   *                 type: integer
+   *                 enum: [1, 5, 10, 20, 30, 40, 50, 100, 500]
+   *                 default: 10
+   *                 description: Number of results per page
+   *               pageNumber:
+   *                 type: integer
+   *                 minimum: 1
+   *                 default: 1
+   *                 description: Page number
+   *               filters:
+   *                 type: array
+   *                 items:
+   *                   type: object
+   *                   properties:
+   *                     key:
+   *                       type: string
+   *                     eq:
+   *                       type: string
+   *                     in:
+   *                       type: array
+   *                       items:
+   *                         type: string
+   *                     neq:
+   *                       type: string
+   *                     gt:
+   *                       type: string
+   *                     gte:
+   *                       type: string
+   *                     lt:
+   *                       type: string
+   *                     lte:
+   *                       type: string
+   *                     like:
+   *                       type: string
+   *                     iLike:
+   *                       type: string
+   *                 description: Array of filter objects
+   *               sorting:
+   *                 type: array
+   *                 items:
+   *                   type: object
+   *                   properties:
+   *                     key:
+   *                       type: string
+   *                     direction:
+   *                       type: string
+   *                       enum: [ASC, DESC]
+   *                 description: Array of sorting objects
    *     responses:
    *       200:
    *         description: Addresses retrieved successfully
@@ -141,7 +182,7 @@ module.exports = (router) => {
    *                 count:
    *                   type: integer
    */
-  router.get('/get-address', isAuthenticated, validate(getAddressSchema), getAddress);
+  router.post('/get-address', isAuthenticated, validate(getAddressSchema), getAddress);
 
   /**
    * @swagger

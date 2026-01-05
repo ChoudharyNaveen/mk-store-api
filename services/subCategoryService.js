@@ -1,14 +1,17 @@
 const { v4: uuidV4 } = require('uuid');
-const { subCategory: SubCategoryModel, category: CategoryModel, sequelize } = require('../database');
+const { subCategory: SubCategoryModel, sequelize } = require('../database');
 const {
   withTransaction,
   convertCamelToSnake,
   calculatePagination,
   generateWhereCondition,
   generateOrderCondition,
-  findAndCountAllWithTotal,
+  extractILikeConditions,
+  whereConditionsToSQL,
+  findAndCountAllWithTotalQuery,
 } = require('../utils/helper');
-const { uploadFile } = require('../config/azure');
+const { uploadFile } = require('../config/aws');
+const { convertImageFieldsToCloudFront } = require('../utils/s3Helper');
 
 const saveSubCategory = async ({ data, imageFile }) => {
   let transaction = null;
@@ -33,9 +36,11 @@ const saveSubCategory = async ({ data, imageFile }) => {
     });
 
     if (imageFile) {
-      const blobName = `subCategory-${cat.id}-${Date.now()}.jpg`;
+      const filename = `subCategory-${cat.id}-${Date.now()}.jpg`;
+      const vendorId = datas.vendorId || datas.vendor_id;
+      const branchId = datas.branchId || datas.branch_id;
 
-      imageUrl = await uploadFile(imageFile, blobName);
+      imageUrl = await uploadFile(imageFile, filename, vendorId, branchId);
       await SubCategoryModel.update({ image: imageUrl }, {
         where: { id: cat.id },
         transaction,
@@ -60,7 +65,7 @@ const updateSubCategory = async ({ data, imageFile }) => withTransaction(sequeli
 
   const response = await SubCategoryModel.findOne({
     where: { id },
-    attributes: [ 'id', 'concurrency_stamp' ],
+    attributes: [ 'id', 'concurrency_stamp', 'vendor_id', 'branch_id' ],
     transaction,
   });
 
@@ -82,8 +87,11 @@ const updateSubCategory = async ({ data, imageFile }) => withTransaction(sequeli
   };
 
   if (imageFile) {
-    const blobName = `subCategory-${id}-${Date.now()}.jpg`;
-    const imageUrl = await uploadFile(imageFile, blobName);
+    const filename = `subCategory-${id}-${Date.now()}.jpg`;
+    const vendorId = response.vendor_id;
+    const branchId = response.branch_id;
+
+    const imageUrl = await uploadFile(imageFile, filename, vendorId, branchId);
 
     doc.image = imageUrl;
   }
@@ -106,34 +114,89 @@ const getSubCategory = async (payload) => {
   } = payload;
   const { limit, offset } = calculatePagination(pageSize, pageNumber);
 
-  const where = generateWhereCondition(filters);
+  // Extract iLike conditions from filters
+  const { processedFilters, iLikeConditions } = extractILikeConditions(filters);
+
+  const where = generateWhereCondition(processedFilters);
   const order = sorting
     ? generateOrderCondition(sorting)
-    : [ [ 'createdAt', 'DESC' ] ];
+    : [ [ 'created_at', 'DESC' ] ];
 
-  const response = await findAndCountAllWithTotal(
-    SubCategoryModel,
-    {
-      where: { ...where },
-      attributes: [ 'id', 'title', 'description', 'image', 'status' ],
-      include: [
-        {
-          model: CategoryModel,
-          as: 'category',
-          attributes: [ 'id', 'title', 'image' ],
-        },
-      ],
-      order,
-      limit,
-      offset,
-    },
+  // Build WHERE clause from filters with qualified column names and iLike conditions
+  const replacements = [];
+  const whereClause = whereConditionsToSQL(where, 'subCategory', replacements, iLikeConditions);
+
+  const whereSQL = whereClause ? `WHERE ${whereClause}` : '';
+
+  // Build ORDER BY clause
+  let orderClause = '';
+
+  if (order && order.length > 0) {
+    const orderParts = order.map(([ col, dir ]) => `subCategory.${col} ${dir}`);
+
+    orderClause = `ORDER BY ${orderParts.join(', ')}`;
+  } else {
+    orderClause = 'ORDER BY subCategory.created_at DESC';
+  }
+
+  // Build SELECT query with JOIN
+  const selectQuery = `
+    SELECT 
+      subCategory.id,
+      subCategory.title,
+      subCategory.description,
+      subCategory.image,
+      subCategory.status,
+      subCategory.concurrency_stamp,
+      category.id AS category_id,
+      category.title AS category_title,
+      category.image AS category_image
+    FROM subCategory
+    INNER JOIN category ON subCategory.category_id = category.id
+    ${whereSQL}
+    ${orderClause}
+    LIMIT ? OFFSET ?
+  `;
+
+  // Build COUNT query
+  const countQuery = `
+    SELECT COUNT(*) as count
+    FROM subCategory
+    INNER JOIN category ON subCategory.category_id = category.id
+    ${whereSQL}
+  `;
+
+  replacements.push(limit, offset);
+
+  const response = await findAndCountAllWithTotalQuery(
+    selectQuery,
+    countQuery,
+    pageNumber,
+    replacements,
   );
-  const doc = [];
+
+  let doc = [];
 
   if (response) {
     const { count, totalCount, rows } = response;
 
-    rows.map((element) => doc.push(element.dataValues));
+    // Transform rows to match the expected format (with nested category object)
+    const items = rows.map((row) => ({
+      id: row.id,
+      title: row.title,
+      description: row.description,
+      image: row.image,
+      status: row.status,
+      concurrency_stamp: row.concurrency_stamp,
+      category: {
+        id: row.category_id,
+        title: row.category_title,
+        image: row.category_image,
+      },
+    }));
+
+    // Convert image URLs to CloudFront URLs (automatically handles nested objects/arrays)
+    doc = convertImageFieldsToCloudFront(items);
 
     return { count, totalCount, doc };
   }

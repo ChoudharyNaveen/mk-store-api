@@ -67,26 +67,33 @@ module.exports = (router) => {
   /**
    * @swagger
    * /get-wishlist:
-   *   get:
+   *   post:
    *     summary: Get user wishlist items
    *     tags: [Wishlist]
    *     security:
    *       - bearerAuth: []
-   *     parameters:
-   *       - in: query
-   *         name: pageSize
-   *         schema:
-   *           type: integer
-   *           enum: [10, 20, 30, 40, 50, 100, 500]
-   *           default: 10
-   *         description: Number of results per page
-   *       - in: query
-   *         name: pageNumber
-   *         schema:
-   *           type: integer
-   *           minimum: 1
-   *           default: 1
-   *         description: Page number
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             required:
+   *               - createdBy
+   *             properties:
+   *               pageSize:
+   *                 type: integer
+   *                 enum: [1, 5, 10, 20, 30, 40, 50, 100, 500]
+   *                 default: 10
+   *                 description: Number of results per page
+   *               pageNumber:
+   *                 type: integer
+   *                 minimum: 1
+   *                 default: 1
+   *                 description: Page number
+   *               createdBy:
+   *                 type: integer
+   *                 description: User ID who created the wishlist items (required)
    *     responses:
    *       200:
    *         description: Wishlist items retrieved successfully
@@ -120,7 +127,7 @@ module.exports = (router) => {
    *                 count:
    *                   type: integer
    */
-  router.get('/get-wishlist', isAuthenticated, validate(getWishlistSchema), getWishlist);
+  router.post('/get-wishlist', isAuthenticated, validate(getWishlistSchema), getWishlist);
 
   /**
    * @swagger
