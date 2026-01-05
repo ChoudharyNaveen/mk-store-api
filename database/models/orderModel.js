@@ -87,6 +87,16 @@ module.exports = (sequelize, DataTypes) => {
       sourceKey: 'id',
       as: 'orderItems',
     });
+    order.hasMany(models.orderDiscount, {
+      foreignKey: 'order_id',
+      sourceKey: 'id',
+      as: 'orderDiscount',
+    });
+    order.hasMany(models.orderStatusHistory, {
+      foreignKey: 'order_id',
+      sourceKey: 'id',
+      as: 'orderStatusHistory',
+    });
   };
 
   return order;

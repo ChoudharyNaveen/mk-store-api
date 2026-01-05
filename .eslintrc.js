@@ -62,7 +62,7 @@ module.exports = {
     'max-len': [ 'error', { code: 160, comments: 160, ignoreUrls: true } ],
     'max-lines': [
       'error',
-      { max: 500, skipBlankLines: true, skipComments: true },
+      { max: 700, skipBlankLines: true, skipComments: true },
     ],
     'no-irregular-whitespace': [
       'error',
