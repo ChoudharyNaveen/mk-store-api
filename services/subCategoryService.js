@@ -148,6 +148,8 @@ const getSubCategory = async (payload) => {
       subCategory.image,
       subCategory.status,
       subCategory.concurrency_stamp,
+      subCategory.created_at,
+      subCategory.updated_at,
       category.id AS category_id,
       category.title AS category_title,
       category.image AS category_image
@@ -188,6 +190,8 @@ const getSubCategory = async (payload) => {
       image: row.image,
       status: row.status,
       concurrency_stamp: row.concurrency_stamp,
+      created_at: row.created_at,
+      updated_at: row.updated_at,
       category: {
         id: row.category_id,
         title: row.category_title,

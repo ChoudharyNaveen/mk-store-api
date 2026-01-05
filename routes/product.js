@@ -75,6 +75,28 @@ module.exports = (router) => {
    *                 enum: [ACTIVE, INACTIVE]
    *                 example: ACTIVE
    *                 description: Product status (optional, defaults to ACTIVE)
+   *               quantity:
+   *                 type: integer
+   *                 example: 2
+   *                 description: Number of units in stock (required)
+   *               itemsPerUnit:
+   *                 type: integer
+   *                 example: 25
+   *                 description: Number of items per unit (optional, e.g., 25 items per unit)
+   *               expiryDate:
+   *                 type: string
+   *                 format: date
+   *                 example: "2024-12-31"
+   *                 description: Product expiry date (required)
+   *               itemQuantity:
+   *                 type: number
+   *                 format: float
+   *                 example: 500
+   *                 description: Measurement quantity per item (optional, e.g., 500 for 500gm per item)
+   *               itemUnit:
+   *                 type: string
+   *                 example: "G"
+   *                 description: Measurement unit per item (e.g., LTR, KG, ML, G, PCS) (optional)
    *               file:
    *                 type: string
    *                 format: binary
@@ -276,6 +298,28 @@ module.exports = (router) => {
    *                 enum: [ACTIVE, INACTIVE]
    *                 example: ACTIVE
    *                 description: Product status (optional)
+   *               quantity:
+   *                 type: integer
+   *                 example: 2
+   *                 description: Number of units in stock (optional)
+   *               itemsPerUnit:
+   *                 type: integer
+   *                 example: 25
+   *                 description: Number of items per unit (optional, e.g., 25 items per unit)
+   *               expiryDate:
+   *                 type: string
+   *                 format: date
+   *                 example: "2024-12-31"
+   *                 description: Product expiry date (optional)
+   *               itemQuantity:
+   *                 type: number
+   *                 format: float
+   *                 example: 500
+   *                 description: Measurement quantity per item (optional, e.g., 500 for 500gm per item)
+   *               itemUnit:
+   *                 type: string
+   *                 example: "G"
+   *                 description: Measurement unit per item (e.g., LTR, KG, ML, G, PCS) (optional)
    *               updatedBy:
    *                 type: integer
    *                 example: 1

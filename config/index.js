@@ -35,10 +35,11 @@ module.exports = {
         collate: 'utf8_general_ci',
       },
       pool: {
-        max: 100,
+        max: 5,
         min: 0,
-        acquire: 1000 * 100,
-        idle: 1000,
+        acquire: 30000,
+        idle: 10000,
+        evict: 1000,
       },
       dialectOptions: {
         decimalNumbers: true,

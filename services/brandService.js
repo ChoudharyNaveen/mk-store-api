@@ -142,7 +142,7 @@ const getBrand = async (payload) => {
     BrandModel,
     {
       where: { ...where },
-      attributes: [ 'id', 'name', 'description', 'logo', 'status' ],
+      attributes: [ 'id', 'name', 'description', 'logo', 'status', 'concurrency_stamp', 'created_at' ],
       order,
       limit,
       offset,
@@ -154,7 +154,17 @@ const getBrand = async (payload) => {
   if (response) {
     const { count, totalCount, rows } = response;
 
-    const dataValues = rows.map((element) => element.dataValues);
+    const dataValues = rows.map((element) => {
+      const values = element.dataValues;
+
+      // Normalize created_at to an ISO string for consistent JSON output
+      return {
+        ...values,
+        created_at: values.created_at instanceof Date
+          ? values.created_at.toISOString()
+          : values.created_at || null,
+      };
+    });
 
     // Convert logo URLs to CloudFront URLs (automatically handles nested objects/arrays)
     doc = convertImageFieldsToCloudFront(dataValues);
