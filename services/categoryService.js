@@ -140,7 +140,7 @@ const getCategory = async (payload) => {
     CategoryModel,
     {
       where: { ...where },
-      attributes: [ 'id', 'title', 'description', 'image', 'status', 'concurrency_stamp' ],
+      attributes: [ 'id', 'title', 'description', 'image', 'status', 'concurrency_stamp', 'created_at', 'updated_at' ],
       order,
       limit,
       offset,
@@ -155,7 +155,7 @@ const getCategory = async (payload) => {
     const dataValues = rows.map((element) => element.dataValues);
 
     // Convert image URLs to CloudFront URLs (automatically handles nested objects/arrays)
-    doc = convertImageFieldsToCloudFront(dataValues);
+    doc = convertImageFieldsToCloudFront(JSON.parse(JSON.stringify(dataValues)));
 
     return { count, totalCount, doc };
   }

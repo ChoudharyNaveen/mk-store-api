@@ -1,3 +1,4 @@
+/* eslint-disable no-process-exit */
 /* eslint-disable no-unused-vars */
 process.env.NODE_ENV = process.env.NODE_ENV || 'production';
 
@@ -12,6 +13,7 @@ const swaggerSpec = require('./config/swagger');
 const routes = require('./routes');
 const indexRouter = require('./routes/indexRouter');
 const { cronJobForUpdatingOfferStatus } = require('./services/offerService');
+const database = require('./database');
 
 const app = express();
 
@@ -95,8 +97,50 @@ if (!port) {
   throw new Error('PORT not provided by Plesk');
 }
 
-app.listen(port, '127.0.0.1', () => {
+const server = app.listen(port, '127.0.0.1', () => {
   console.log(`Server running on port ${port} in ${process.env.NODE_ENV}`);
+});
+
+// Graceful shutdown handler
+const gracefulShutdown = async (signal) => {
+  console.log(`\n${signal} received. Starting graceful shutdown...`);
+
+  server.close(async () => {
+    console.log('HTTP server closed');
+
+    try {
+      await database.close();
+      console.log('Graceful shutdown completed');
+      process.exit(0);
+    } catch (error) {
+      console.error('Error during graceful shutdown:', error);
+      process.exit(1);
+    }
+  });
+
+  // Force shutdown after 10 seconds
+  setTimeout(() => {
+    console.error('Forced shutdown after timeout');
+    process.exit(1);
+  }, 10000);
+};
+
+// Handle termination signals
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+
+// Handle uncaught exceptions
+process.on('uncaughtException', async (error) => {
+  console.error('Uncaught Exception:', error);
+  await database.close();
+  process.exit(1);
+});
+
+// Handle unhandled promise rejections
+process.on('unhandledRejection', async (reason, promise) => {
+  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+  await database.close();
+  process.exit(1);
 });
 
 module.exports = app;

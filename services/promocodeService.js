@@ -106,7 +106,7 @@ const getPromocode = async (payload) => {
   if (response) {
     const { count, totalCount, rows } = response;
 
-    rows.map((element) => doc.push(element.dataValues));
+    rows.map((element) => doc.push(JSON.parse(JSON.stringify(element.dataValues))));
 
     return { count, totalCount, doc };
   }

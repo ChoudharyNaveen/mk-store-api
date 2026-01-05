@@ -20,4 +20,13 @@ database.sequelize = sequelize;
 
 database.authenticate = () => sequelize.authenticate();
 
+database.close = async () => {
+  try {
+    await sequelize.close();
+    console.log('Database connections closed gracefully');
+  } catch (error) {
+    console.error('Error closing database connections:', error);
+  }
+};
+
 module.exports = database;

@@ -39,6 +39,10 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.INTEGER,
         allowNull: false,
       },
+      items_per_unit: {
+        type: DataTypes.INTEGER,
+        allowNull: true,
+      },
       category_id: {
         type: DataTypes.INTEGER,
         allowNull: false,
@@ -58,6 +62,26 @@ module.exports = (sequelize, DataTypes) => {
       units: {
         type: DataTypes.STRING,
         allowNull: true,
+      },
+      expiry_date: {
+        type: DataTypes.DATE,
+        allowNull: false,
+      },
+      item_quantity: {
+        type: DataTypes.DECIMAL(10, 2),
+        allowNull: true,
+      },
+      item_unit: {
+        type: DataTypes.STRING,
+        allowNull: true,
+        enum: [
+          'LTR', 'ML', 'GAL', 'FL_OZ',
+          'KG', 'G', 'MG', 'OZ', 'LB', 'TON',
+          'PCS', 'UNIT', 'DOZEN', 'SET', 'PAIR', 'BUNDLE',
+          'PKG', 'BOX', 'BOTTLE', 'CAN', 'CARTON', 'TUBE', 'JAR', 'BAG', 'POUCH',
+          'M', 'CM', 'MM', 'FT', 'IN',
+          'SQFT', 'SQM',
+        ],
       },
       image: {
         type: DataTypes.STRING,
