@@ -31,14 +31,24 @@ module.exports = (router) => {
    *             required:
    *               - productId
    *               - quantity
+   *               - vendorId
+   *               - branchId
    *             properties:
    *               productId:
-   *                 type: string
-   *                 example: "product-uuid-here"
+   *                 type: integer
+   *                 example: 1
    *               quantity:
    *                 type: integer
    *                 minimum: 1
    *                 example: 2
+   *               vendorId:
+   *                 type: integer
+   *                 example: 1
+   *                 description: Vendor ID (required - must match product's vendor)
+   *               branchId:
+   *                 type: integer
+   *                 example: 1
+   *                 description: Branch ID (required - must match product's branch)
    *     responses:
    *       200:
    *         description: Item added to cart successfully
@@ -60,6 +70,12 @@ module.exports = (router) => {
    *                       type: integer
    *                       example: 1
    *                     product_id:
+   *                       type: integer
+   *                       example: 1
+   *                     vendor_id:
+   *                       type: integer
+   *                       example: 1
+   *                     branch_id:
    *                       type: integer
    *                       example: 1
    *                     quantity:
@@ -94,6 +110,14 @@ module.exports = (router) => {
    *                 minimum: 1
    *                 default: 1
    *                 description: Page number
+   *               vendorId:
+   *                 type: integer
+   *                 example: 1
+   *                 description: Filter cart items by vendor ID (optional)
+   *               branchId:
+   *                 type: integer
+   *                 example: 1
+   *                 description: Filter cart items by branch ID (optional)
    *               filters:
    *                 type: array
    *                 items:
@@ -153,6 +177,12 @@ module.exports = (router) => {
    *                         type: integer
    *                         example: 1
    *                       product_id:
+   *                         type: integer
+   *                         example: 1
+   *                       vendor_id:
+   *                         type: integer
+   *                         example: 1
+   *                       branch_id:
    *                         type: integer
    *                         example: 1
    *                       productDetails:

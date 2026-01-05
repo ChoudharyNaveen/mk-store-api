@@ -12,6 +12,16 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.INTEGER,
         allowNull: false,
       },
+      vendor_id: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        index: true,
+      },
+      branch_id: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        index: true,
+      },
       quantity: {
         type: DataTypes.INTEGER,
         allowNull: false,
@@ -51,6 +61,16 @@ module.exports = (sequelize, DataTypes) => {
       foreignKey: 'product_id',
       targetKey: 'id',
       as: 'productDetails',
+    });
+    cart.belongsTo(models.vendor, {
+      foreignKey: 'vendor_id',
+      targetKey: 'id',
+      as: 'vendor',
+    });
+    cart.belongsTo(models.branch, {
+      foreignKey: 'branch_id',
+      targetKey: 'id',
+      as: 'branch',
     });
   };
 

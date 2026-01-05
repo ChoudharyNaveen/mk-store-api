@@ -25,9 +25,43 @@ const {
   findAndCountAllWithTotal,
 } = require('../utils/helper');
 
+// Generate unique order number
+const generateOrderNumber = async (transaction) => {
+  const today = new Date();
+  const dateStr = today.toISOString().slice(0, 10).replace(/-/g, ''); // YYYYMMDD format
+  const prefix = `ORD-${dateStr}-`;
+
+  // Get the last order number for today
+  const lastOrder = await OrderModel.findOne({
+    where: {
+      order_number: {
+        [Op.like]: `${prefix}%`,
+      },
+    },
+    attributes: [ 'order_number' ],
+    order: [ [ 'order_number', 'DESC' ] ],
+    transaction,
+  });
+
+  let sequence = 1;
+
+  if (lastOrder && lastOrder.order_number) {
+    // Extract sequence number from last order (e.g., ORD-20250101-000123 -> 123)
+    const lastSequence = parseInt(lastOrder.order_number.split('-')[2] || '0');
+
+    sequence = lastSequence + 1;
+  }
+
+  // Format: ORD-YYYYMMDD-000001 (6 digits for sequence)
+  const orderNumber = `${prefix}${sequence.toString().padStart(6, '0')}`;
+
+  return orderNumber;
+};
+
 const placeOrder = async (data) => withTransaction(sequelize, async (transaction) => {
   const {
     createdBy,
+    vendorId,
     branchId,
     houseNo,
     streetDetails,
@@ -36,11 +70,18 @@ const placeOrder = async (data) => withTransaction(sequelize, async (transaction
     mobileNumber,
     offerCode,
     promocodeId,
+    orderPriority,
+    estimatedDeliveryTime,
+    shippingCharges,
   } = data;
 
   // Verify branch exists
   if (!branchId) {
     return { error: 'branchId is required' };
+  }
+
+  if (!vendorId) {
+    return { error: 'vendorId is required' };
   }
 
   // Validate that only one discount type is provided
@@ -49,21 +90,26 @@ const placeOrder = async (data) => withTransaction(sequelize, async (transaction
   }
 
   const branch = await BranchModel.findOne({
-    where: { id: branchId },
+    where: { id: branchId, vendor_id: vendorId },
     attributes: [ 'id', 'vendor_id' ],
     transaction,
   });
 
   if (!branch) {
-    return { error: 'Branch not found' };
+    return { error: 'Branch not found or does not belong to the specified vendor' };
   }
+
+  // Use provided vendorId
+  const branchVendorId = vendorId;
 
   const cartItems = await CartModel.findAll({
     where: {
       created_by: createdBy,
       status: 'ACTIVE',
+      vendor_id: branchVendorId,
+      branch_id: branchId,
     },
-    attributes: [ 'id', 'product_id', 'quantity', 'created_by' ],
+    attributes: [ 'id', 'product_id', 'vendor_id', 'branch_id', 'quantity', 'created_by' ],
     include: [
       {
         model: ProductModel,
@@ -259,13 +305,28 @@ const placeOrder = async (data) => withTransaction(sequelize, async (transaction
     return { error: 'Address not found. Please provide address details.' };
   }
 
+  // Calculate shipping charges (default to 0 if not provided)
+  const shippingChargesValue = shippingCharges || 0;
+
+  // Calculate final amount: totalAmount - discountAmount + shippingCharges
+  const finalAmount = totalAmount - discountAmount + shippingChargesValue;
+
   // create order
   const orderConcurrencyStamp = uuidV4();
+  const orderNumber = await generateOrderNumber(transaction);
 
   const orderDoc = {
     totalAmount,
+    discountAmount,
+    shippingCharges: shippingChargesValue,
+    finalAmount,
     addressId: address.id,
     branchId,
+    orderNumber,
+    orderPriority: orderPriority || 'NORMAL',
+    estimatedDeliveryTime: estimatedDeliveryTime || null,
+    refundAmount: 0,
+    refundStatus: 'NONE',
     status: 'PENDING',
     paymentStatus: 'UNPAID',
     concurrencyStamp: orderConcurrencyStamp,
@@ -343,7 +404,13 @@ const placeOrder = async (data) => withTransaction(sequelize, async (transaction
   return {
     doc: {
       order_id: newOrder.id,
+      order_number: newOrder.order_number,
       total_amount: newOrder.total_amount,
+      discount_amount: newOrder.discount_amount,
+      shipping_charges: newOrder.shipping_charges,
+      final_amount: newOrder.final_amount,
+      order_priority: newOrder.order_priority,
+      estimated_delivery_time: newOrder.estimated_delivery_time,
       item_count: orderItemsData.length,
     },
   };
@@ -370,7 +437,15 @@ const getOrder = async (payload) => {
       where: { ...where },
       attributes: [
         'id',
+        'order_number',
         'total_amount',
+        'discount_amount',
+        'shipping_charges',
+        'final_amount',
+        'order_priority',
+        'estimated_delivery_time',
+        'refund_amount',
+        'refund_status',
         'status',
         'payment_status',
         'rider_id',
@@ -490,13 +565,27 @@ const getStatsOfOrdersCompleted = async () => {
 const updateOrder = async (data) => withTransaction(sequelize, async (transaction) => {
   const { id, ...datas } = data;
   const {
-    concurrencyStamp, updatedBy, status: newStatus, notes,
+    concurrencyStamp,
+    updatedBy,
+    status: newStatus,
+    notes,
+    discountAmount,
+    shippingCharges,
+    finalAmount,
   } = datas;
 
   const [ response, riderExist ] = await Promise.all([
     OrderModel.findOne({
       where: { id },
-      attributes: [ 'id', 'concurrency_stamp', 'status' ],
+      attributes: [
+        'id',
+        'concurrency_stamp',
+        'status',
+        'total_amount',
+        'discount_amount',
+        'shipping_charges',
+        'final_amount',
+      ],
       transaction,
     }),
     UserModel.findOne({
@@ -528,6 +617,21 @@ const updateOrder = async (data) => withTransaction(sequelize, async (transactio
 
   if (concurrencyStamp !== stamp) {
     return { concurrencyError: { message: 'invalid concurrency stamp' } };
+  }
+
+  // Recalculate final_amount if discount_amount or shipping_charges are updated
+  // Use provided finalAmount if explicitly set, otherwise calculate
+  if (finalAmount !== undefined) {
+    // Use explicitly provided finalAmount
+    modifiedData.finalAmount = finalAmount;
+  } else if (discountAmount !== undefined || shippingCharges !== undefined) {
+    // Recalculate if discount or shipping charges are updated
+    const currentTotal = response.total_amount;
+    const newDiscount = discountAmount !== undefined ? discountAmount : response.discount_amount;
+    const newShipping = shippingCharges !== undefined ? shippingCharges : response.shipping_charges;
+
+    // final_amount = total_amount - discount_amount + shipping_charges
+    modifiedData.finalAmount = currentTotal - newDiscount + newShipping;
   }
 
   // Track status change if status is being updated

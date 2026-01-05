@@ -100,10 +100,27 @@ const deleteProduct = async (req, res) => {
   }
 };
 
+const getProductDetails = async (req, res) => {
+  try {
+    const { productId } = req.params;
+
+    const { doc, error } = await ProductService.getProductDetails(productId);
+
+    if (doc) {
+      return res.status(200).json({ success: true, doc });
+    }
+
+    return sendErrorResponse(res, 404, extractErrorMessage(error), 'NOT_FOUND');
+  } catch (error) {
+    return handleServerError(error, req, res);
+  }
+};
+
 module.exports = {
   saveProduct,
   updateProduct,
   getProduct,
   getProductsGroupedByCategory,
+  getProductDetails,
   deleteProduct,
 };

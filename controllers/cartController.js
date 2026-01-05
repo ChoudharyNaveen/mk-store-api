@@ -6,8 +6,9 @@ const {
 const saveCart = async (req, res) => {
   try {
     const data = req.validatedData;
+    const { user } = req;
 
-    const { errors: err, doc, isexists } = await CartService.saveCart(data);
+    const { errors: err, doc, isexists } = await CartService.saveCart({ ...data, createdBy: user.id });
 
     if (isexists) {
       return res.status(200).json({ success: true, message: 'item already added to cart' });

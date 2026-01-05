@@ -70,8 +70,25 @@ const getCategory = async (req, res) => {
   }
 };
 
+const getCategoryDetails = async (req, res) => {
+  try {
+    const { categoryId } = req.params;
+
+    const { doc, error } = await CategoryService.getCategoryDetails(categoryId);
+
+    if (doc) {
+      return res.status(200).json({ success: true, doc });
+    }
+
+    return sendErrorResponse(res, 404, extractErrorMessage(error), 'NOT_FOUND');
+  } catch (error) {
+    return handleServerError(error, req, res);
+  }
+};
+
 module.exports = {
   saveCategory,
   updateCategory,
   getCategory,
+  getCategoryDetails,
 };

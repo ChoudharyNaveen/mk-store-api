@@ -4,6 +4,7 @@ const {
   getProduct,
   updateProduct,
   getProductsGroupedByCategory,
+  getProductDetails,
   deleteProduct,
 } = require('../controllers/productController');
 const { isAuthenticated, isVendorAdmin } = require('../middleware/auth');
@@ -453,5 +454,70 @@ module.exports = (router) => {
    *       400:
    *         description: Error deleting product
    */
+  /**
+   * @swagger
+   * /get-product-details/{productId}:
+   *   get:
+   *     summary: Get detailed product information
+   *     tags: [Products]
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: path
+   *         name: productId
+   *         required: true
+   *         schema:
+   *           type: integer
+   *         description: Product ID
+   *     responses:
+   *       200:
+   *         description: Product details retrieved successfully
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 success:
+   *                   type: boolean
+   *                   example: true
+   *                 doc:
+   *                   type: object
+   *                   properties:
+   *                     id:
+   *                       type: integer
+   *                     title:
+   *                       type: string
+   *                     description:
+   *                       type: string
+   *                     price:
+   *                       type: number
+   *                     selling_price:
+   *                       type: number
+   *                     image:
+   *                       type: string
+   *                     category:
+   *                       type: object
+   *                     subCategory:
+   *                       type: object
+   *                     brand:
+   *                       type: object
+   *                     statistics:
+   *                       type: object
+   *                       properties:
+   *                         cart_count:
+   *                           type: integer
+   *                         wishlist_count:
+   *                           type: integer
+   *                         order_count:
+   *                           type: integer
+   *                     related_products:
+   *                       type: array
+   *                       items:
+   *                         type: object
+   *       404:
+   *         description: Product not found
+   */
+  router.get('/get-product-details/:productId', isAuthenticated, getProductDetails);
+
   router.delete('/delete-product', isAuthenticated, validate(deleteProductSchema), deleteProduct);
 };

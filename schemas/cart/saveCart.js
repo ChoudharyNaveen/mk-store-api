@@ -8,6 +8,14 @@ const saveCart = Joi.object({
     'any.required': 'Parameter: quantity is required',
     'number.base': 'Parameter: quantity is required',
   }),
+  vendorId: Joi.number().integer().required().messages({
+    'any.required': 'Parameter: vendorId is required',
+    'number.base': 'Parameter: vendorId must be a number',
+  }),
+  branchId: Joi.number().integer().required().messages({
+    'any.required': 'Parameter: branchId is required',
+    'number.base': 'Parameter: branchId must be a number',
+  }),
   createdBy: Joi.number().integer().optional(),
 }).unknown(false);
 
