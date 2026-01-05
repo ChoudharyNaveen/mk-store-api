@@ -11,7 +11,7 @@ const {
   findAndCountAllWithTotalQuery,
 } = require('../utils/helper');
 const { uploadFile } = require('../config/aws');
-const { convertImageFieldsToPreSigned } = require('../utils/s3Helper');
+const { convertImageFieldsToCloudFront } = require('../utils/s3Helper');
 
 const saveSubCategory = async ({ data, imageFile }) => {
   let transaction = null;
@@ -195,8 +195,8 @@ const getSubCategory = async (payload) => {
       },
     }));
 
-    // Convert image URLs to pre-signed URLs (automatically handles nested objects/arrays)
-    doc = await convertImageFieldsToPreSigned(items);
+    // Convert image URLs to CloudFront URLs (automatically handles nested objects/arrays)
+    doc = convertImageFieldsToCloudFront(items);
 
     return { count, totalCount, doc };
   }

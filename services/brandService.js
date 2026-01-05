@@ -11,7 +11,7 @@ const {
   findAndCountAllWithTotal,
 } = require('../utils/helper');
 const { uploadFile } = require('../config/aws');
-const { convertImageFieldsToPreSigned } = require('../utils/s3Helper');
+const { convertImageFieldsToCloudFront } = require('../utils/s3Helper');
 
 const saveBrand = async ({ data, logoFile }) => {
   let transaction = null;
@@ -156,8 +156,8 @@ const getBrand = async (payload) => {
 
     const dataValues = rows.map((element) => element.dataValues);
 
-    // Convert logo URLs to pre-signed URLs (automatically handles nested objects/arrays)
-    doc = await convertImageFieldsToPreSigned(dataValues);
+    // Convert logo URLs to CloudFront URLs (automatically handles nested objects/arrays)
+    doc = convertImageFieldsToCloudFront(dataValues);
 
     return { count, totalCount, doc };
   }

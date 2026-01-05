@@ -1,6 +1,5 @@
 /* eslint-disable import/no-extraneous-dependencies */
-const { S3Client, PutObjectCommand, GetObjectCommand } = require('@aws-sdk/client-s3');
-const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
+const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
 const fs = require('fs');
 const config = require('../index');
 
@@ -10,10 +9,17 @@ const config = require('../index');
 
 const BUCKET_NAME = config.AWS?.S3_BUCKET_NAME;
 const AWS_REGION = config.AWS?.REGION || 'us-east-1';
+const CLOUDFRONT_DOMAIN = config.AWS?.CLOUDFRONT_DOMAIN;
 
 if (!BUCKET_NAME) {
   console.warn(
     'WARNING: AWS_S3_BUCKET_NAME is not configured. File uploads will fail until this is set.',
+  );
+}
+
+if (!CLOUDFRONT_DOMAIN) {
+  console.warn(
+    'WARNING: AWS_CLOUDFRONT_DOMAIN is not configured. CloudFront URLs will not be generated.',
   );
 }
 
@@ -74,7 +80,7 @@ function buildUserS3Key(userId, filename) {
 }
 
 // ============================================================================
-// S3 URL GENERATORS
+// URL GENERATORS
 // ============================================================================
 
 /**
@@ -92,55 +98,28 @@ function getS3Url(key) {
 }
 
 /**
- * Get pre-signed URL for S3 object
+ * Get CloudFront URL for S3 object
  * @param {string} key - S3 object key
- * @param {number} expiresIn - Expiration time in seconds (default: 86400 = 1 day)
- * @param {string} bucketName - Optional bucket name, defaults to configured bucket
- * @returns {Promise<string>} - Pre-signed URL
+ * @returns {string} - CloudFront file URL
  */
-async function getPreSignedUrl(key, expiresIn = 86400, bucketName = BUCKET_NAME) {
-  validateBucketName(bucketName);
+function getCloudFrontUrl(key) {
+  if (!CLOUDFRONT_DOMAIN) {
+    // Fallback to S3 URL if CloudFront is not configured
+    return getS3Url(key);
+  }
 
-  const command = new GetObjectCommand({
-    Bucket: bucketName,
-    Key: key,
-  });
+  // Ensure CloudFront domain doesn't have trailing slash
+  const domain = CLOUDFRONT_DOMAIN.replace(/\/$/, '');
 
-  const url = await getSignedUrl(s3Client, command, { expiresIn });
+  // Ensure key doesn't have leading slash
+  const cleanKey = key.startsWith('/') ? key.slice(1) : key;
 
-  return url;
+  return `https://${domain}/${cleanKey}`;
 }
 
 /**
- * Get pre-signed URL for vendor file
- * @param {number|string} vendorId - Vendor ID
- * @param {number|string} branchId - Branch ID
- * @param {string} filename - Filename
- * @param {number} expiresIn - Expiration time in seconds (default: 86400 = 1 day)
- * @returns {Promise<string>} - Pre-signed URL
- */
-async function getVendorPreSignedUrl(vendorId, branchId, filename, expiresIn = 86400) {
-  const key = buildVendorS3Key(vendorId, branchId, filename);
-
-  return getPreSignedUrl(key, expiresIn);
-}
-
-/**
- * Get pre-signed URL for user file
- * @param {number|string} userId - User ID
- * @param {string} filename - Filename
- * @param {number} expiresIn - Expiration time in seconds (default: 86400 = 1 day)
- * @returns {Promise<string>} - Pre-signed URL
- */
-async function getUserPreSignedUrl(userId, filename, expiresIn = 86400) {
-  const key = buildUserS3Key(userId, filename);
-
-  return getPreSignedUrl(key, expiresIn);
-}
-
-/**
- * Extract S3 key from S3 URL
- * @param {string} url - S3 URL
+ * Extract S3 key from S3 URL or CloudFront URL
+ * @param {string} url - S3 or CloudFront URL
  * @returns {string|null} - S3 key or null if URL is invalid
  */
 function extractS3KeyFromUrl(url) {
@@ -149,33 +128,53 @@ function extractS3KeyFromUrl(url) {
   }
 
   try {
-    // Handle URLs like: https://bucket-name.s3.region.amazonaws.com/key
-    // or: https://bucket-name.s3.amazonaws.com/key
     const urlObj = new URL(url);
-    const { pathname } = urlObj;
+    const { pathname, hostname } = urlObj;
 
-    // Remove leading slash
+    // Handle CloudFront URLs
+    if (CLOUDFRONT_DOMAIN && hostname.includes(CLOUDFRONT_DOMAIN.replace(/^https?:\/\//, '').split('/')[0])) {
+      return pathname.startsWith('/') ? pathname.slice(1) : pathname;
+    }
+
+    // Handle S3 URLs like: https://bucket-name.s3.region.amazonaws.com/key
+    // or: https://bucket-name.s3.amazonaws.com/key
+    if (hostname.includes('s3') && hostname.includes('amazonaws.com')) {
+      return pathname.startsWith('/') ? pathname.slice(1) : pathname;
+    }
+
+    // If it's already a CloudFront URL or unrecognized, return pathname
     return pathname.startsWith('/') ? pathname.slice(1) : pathname;
   } catch (error) {
-    // If URL parsing fails, try regex extraction
-    const match = url.match(/s3[.-][^/]+\/amazonaws\.com\/(.+)$/i);
+    // If URL parsing fails, try regex extraction for S3 URLs
+    const s3Match = url.match(/s3[.-][^/]+\/amazonaws\.com\/(.+)$/i);
 
-    return match ? match[1] : null;
+    if (s3Match) {
+      return s3Match[1];
+    }
+
+    // Try to extract path after domain for CloudFront
+    const cloudfrontMatch = url.match(/https?:\/\/[^/]+\/(.+)$/i);
+
+    return cloudfrontMatch ? cloudfrontMatch[1] : null;
   }
 }
 
 /**
- * Convert S3 URL to pre-signed URL
+ * Convert S3 URL to CloudFront URL
  * @param {string} url - S3 URL
- * @param {number} expiresIn - Expiration time in seconds (default: 86400 = 1 day)
- * @returns {Promise<string>} - Pre-signed URL or original URL if conversion fails
+ * @returns {string} - CloudFront URL or original URL if conversion fails
  */
-async function convertUrlToPreSignedUrl(url, expiresIn = 86400) {
+function convertUrlToCloudFrontUrl(url) {
   if (!url || url === 'NA' || url.trim() === '') {
     return url;
   }
 
   try {
+    // If already a CloudFront URL, return as is
+    if (CLOUDFRONT_DOMAIN && url.includes(CLOUDFRONT_DOMAIN.replace(/^https?:\/\//, '').split('/')[0])) {
+      return url;
+    }
+
     const key = extractS3KeyFromUrl(url);
 
     if (!key) {
@@ -183,9 +182,9 @@ async function convertUrlToPreSignedUrl(url, expiresIn = 86400) {
       return url;
     }
 
-    return getPreSignedUrl(key, expiresIn);
+    return getCloudFrontUrl(key);
   } catch (error) {
-    console.error('Error converting URL to pre-signed URL:', error);
+    console.error('Error converting URL to CloudFront URL:', error);
 
     // Return original URL on error
     return url;
@@ -243,7 +242,7 @@ async function uploadFile(file, filename, vendorId, branchId, bucketName = BUCKE
     bucketName,
   );
 
-  return getS3Url(key);
+  return getCloudFrontUrl(key);
 }
 
 /**
@@ -267,7 +266,7 @@ async function uploadBuffer(buffer, filename, vendorId, branchId, contentType = 
     bucketName,
   );
 
-  return getS3Url(key);
+  return getCloudFrontUrl(key);
 }
 
 // ============================================================================
@@ -293,7 +292,7 @@ async function uploadUserFile(file, filename, userId, bucketName = BUCKET_NAME) 
     bucketName,
   );
 
-  return getS3Url(key);
+  return getCloudFrontUrl(key);
 }
 
 /**
@@ -316,7 +315,7 @@ async function uploadUserBuffer(buffer, filename, userId, contentType = 'image/j
     bucketName,
   );
 
-  return getS3Url(key);
+  return getCloudFrontUrl(key);
 }
 
 // ============================================================================
@@ -353,7 +352,7 @@ async function uploadVideo(filePath, key, bucketName = BUCKET_NAME) {
 
   console.log('upload successful');
 
-  return getS3Url(key);
+  return getCloudFrontUrl(key);
 }
 
 // ============================================================================
@@ -375,12 +374,8 @@ module.exports = {
   // S3 Upload - Video
   uploadVideo,
 
-  // S3 Pre-signed URLs
-  getPreSignedUrl,
-  getVendorPreSignedUrl,
-  getUserPreSignedUrl,
-  convertUrlToPreSignedUrl,
-
-  // S3 URL Generators
+  // URL Generators
   getS3Url,
+  getCloudFrontUrl,
+  convertUrlToCloudFrontUrl,
 };

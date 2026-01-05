@@ -29,12 +29,8 @@ module.exports = {
   // S3 Upload - Video
   uploadVideo: s3.uploadVideo,
 
-  // S3 Pre-signed URLs
-  getPreSignedUrl: s3.getPreSignedUrl,
-  getVendorPreSignedUrl: s3.getVendorPreSignedUrl,
-  getUserPreSignedUrl: s3.getUserPreSignedUrl,
-  convertUrlToPreSignedUrl: s3.convertUrlToPreSignedUrl,
-
-  // S3 URL Generators
+  // URL Generators
   getS3Url: s3.getS3Url,
+  getCloudFrontUrl: s3.getCloudFrontUrl,
+  convertUrlToCloudFrontUrl: s3.convertUrlToCloudFrontUrl,
 };

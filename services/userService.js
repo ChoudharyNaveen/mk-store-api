@@ -18,7 +18,7 @@ const {
   convertSnakeToCamel,
 } = require('../utils/helper');
 const { uploadUserFile } = require('../config/aws');
-const { convertImageFieldsToPreSigned } = require('../utils/s3Helper');
+const { convertImageFieldsToCloudFront } = require('../utils/s3Helper');
 const config = require('../config/index');
 
 // Create Super Admin
@@ -151,10 +151,10 @@ const getUserById = async (payload) => {
     const { dataValues } = response;
     const doc = convertSnakeToCamel(dataValues);
 
-    // Convert image URL to pre-signed URL (automatically handles nested objects/arrays)
-    const docWithPreSignedUrl = await convertImageFieldsToPreSigned(doc);
+    // Convert image URL to CloudFront URL (automatically handles nested objects/arrays)
+    const docWithCloudFrontUrl = convertImageFieldsToCloudFront(doc);
 
-    return { doc: docWithPreSignedUrl };
+    return { doc: docWithCloudFrontUrl };
   }
 
   return { errors: { message: 'User not found' } };
@@ -205,10 +205,10 @@ const getUserProfile = async (payload) => {
     vendorId: mappingData ? mappingData.vendorId : null,
   };
 
-  // Convert image URL to pre-signed URL (automatically handles nested objects/arrays)
-  const profileWithPreSignedUrl = await convertImageFieldsToPreSigned(profile);
+  // Convert image URL to CloudFront URL (automatically handles nested objects/arrays)
+  const profileWithCloudFrontUrl = convertImageFieldsToCloudFront(profile);
 
-  return { doc: profileWithPreSignedUrl };
+  return { doc: profileWithCloudFrontUrl };
 };
 
 // Create Vendor Admin
