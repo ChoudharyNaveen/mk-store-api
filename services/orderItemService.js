@@ -55,7 +55,6 @@ const getOrderItem = async (payload) => {
       offset,
       distinct: true,
     },
-    pageNumber,
   );
   const doc = [];
 

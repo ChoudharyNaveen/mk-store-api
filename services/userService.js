@@ -16,6 +16,10 @@ const {
   withTransaction,
   convertCamelToSnake,
   convertSnakeToCamel,
+  calculatePagination,
+  generateWhereCondition,
+  generateOrderCondition,
+  findAndCountAllWithTotal,
 } = require('../utils/helper');
 const { uploadUserFile } = require('../config/aws');
 const { convertImageFieldsToCloudFront } = require('../utils/s3Helper');
@@ -689,6 +693,96 @@ const refreshToken = async (payload) => {
   }
 };
 
+// Get Users by vendor and role
+const getUsers = async (payload) => {
+  const {
+    vendorId, roleName, pageSize, pageNumber, filters, sorting,
+  } = payload;
+
+  try {
+    // Find role by name (from tab query param)
+    let role = null;
+
+    if (roleName) {
+      role = await RoleModel.findOne({
+        where: {
+          name: roleName.toUpperCase(),
+          status: 'ACTIVE',
+        },
+      });
+
+      if (!role) {
+        return { errors: { message: `Role with name '${roleName}' not found` } };
+      }
+    }
+
+    const { limit, offset } = calculatePagination(pageSize, pageNumber);
+
+    const where = generateWhereCondition(filters);
+    const order = sorting
+      ? generateOrderCondition(sorting)
+      : [ [ 'created_at', 'DESC' ] ];
+
+    // Build user where clause with filters and status
+    const userWhere = {
+      status: 'ACTIVE',
+      ...where,
+    };
+
+    // Build mapping where clause to filter by vendor and role
+    const mappingWhere = {
+      vendor_id: vendorId,
+      status: 'ACTIVE',
+    };
+
+    if (role) {
+      mappingWhere.role_id = role.id;
+    }
+
+    // Find users with pagination and filters applied to UserModel
+    const response = await findAndCountAllWithTotal(
+      UserModel,
+      {
+        where: userWhere,
+        attributes: [ 'id', 'name', 'mobile_number', 'email', 'status', 'profile_status', 'image', 'created_at', 'updated_at' ],
+        include: [
+          {
+            model: UserRolesMappingModel,
+            as: 'roleMappings',
+            attributes: [],
+            where: mappingWhere,
+            required: true,
+          },
+        ],
+        limit,
+        offset,
+        order,
+        distinct: true,
+      },
+      pageNumber,
+    );
+
+    let doc = [];
+
+    if (response) {
+      const { count, totalCount, rows } = response;
+      const dataValues = rows.map((user) => user.dataValues);
+      const serializedData = JSON.parse(JSON.stringify(dataValues));
+      const transformedUsers = serializedData.map((userData) => convertSnakeToCamel(userData));
+
+      doc = convertImageFieldsToCloudFront(transformedUsers);
+
+      return { count, totalCount, doc };
+    }
+
+    return { count: 0, totalCount: 0, doc: [] };
+  } catch (error) {
+    console.log('getUsers error', error);
+
+    return { errors: { message: 'Failed to fetch users' } };
+  }
+};
+
 module.exports = {
   createSuperAdmin,
   findUserByEmail,
@@ -699,4 +793,5 @@ module.exports = {
   convertUserToRider,
   authLogin,
   refreshToken,
+  getUsers,
 };

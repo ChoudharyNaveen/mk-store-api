@@ -145,7 +145,6 @@ const getCategory = async (payload) => {
       limit,
       offset,
     },
-    pageNumber,
   );
   let doc = [];
 

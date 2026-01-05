@@ -256,7 +256,6 @@ const getProduct = async (payload) => {
       limit,
       offset,
     },
-    pageNumber,
   );
   let doc = [];
 
@@ -335,7 +334,6 @@ const getProductsGroupedByCategory = async (payload) => {
       limit,
       offset,
     },
-    pageNumber,
   );
 
   let doc = [];
