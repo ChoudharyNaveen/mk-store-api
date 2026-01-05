@@ -8,7 +8,8 @@ const {
   generateOrderCondition,
   findAndCountAllWithTotal,
 } = require('../utils/helper');
-const { uploadFile } = require('../config/azure');
+const { uploadFile } = require('../config/aws');
+const { convertImageFieldsToPreSigned } = require('../utils/s3Helper');
 
 const saveCategory = async ({ data, imageFile }) => {
   let transaction = null;
@@ -53,9 +54,10 @@ const saveCategory = async ({ data, imageFile }) => {
     });
 
     if (imageFile) {
-      const blobName = `category-${cat.id}-${Date.now()}.jpg`;
+      const filename = `category-${cat.id}-${Date.now()}.jpg`;
+      const { vendorId } = datas;
 
-      imageUrl = await uploadFile(imageFile, blobName);
+      imageUrl = await uploadFile(imageFile, filename, vendorId, branchId);
       await CategoryModel.update({ image: imageUrl }, {
         where: { id: cat.id },
         transaction,
@@ -80,7 +82,7 @@ const updateCategory = async ({ data, imageFile }) => withTransaction(sequelize,
 
   const response = await CategoryModel.findOne({
     where: { id },
-    attributes: [ 'id', 'concurrency_stamp' ],
+    attributes: [ 'id', 'concurrency_stamp', 'vendor_id', 'branch_id' ],
     transaction,
   });
 
@@ -102,8 +104,11 @@ const updateCategory = async ({ data, imageFile }) => withTransaction(sequelize,
   };
 
   if (imageFile) {
-    const blobName = `category-${id}-${Date.now()}.jpg`;
-    const imageUrl = await uploadFile(imageFile, blobName);
+    const filename = `category-${id}-${Date.now()}.jpg`;
+    const vendorId = response.vendor_id;
+    const branchId = response.branch_id;
+
+    const imageUrl = await uploadFile(imageFile, filename, vendorId, branchId);
 
     doc.image = imageUrl;
   }
@@ -142,12 +147,15 @@ const getCategory = async (payload) => {
     },
     pageNumber,
   );
-  const doc = [];
+  let doc = [];
 
   if (response) {
     const { count, totalCount, rows } = response;
 
-    rows.map((element) => doc.push(element.dataValues));
+    const dataValues = rows.map((element) => element.dataValues);
+
+    // Convert image URLs to pre-signed URLs (automatically handles nested objects/arrays)
+    doc = await convertImageFieldsToPreSigned(dataValues);
 
     return { count, totalCount, doc };
   }

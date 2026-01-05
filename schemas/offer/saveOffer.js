@@ -1,19 +1,32 @@
 const Joi = require('joi');
 
 const saveOffer = Joi.object({
-  title: Joi.string().required().messages({
-    'any.required': 'Parameter: title is required',
-    'string.empty': 'Parameter: title is required',
+  type: Joi.string().required().messages({
+    'any.required': 'Parameter: type is required',
+    'string.empty': 'Parameter: type is required',
+  }),
+  code: Joi.string().required().messages({
+    'any.required': 'Parameter: code is required',
+    'string.empty': 'Parameter: code is required',
   }),
   description: Joi.string().required().messages({
     'any.required': 'Parameter: description is required',
     'string.empty': 'Parameter: description is required',
   }),
-  discountPercentage: Joi.number().min(0).max(100).required()
+  minOrderPrice: Joi.number().integer().min(0)
+    .required()
     .messages({
-      'any.required': 'Parameter: discountPercentage is required',
-      'number.min': 'Parameter: discountPercentage must be between 0 and 100',
-      'number.max': 'Parameter: discountPercentage must be between 0 and 100',
+      'any.required': 'Parameter: minOrderPrice is required',
+      'number.base': 'Parameter: minOrderPrice must be a number',
+      'number.min': 'Parameter: minOrderPrice must be greater than or equal to 0',
+    }),
+  percentage: Joi.number().integer().min(0).max(100)
+    .required()
+    .messages({
+      'any.required': 'Parameter: percentage is required',
+      'number.base': 'Parameter: percentage must be a number',
+      'number.min': 'Parameter: percentage must be between 0 and 100',
+      'number.max': 'Parameter: percentage must be between 0 and 100',
     }),
   startDate: Joi.date().iso().required().messages({
     'any.required': 'Parameter: startDate is required',
@@ -23,7 +36,17 @@ const saveOffer = Joi.object({
     'any.required': 'Parameter: endDate is required',
     'date.base': 'Parameter: endDate must be a valid date',
   }),
-  status: Joi.string().valid('ACTIVE', 'INACTIVE').optional(),
+  vendorId: Joi.number().integer().required().messages({
+    'any.required': 'Parameter: vendorId is required',
+    'number.base': 'Parameter: vendorId must be a number',
+    'number.integer': 'Parameter: vendorId must be an integer',
+  }),
+  branchId: Joi.number().integer().required().messages({
+    'any.required': 'Parameter: branchId is required',
+    'number.base': 'Parameter: branchId must be a number',
+    'number.integer': 'Parameter: branchId must be an integer',
+  }),
+  status: Joi.string().valid('OPEN', 'ACTIVE', 'INACTIVE').optional(),
   createdBy: Joi.number().integer().optional(),
 }).unknown(false);
 

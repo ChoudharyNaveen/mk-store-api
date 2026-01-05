@@ -30,6 +30,8 @@ module.exports = {
   // Database helpers
   generateWhereCondition: databaseHelpers.generateWhereCondition,
   generateOrderCondition: databaseHelpers.generateOrderCondition,
+  extractILikeConditions: databaseHelpers.extractILikeConditions,
+  whereConditionsToSQL: databaseHelpers.whereConditionsToSQL,
   calculatePagination: databaseHelpers.calculatePagination,
   withTransaction: databaseHelpers.withTransaction,
   updateWithConcurrencyStamp: databaseHelpers.updateWithConcurrencyStamp,

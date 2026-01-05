@@ -95,6 +95,143 @@ const generateOrderCondition = (data) => {
 };
 
 /**
+ * Extract iLike conditions from filters array
+ * Returns processed filters (without iLike) and iLike conditions separately
+ * @param {Array} filters - Array of filter objects
+ * @returns {Object} Object with processedFilters and iLikeConditions
+ */
+const extractILikeConditions = (filters) => {
+  const iLikeConditions = [];
+  const processedFilters = (filters || []).map((filter) => {
+    if (filter.iLike !== undefined) {
+      // Store iLike condition separately with column name
+      const columnKey = filter.key;
+
+      iLikeConditions.push({
+        column: columnKey,
+        value: `%${filter.iLike.toLowerCase()}%`,
+      });
+
+      // Skip this filter as we'll handle it manually
+      return null;
+    }
+
+    return filter;
+  }).filter(Boolean);
+
+  return {
+    processedFilters,
+    iLikeConditions,
+  };
+};
+
+/**
+ * Convert Sequelize where conditions to SQL WHERE clause with qualified column names
+ * @param {Object} where - Sequelize where conditions object
+ * @param {string} tableName - Table name to qualify columns with
+ * @param {Array} replacements - Array to collect query parameter replacements
+ * @param {Array} iLikeConditions - Optional array of iLike condition objects with column and value
+ * @returns {string} SQL WHERE clause (without WHERE keyword)
+ */
+const whereConditionsToSQL = (where, tableName, replacements = [], iLikeConditions = []) => {
+  const conditions = [];
+
+  // Process regular where conditions
+  if (where && Object.keys(where).length > 0) {
+    Object.keys(where).forEach((key) => {
+      // Skip Sequelize operators - handle them separately
+      if (key.startsWith('$') || key === Op.and || key === Op.or) {
+        return;
+      }
+
+      const value = where[key];
+      const qualifiedKey = `${tableName}.${key}`;
+
+      // Check if value is a Sequelize literal/function (has internal Sequelize properties)
+      if (value && typeof value === 'object' && (value.comparator || value.val || value.attribute)) {
+        // Skip Sequelize literal objects - they will be handled in Op.and
+        return;
+      }
+
+      if (value && typeof value === 'object' && !Array.isArray(value)) {
+        if (value[Op.eq] !== undefined) {
+          replacements.push(value[Op.eq]);
+          conditions.push(`${qualifiedKey} = ?`);
+        } else if (value[Op.ne] !== undefined) {
+          replacements.push(value[Op.ne]);
+          conditions.push(`${qualifiedKey} != ?`);
+        } else if (value[Op.like] !== undefined) {
+          replacements.push(value[Op.like]);
+          conditions.push(`${qualifiedKey} LIKE ?`);
+        } else if (value[Op.in] !== undefined) {
+          const inValues = Array.isArray(value[Op.in]) ? value[Op.in] : [value[Op.in]];
+          inValues.forEach((val) => {
+            replacements.push(val);
+          });
+          const placeholders = inValues.map(() => '?').join(', ');
+          conditions.push(`${qualifiedKey} IN (${placeholders})`);
+        } else if (value[Op.notIn] !== undefined) {
+          const notInValues = Array.isArray(value[Op.notIn]) ? value[Op.notIn] : [value[Op.notIn]];
+          notInValues.forEach((val) => {
+            replacements.push(val);
+          });
+          const placeholders = notInValues.map(() => '?').join(', ');
+          conditions.push(`${qualifiedKey} NOT IN (${placeholders})`);
+        } else if (value[Op.gt] !== undefined) {
+          replacements.push(value[Op.gt]);
+          conditions.push(`${qualifiedKey} > ?`);
+        } else if (value[Op.gte] !== undefined) {
+          replacements.push(value[Op.gte]);
+          conditions.push(`${qualifiedKey} >= ?`);
+        } else if (value[Op.lt] !== undefined) {
+          replacements.push(value[Op.lt]);
+          conditions.push(`${qualifiedKey} < ?`);
+        } else if (value[Op.lte] !== undefined) {
+          replacements.push(value[Op.lte]);
+          conditions.push(`${qualifiedKey} <= ?`);
+        }
+      } else {
+        // Direct value comparison
+        replacements.push(value);
+        conditions.push(`${qualifiedKey} = ?`);
+      }
+    });
+
+    // Handle $and operator
+    // Note: iLike conditions are now handled separately via the iLikeConditions parameter
+    if (where[Op.and] && Array.isArray(where[Op.and])) {
+      where[Op.and].forEach((andCondition) => {
+        // Skip Sequelize literal objects (these are handled separately)
+        const isSequelizeLiteral = andCondition && typeof andCondition === 'object'
+          && (andCondition.attribute !== undefined || andCondition.comparator !== undefined);
+
+        if (!isSequelizeLiteral) {
+          // Regular condition object
+          const andSQL = whereConditionsToSQL(andCondition, tableName, replacements);
+
+          if (andSQL) {
+            conditions.push(`(${andSQL})`);
+          }
+        }
+      });
+    }
+  }
+
+  // Add iLike conditions as LOWER() LIKE conditions
+  if (iLikeConditions && iLikeConditions.length > 0) {
+    iLikeConditions.forEach((iLikeCond) => {
+      const columnKey = convertSnakeCase(iLikeCond.column);
+      const qualifiedColumn = `${tableName}.${columnKey}`;
+
+      replacements.push(iLikeCond.value);
+      conditions.push(`LOWER(${qualifiedColumn}) LIKE ?`);
+    });
+  }
+
+  return conditions.join(' AND ');
+};
+
+/**
  * Calculate pagination limit and offset from pageSize and pageNumber
  * @param {number|string} pageSize - Number of items per page
  * @param {number|string} pageNumber - Current page number (1-indexed)
@@ -309,11 +446,13 @@ const createPaginationObject = (pageSize, pageNumber, totalCount) => {
 module.exports = {
   generateWhereCondition,
   generateOrderCondition,
+  extractILikeConditions,
   calculatePagination,
   withTransaction,
   updateWithConcurrencyStamp,
   findAndCountAllWithTotal,
   findAndCountAllWithTotalQuery,
   createPaginationObject,
+  whereConditionsToSQL,
 };
 

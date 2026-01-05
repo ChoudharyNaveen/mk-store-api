@@ -49,6 +49,16 @@ module.exports = (sequelize, DataTypes) => {
       updated_by: {
         type: DataTypes.INTEGER,
       },
+      vendor_id: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        index: true,
+      },
+      branch_id: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        index: true,
+      },
     },
     {
       freezeTableName: true,
@@ -62,6 +72,16 @@ module.exports = (sequelize, DataTypes) => {
       foreignKey: 'created_by',
       targetKey: 'id',
       as: 'createdByUser',
+    });
+    promocode.belongsTo(models.vendor, {
+      foreignKey: 'vendor_id',
+      targetKey: 'id',
+      as: 'vendor',
+    });
+    promocode.belongsTo(models.branch, {
+      foreignKey: 'branch_id',
+      targetKey: 'id',
+      as: 'branch',
     });
   };
 

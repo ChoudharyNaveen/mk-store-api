@@ -18,7 +18,8 @@ const {
   generateOrderCondition,
   findAndCountAllWithTotal,
 } = require('../utils/helper');
-const { uploadFile } = require('../config/azure');
+const { uploadFile } = require('../config/aws');
+const { convertImageFieldsToPreSigned } = require('../utils/s3Helper');
 
 const saveProduct = async ({ data, imageFile }) => {
   let transaction = null;
@@ -96,9 +97,10 @@ const saveProduct = async ({ data, imageFile }) => {
     });
 
     if (imageFile) {
-      const blobName = `product-${cat.id}-${Date.now()}.jpg`;
+      const filename = `product-${cat.id}-${Date.now()}.jpg`;
+      const { vendorId } = datas;
 
-      imageUrl = await uploadFile(imageFile, blobName);
+      imageUrl = await uploadFile(imageFile, filename, vendorId, branchId);
       await ProductModel.update({ image: imageUrl }, {
         where: { id: cat.id },
         transaction,
@@ -178,8 +180,10 @@ const updateProduct = async ({ data, imageFile }) => withTransaction(sequelize, 
   };
 
   if (imageFile) {
-    const blobName = `product-${id}-${Date.now()}.jpg`;
-    const imageUrl = await uploadFile(imageFile, blobName);
+    const filename = `product-${id}-${Date.now()}.jpg`;
+    const branchId = response.branch_id;
+
+    const imageUrl = await uploadFile(imageFile, filename, vendorId, branchId);
 
     doc.image = imageUrl;
   }
@@ -250,12 +254,15 @@ const getProduct = async (payload) => {
     },
     pageNumber,
   );
-  const doc = [];
+  let doc = [];
 
   if (response) {
     const { count, totalCount, rows } = response;
 
-    rows.map((element) => doc.push(element.dataValues));
+    const dataValues = rows.map((element) => element.dataValues);
+
+    // Convert image URLs to pre-signed URLs (automatically handles nested objects/arrays)
+    doc = await convertImageFieldsToPreSigned(JSON.parse(JSON.stringify(dataValues)));
 
     return { count, totalCount, doc };
   }
@@ -323,12 +330,15 @@ const getProductsGroupedByCategory = async (payload) => {
     pageNumber,
   );
 
-  const doc = [];
+  let doc = [];
 
   if (response) {
     const { count, totalCount, rows } = response;
 
-    rows.map((element) => doc.push(element.dataValues));
+    // Convert image URLs to pre-signed URLs (automatically handles nested objects/arrays)
+    const dataValues = rows.map((element) => element.dataValues);
+
+    doc = await convertImageFieldsToPreSigned(dataValues);
 
     return { count, totalCount, doc };
   }
