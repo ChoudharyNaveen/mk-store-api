@@ -3,6 +3,7 @@ const {
   cart: CartModel,
   user: UserModel,
   product: ProductModel,
+  branch: BranchModel,
   sequelize,
 } = require('../database');
 const {
@@ -15,12 +16,53 @@ const {
 } = require('../utils/helper');
 
 const saveCart = async (data) => withTransaction(sequelize, async (transaction) => {
-  const { createdBy, productId, ...datas } = data;
+  const {
+    createdBy, productId, vendorId, branchId, ...datas
+  } = data;
+
+  // Fetch product to validate vendor_id and branch_id match
+  const product = await ProductModel.findOne({
+    where: { id: productId },
+    attributes: [ 'id', 'vendor_id', 'branch_id' ],
+    transaction,
+  });
+
+  if (!product) {
+    return { errors: { message: 'Product not found' } };
+  }
+
+  // Validate that provided vendorId and branchId match the product
+  if (vendorId !== product.vendor_id) {
+    return { errors: { message: 'Vendor ID does not match the product\'s vendor' } };
+  }
+
+  if (branchId !== product.branch_id) {
+    return { errors: { message: 'Branch ID does not match the product\'s branch' } };
+  }
+
+  // Validate branch exists and belongs to vendor
+  const branch = await BranchModel.findOne({
+    where: { id: branchId, vendor_id: vendorId },
+    attributes: [ 'id' ],
+    transaction,
+  });
+
+  if (!branch) {
+    return { errors: { message: 'Branch not found or does not belong to vendor' } };
+  }
+
+  const finalVendorId = vendorId;
+  const finalBranchId = branchId;
 
   const concurrencyStamp = uuidV4();
 
   const isExists = await CartModel.findOne({
-    where: { product_id: productId, created_by: createdBy },
+    where: {
+      product_id: productId,
+      created_by: createdBy,
+      vendor_id: finalVendorId,
+      branch_id: finalBranchId,
+    },
     attributes: [ 'id', 'product_id', 'quantity' ],
     transaction,
   });
@@ -32,6 +74,8 @@ const saveCart = async (data) => withTransaction(sequelize, async (transaction) 
   const doc = {
     ...datas,
     productId,
+    vendorId: finalVendorId,
+    branchId: finalBranchId,
     concurrencyStamp,
     createdBy,
   };
@@ -48,11 +92,20 @@ const saveCart = async (data) => withTransaction(sequelize, async (transaction) 
 
 const getCartOfUser = async (payload) => {
   const {
-    pageSize, pageNumber, filters, sorting,
+    pageSize, pageNumber, filters, sorting, vendorId, branchId,
   } = payload;
   const { limit, offset } = calculatePagination(pageSize, pageNumber);
 
   const where = generateWhereCondition(filters);
+
+  // Add vendorId and branchId filters if provided
+  if (vendorId) {
+    where.vendor_id = vendorId;
+  }
+  if (branchId) {
+    where.branch_id = branchId;
+  }
+
   const order = sorting
     ? generateOrderCondition(sorting)
     : [ [ 'createdAt', 'DESC' ] ];
@@ -61,7 +114,7 @@ const getCartOfUser = async (payload) => {
     CartModel,
     {
       where: { ...where, status: 'ACTIVE' },
-      attributes: [ 'id', 'product_id', 'quantity', 'status', 'created_by', 'created_at', 'updated_at', 'concurrency_stamp' ],
+      attributes: [ 'id', 'product_id', 'vendor_id', 'branch_id', 'quantity', 'status', 'created_by', 'created_at', 'updated_at', 'concurrency_stamp' ],
       include: [
         {
           model: ProductModel,

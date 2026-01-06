@@ -3,6 +3,7 @@ const {
   saveSubCategory,
   getSubCategory,
   updateSubCategory,
+  getSubCategoryDetails,
 } = require('../controllers/subCategoryController');
 const { isAuthenticated, isVendorAdmin } = require('../middleware/auth');
 const validate = require('../middleware/validation');
@@ -275,6 +276,59 @@ module.exports = (router) => {
    *                   type: boolean
    *                   example: true
    */
+  /**
+   * @swagger
+   * /get-sub-category-details/{subCategoryId}:
+   *   get:
+   *     summary: Get detailed subcategory information
+   *     tags: [SubCategories]
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: path
+   *         name: subCategoryId
+   *         required: true
+   *         schema:
+   *           type: integer
+   *         description: SubCategory ID
+   *     responses:
+   *       200:
+   *         description: SubCategory details retrieved successfully
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 success:
+   *                   type: boolean
+   *                   example: true
+   *                 doc:
+   *                   type: object
+   *                   properties:
+   *                     id:
+   *                       type: integer
+   *                     title:
+   *                       type: string
+   *                     description:
+   *                       type: string
+   *                     image:
+   *                       type: string
+   *                     category:
+   *                       type: object
+   *                     statistics:
+   *                       type: object
+   *                       properties:
+   *                         product_count:
+   *                           type: integer
+   *                     products:
+   *                       type: array
+   *                       items:
+   *                         type: object
+   *       404:
+   *         description: SubCategory not found
+   */
+  router.get('/get-sub-category-details/:subCategoryId', isAuthenticated, getSubCategoryDetails);
+
   router.patch(
     '/update-sub-category/:id',
     isAuthenticated,

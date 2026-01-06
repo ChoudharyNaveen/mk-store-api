@@ -335,7 +335,6 @@ const findAndCountAllWithTotal = async (
   try {
     // Main query with pagination
     const result = await Model.findAndCountAll(queryOptions);
-
     return {
       count: result.count,        // filtered count (same WHERE conditions)
       totalCount: result.count,   // total matching records

@@ -17,6 +17,42 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.FLOAT,
         allowNull: false,
       },
+      discount_amount: {
+        type: DataTypes.FLOAT,
+        allowNull: false,
+        defaultValue: 0,
+      },
+      shipping_charges: {
+        type: DataTypes.FLOAT,
+        allowNull: false,
+        defaultValue: 0,
+      },
+      final_amount: {
+        type: DataTypes.FLOAT,
+        allowNull: false,
+      },
+      order_priority: {
+        type: DataTypes.STRING,
+        enum: [ 'NORMAL', 'EXPRESS', 'URGENT' ],
+        defaultValue: 'NORMAL',
+        allowNull: false,
+      },
+      estimated_delivery_time: {
+        type: DataTypes.INTEGER,
+        allowNull: true,
+        comment: 'Estimated delivery time in minutes',
+      },
+      refund_amount: {
+        type: DataTypes.FLOAT,
+        allowNull: false,
+        defaultValue: 0,
+      },
+      refund_status: {
+        type: DataTypes.STRING,
+        enum: [ 'NONE', 'PENDING', 'PROCESSED', 'FAILED' ],
+        defaultValue: 'NONE',
+        allowNull: false,
+      },
       status: {
         type: DataTypes.STRING,
         enum: [ 'PENDING', 'CONFIRMED', 'SHIPPED', 'DELIVERED', 'CANCELLED' ],
@@ -42,6 +78,12 @@ module.exports = (sequelize, DataTypes) => {
       address_id: {
         type: DataTypes.INTEGER,
         allowNull: false,
+      },
+      order_number: {
+        type: DataTypes.STRING,
+        allowNull: false,
+        unique: true,
+        index: true,
       },
       concurrency_stamp: {
         type: DataTypes.UUID,
@@ -86,6 +128,16 @@ module.exports = (sequelize, DataTypes) => {
       foreignKey: 'order_id',
       sourceKey: 'id',
       as: 'orderItems',
+    });
+    order.hasMany(models.orderDiscount, {
+      foreignKey: 'order_id',
+      sourceKey: 'id',
+      as: 'orderDiscount',
+    });
+    order.hasMany(models.orderStatusHistory, {
+      foreignKey: 'order_id',
+      sourceKey: 'id',
+      as: 'orderStatusHistory',
     });
   };
 

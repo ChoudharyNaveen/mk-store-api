@@ -122,7 +122,7 @@ const getOffer = async (payload) => {
   const response = await findAndCountAllWithTotal(
     OfferModel,
     {
-      where: { ...where, status: 'ACTIVE' },
+      where: { ...where },
       order,
       limit,
       offset,

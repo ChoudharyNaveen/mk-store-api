@@ -8,7 +8,9 @@ const {
   orderItem: OrderItemModel,
   wishlist: WishlistModel,
   branch: BranchModel,
+  vendor: VendorModel,
   sequelize,
+  Sequelize: { Op },
 } = require('../database');
 const {
   withTransaction,
@@ -380,10 +382,134 @@ const deleteProduct = async (productId) => withTransaction(sequelize, async (tra
   return { errors: { message: 'failed to delete product' } };
 });
 
+const getProductDetails = async (productId) => {
+  try {
+    const product = await ProductModel.findOne({
+      where: { id: productId },
+      attributes: [
+        'id',
+        'title',
+        'description',
+        'price',
+        'selling_price',
+        'quantity',
+        'items_per_unit',
+        'image',
+        'product_status',
+        'status',
+        'units',
+        'nutritional',
+        'expiry_date',
+        'item_quantity',
+        'item_unit',
+        'concurrency_stamp',
+        'created_at',
+        'updated_at',
+      ],
+      include: [
+        {
+          model: CategoryModel,
+          as: 'category',
+          attributes: [ 'id', 'title', 'description', 'image', 'status' ],
+        },
+        {
+          model: SubCategoryModel,
+          as: 'subCategory',
+          attributes: [ 'id', 'title', 'description', 'image', 'status' ],
+        },
+        {
+          model: BrandModel,
+          as: 'brand',
+          attributes: [ 'id', 'name', 'logo', 'description', 'status' ],
+          required: false,
+        },
+        {
+          model: BranchModel,
+          as: 'branch',
+          attributes: [ 'id', 'name', 'address', 'contact_number' ],
+        },
+        {
+          model: VendorModel,
+          as: 'vendor',
+          attributes: [ 'id', 'name', 'code' ],
+        },
+      ],
+    });
+
+    if (!product) {
+      return { error: 'Product not found' };
+    }
+
+    // Get statistics
+    const [ cartCount, wishlistCount, orderCount ] = await Promise.all([
+      CartModel.count({
+        where: { product_id: productId, status: 'ACTIVE' },
+      }),
+      WishlistModel.count({
+        where: { product_id: productId },
+      }),
+      OrderItemModel.count({
+        where: { product_id: productId },
+      }),
+    ]);
+
+    // Get related products (same category, limit 6)
+    const relatedProducts = await ProductModel.findAll({
+      where: {
+        category_id: product.category_id,
+        id: { [Op.ne]: productId },
+        status: 'ACTIVE',
+      },
+      attributes: [
+        'id',
+        'title',
+        'selling_price',
+        'image',
+        'status',
+      ],
+      include: [
+        {
+          model: BrandModel,
+          as: 'brand',
+          attributes: [ 'id', 'name', 'logo' ],
+          required: false,
+        },
+      ],
+      limit: 6,
+      order: [ [ 'created_at', 'DESC' ] ],
+    });
+
+    const productData = product.dataValues;
+    const statistics = {
+      cart_count: cartCount,
+      wishlist_count: wishlistCount,
+      order_count: orderCount,
+      total_sold: orderCount, // Can be enhanced with actual quantity sold
+    };
+
+    // Convert image URLs to CloudFront URLs
+    const convertedProduct = convertImageFieldsToCloudFront([ productData ])[0];
+    const convertedRelated = convertImageFieldsToCloudFront(relatedProducts.map((p) => p.dataValues));
+
+    return {
+      doc: {
+        ...convertedProduct,
+        statistics,
+        related_products: convertedRelated,
+      },
+    };
+  } catch (error) {
+    console.error('Error in getProductDetails:', error);
+
+    return { error: 'Failed to fetch product details' };
+  }
+};
+
 module.exports = {
   saveProduct,
   updateProduct,
   getProduct,
   getProductsGroupedByCategory,
+  getProductDetails,
   deleteProduct,
 };
