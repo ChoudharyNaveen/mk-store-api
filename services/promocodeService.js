@@ -99,7 +99,6 @@ const getPromocode = async (payload) => {
       limit,
       offset,
     },
-    pageNumber,
   );
   const doc = [];
 

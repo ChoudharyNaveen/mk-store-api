@@ -7,6 +7,7 @@ const {
   convertUserToRider,
   getUserProfile,
   refreshToken,
+  getUsers,
 } = require('../controllers/userController');
 
 const upload = multer();
@@ -19,6 +20,7 @@ const {
   updateUser: updateUserSchema,
   convertUserToRider: convertUserToRiderSchema,
   refreshToken: refreshTokenSchema,
+  getUser: getUsersSchema,
 } = require('../schemas');
 
 module.exports = (router) => {
@@ -410,4 +412,189 @@ module.exports = (router) => {
    *         description: Validation error
    */
   router.post('/refresh-token', validate(refreshTokenSchema), refreshToken);
+
+  /**
+   * @swagger
+   * /get-users:
+   *   post:
+   *     summary: Get users filtered by vendor and role
+   *     description: Vendor ID is automatically extracted from the JWT token. Only users belonging to the vendor in the token will be returned.
+   *     tags: [Users]
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: query
+   *         name: tab
+   *         required: false
+   *         schema:
+   *           type: string
+   *         description: Role name to filter users (e.g., ADMIN, RIDER, VENDOR_ADMIN). If not provided, returns all users for the vendor.
+   *         example: ADMIN
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             properties:
+   *               pageSize:
+   *                 type: integer
+   *                 enum: [1, 5, 10, 20, 30, 40, 50, 100, 500]
+   *                 default: 10
+   *                 description: Number of items per page
+   *                 example: 10
+   *               pageNumber:
+   *                 type: integer
+   *                 minimum: 1
+   *                 default: 1
+   *                 description: Page number (1-indexed)
+   *                 example: 1
+   *               filters:
+   *                 type: array
+   *                 description: Array of filter objects to filter user data
+   *                 items:
+   *                   type: object
+   *                   required:
+   *                     - key
+   *                   properties:
+   *                     key:
+   *                       type: string
+   *                       description: Field name to filter on (e.g., name, email, mobileNumber, status)
+   *                       example: "name"
+   *                     in:
+   *                       type: array
+   *                       items:
+   *                         type: string
+   *                       description: Filter where value is in array
+   *                       example: ["John", "Jane"]
+   *                     eq:
+   *                       type: string
+   *                       description: Filter where value equals
+   *                       example: "John"
+   *                     neq:
+   *                       type: string
+   *                       description: Filter where value not equals
+   *                       example: "John"
+   *                     gt:
+   *                       type: string
+   *                       description: Filter where value greater than
+   *                       example: "2020-01-01"
+   *                     gte:
+   *                       type: string
+   *                       description: Filter where value greater than or equal
+   *                       example: "2020-01-01"
+   *                     lt:
+   *                       type: string
+   *                       description: Filter where value less than
+   *                       example: "2020-12-31"
+   *                     lte:
+   *                       type: string
+   *                       description: Filter where value less than or equal
+   *                       example: "2020-12-31"
+   *                     like:
+   *                       type: string
+   *                       description: Filter where value contains (case-sensitive)
+   *                       example: "John"
+   *                     iLike:
+   *                       type: string
+   *                       description: Filter where value contains (case-insensitive)
+   *                       example: "john"
+   *               sorting:
+   *                 type: array
+   *                 description: Array of sorting objects
+   *                 items:
+   *                   type: object
+   *                   required:
+   *                     - key
+   *                     - direction
+   *                   properties:
+   *                     key:
+   *                       type: string
+   *                       description: Field name to sort by (e.g., createdAt, name, email)
+   *                       example: "createdAt"
+   *                     direction:
+   *                       type: string
+   *                       enum: [ASC, DESC]
+   *                       description: Sort direction
+   *                       example: "DESC"
+   *     responses:
+   *       200:
+   *         description: Users retrieved successfully
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 success:
+   *                   type: boolean
+   *                   example: true
+   *                 doc:
+   *                   type: array
+   *                   items:
+   *                     type: object
+   *                     properties:
+   *                       id:
+   *                         type: integer
+   *                         example: 1
+   *                       name:
+   *                         type: string
+   *                         example: "John Doe"
+   *                       mobileNumber:
+   *                         type: string
+   *                         example: "+1234567890"
+   *                       email:
+   *                         type: string
+   *                         format: email
+   *                         example: "john@example.com"
+   *                       status:
+   *                         type: string
+   *                         enum: [ACTIVE, INACTIVE]
+   *                         example: "ACTIVE"
+   *                       profileStatus:
+   *                         type: string
+   *                         enum: [INCOMPLETE, COMPLETE]
+   *                         example: "COMPLETE"
+   *                       image:
+   *                         type: string
+   *                         example: "https://example.com/image.jpg"
+   *                       vendorId:
+   *                         type: integer
+   *                         description: Vendor ID from user_roles_mappings
+   *                         example: 1
+   *                       mappingId:
+   *                         type: integer
+   *                         description: ID from user_roles_mappings table
+   *                         example: 1
+   *                       createdAt:
+   *                         type: string
+   *                         format: date-time
+   *                         example: "2024-01-01T00:00:00.000Z"
+   *                       updatedAt:
+   *                         type: string
+   *                         format: date-time
+   *                         example: "2024-01-01T00:00:00.000Z"
+   *                 pagination:
+   *                   type: object
+   *                   properties:
+   *                     pageSize:
+   *                       type: integer
+   *                       example: 10
+   *                     pageNumber:
+   *                       type: integer
+   *                       example: 1
+   *                     totalCount:
+   *                       type: integer
+   *                       nullable: true
+   *                       description: Total count of filtered records. null when pageNumber > 1
+   *                       example: 25
+   *                     paginationEnabled:
+   *                       type: boolean
+   *                       description: Whether pagination is enabled (true if totalCount > pageSize or pageNumber > 1)
+   *                       example: true
+   *       400:
+   *         description: Validation error or role not found
+   *       401:
+   *         description: Unauthorized - Invalid or missing token
+   */
+  router.post('/get-users', isAuthenticated, validate(getUsersSchema), getUsers);
 };

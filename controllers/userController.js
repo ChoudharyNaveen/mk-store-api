@@ -1,5 +1,6 @@
 const { User: UserService } = require('../services');
 const Helper = require('../utils/helper');
+const { createPaginationObject } = require('../utils/helper');
 
 const { handleServerError, sendErrorResponse, extractErrorMessage } = Helper;
 
@@ -168,6 +169,35 @@ const refreshToken = async (req, res) => {
   }
 };
 
+// Get Users
+const getUsers = async (req, res) => {
+  try {
+    const data = req.validatedData || req.body;
+    const { tab } = req.query; // Get role name from query param
+    const { vendorId } = req.user;
+    const { errors: err, doc, totalCount } = await UserService.getUsers({
+      ...data,
+      vendorId,
+      roleName: tab, // Pass role name from query param
+    });
+
+    if (err) {
+      return sendErrorResponse(res, 400, extractErrorMessage(err), 'VALIDATION_ERROR');
+    }
+
+    const { pageSize, pageNumber } = data;
+    const pagination = createPaginationObject(pageSize, pageNumber, totalCount);
+
+    return res.status(200).json({
+      success: true,
+      doc,
+      pagination,
+    });
+  } catch (error) {
+    return handleServerError(error, req, res);
+  }
+};
+
 module.exports = {
   createSuperAdmin,
   authLogin,
@@ -176,4 +206,5 @@ module.exports = {
   convertUserToRider,
   getUserProfile,
   refreshToken,
+  getUsers,
 };

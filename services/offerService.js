@@ -127,7 +127,6 @@ const getOffer = async (payload) => {
       limit,
       offset,
     },
-    pageNumber,
   );
   let doc = [];
 

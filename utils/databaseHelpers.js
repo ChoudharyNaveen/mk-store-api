@@ -322,35 +322,23 @@ const updateWithConcurrencyStamp = async (Model, id, updateData, options = {}) =
  * @param {number|string} pageNumber - Current page number (1-indexed). If > 1, total count query is skipped
  * @returns {Promise<Object>} Object with count (filtered), totalCount (total records), and rows
  */
-const findAndCountAllWithTotal = async (Model, queryOptions = {}, pageNumber = 1) => {
+const findAndCountAllWithTotal = async (
+  Model,
+  queryOptions = {
+    where: {},
+    attributes: [],
+    order: ["created_at", "DESC"],
+    limit: 10,
+    offset: 0,
+  }
+) => {
   try {
-    const pageNum = Number(pageNumber) || 1;
-    // Build total count query options - use same options but exclude limit and offset
-    const { limit, offset, order, attributes, ...totalCountQueryOptions } = queryOptions;
-
-    const promises = [
-      Model.findAndCountAll(queryOptions),
-    ]
-    if (pageNum <= 1) {
-      promises.push(Model.count(totalCountQueryOptions));
-    }
-
-    const response = await Promise.all(promises);
-    const rows = response[0];
-    const count = response[1];
-    // If pageNumber > 1, pagination is already enabled, so skip total count query for performance
-    if (pageNum > 1) {
-      return {
-        count: rows.count, // Filtered count
-        totalCount: null, // Not needed when pageNumber > 1
-        rows: rows.rows,
-      };
-    }
-
+    // Main query with pagination
+    const result = await Model.findAndCountAll(queryOptions);
     return {
-      count: rows.rows, // Filtered count
-      totalCount: count, // Total count of all records matching the same conditions
-      rows: rows.rows,
+      count: result.count,        // filtered count (same WHERE conditions)
+      totalCount: result.count,   // total matching records
+      rows: result.rows
     };
   } catch (error) {
     console.error('Error in findAndCountAllWithTotal:', error);

@@ -179,7 +179,6 @@ const getBranch = async (payload) => {
       limit,
       offset,
     },
-    pageNumber,
   );
   const doc = [];
 
