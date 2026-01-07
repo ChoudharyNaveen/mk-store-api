@@ -29,19 +29,36 @@ module.exports = (router) => {
    *             required:
    *               - house_no
    *               - streetDetails
-   *               - landmark
+   *               - city
+   *               - state
+   *               - postal_code
    *               - name
    *               - mobileNumber
    *             properties:
    *               house_no:
    *                 type: string
    *                 example: "123"
+   *               address_line_2:
+   *                 type: string
+   *                 example: "Apartment 4B"
    *               streetDetails:
    *                 type: string
    *                 example: "Main Street"
    *               landmark:
    *                 type: string
    *                 example: "Near City Park"
+   *               city:
+   *                 type: string
+   *                 example: "Mumbai"
+   *               state:
+   *                 type: string
+   *                 example: "Maharashtra"
+   *               country:
+   *                 type: string
+   *                 example: "India"
+   *               postal_code:
+   *                 type: string
+   *                 example: "400001"
    *               name:
    *                 type: string
    *                 example: "John Doe"
@@ -171,9 +188,19 @@ module.exports = (router) => {
    *                         example: 1
    *                       house_no:
    *                         type: string
+   *                       address_line_2:
+   *                         type: string
    *                       streetDetails:
    *                         type: string
    *                       landmark:
+   *                         type: string
+   *                       city:
+   *                         type: string
+   *                       state:
+   *                         type: string
+   *                       country:
+   *                         type: string
+   *                       postal_code:
    *                         type: string
    *                       name:
    *                         type: string
@@ -208,9 +235,19 @@ module.exports = (router) => {
    *             properties:
    *               house_no:
    *                 type: string
+   *               address_line_2:
+   *                 type: string
    *               streetDetails:
    *                 type: string
    *               landmark:
+   *                 type: string
+   *               city:
+   *                 type: string
+   *               state:
+   *                 type: string
+   *               country:
+   *                 type: string
+   *               postal_code:
    *                 type: string
    *               name:
    *                 type: string

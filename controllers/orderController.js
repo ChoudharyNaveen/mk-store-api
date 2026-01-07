@@ -89,10 +89,28 @@ const getTotalReturnsOfToday = async (req, res) => {
   }
 };
 
+const getOrderDetails = async (req, res) => {
+  try {
+    const { orderId } = req.validatedData;
+    const { user } = req;
+
+    const { doc, error } = await OrderService.getOrderDetails(orderId, user?.id);
+
+    if (doc) {
+      return res.status(200).json({ success: true, data: doc });
+    }
+
+    return sendErrorResponse(res, 404, extractErrorMessage(error) || 'Order not found', 'NOT_FOUND');
+  } catch (error) {
+    return handleServerError(error, req, res);
+  }
+};
+
 module.exports = {
   placeOrder,
   getOrder,
   getStatsOfOrdersCompleted,
   updateOrder,
   getTotalReturnsOfToday,
+  getOrderDetails,
 };

@@ -10,11 +10,16 @@ const placeOrder = Joi.object({
     'number.base': 'Parameter: branchId must be a number',
   }),
   createdBy: Joi.number().integer().optional(),
-  // Address fields - either provide addressId OR all address fields
+  // Address fields - either provide addressId OR all required address fields
   addressId: Joi.number().integer().optional(),
   houseNo: Joi.string().optional(),
+  addressLine2: Joi.string().optional().allow(''),
   streetDetails: Joi.string().optional(),
-  landmark: Joi.string().optional(),
+  landmark: Joi.string().optional().allow(''),
+  city: Joi.string().optional(),
+  state: Joi.string().optional(),
+  country: Joi.string().optional().default('India'),
+  postalCode: Joi.string().optional(),
   name: Joi.string().optional(),
   mobileNumber: Joi.string().optional(),
   // Discount fields - only one can be provided

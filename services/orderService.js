@@ -1,3 +1,4 @@
+/* eslint-disable max-lines */
 const { v4: uuidV4 } = require('uuid');
 const { fn, col } = require('sequelize');
 const {
@@ -24,6 +25,7 @@ const {
   generateOrderCondition,
   findAndCountAllWithTotal,
 } = require('../utils/helper');
+const { convertImageFieldsToCloudFront } = require('../utils/s3Helper');
 
 // Generate unique order number
 const generateOrderNumber = async (transaction) => {
@@ -63,9 +65,15 @@ const placeOrder = async (data) => withTransaction(sequelize, async (transaction
     createdBy,
     vendorId,
     branchId,
+    addressId,
     houseNo,
+    addressLine2,
     streetDetails,
     landmark,
+    city,
+    state,
+    country,
+    postalCode,
     name,
     mobileNumber,
     offerCode,
@@ -275,34 +283,54 @@ const placeOrder = async (data) => withTransaction(sequelize, async (transaction
     }
   }
 
-  // create address
-  if (houseNo && streetDetails && landmark && name && mobileNumber) {
+  // Handle address - either use existing addressId or create new address
+  let address;
+
+  if (addressId) {
+    // Use existing address
+    address = await AddressModel.findOne({
+      where: { id: addressId, created_by: createdBy },
+      attributes: [ 'id', 'created_by' ],
+      transaction,
+    });
+
+    if (!address) {
+      return { error: 'Address not found or does not belong to you.' };
+    }
+  } else if (houseNo && streetDetails && city && state && postalCode && name && mobileNumber) {
+    // Create new address if address fields are provided
     const addressConcurrencyStamp = uuidV4();
 
     const doc = {
       concurrencyStamp: addressConcurrencyStamp,
       houseNo,
+      addressLine2: addressLine2 || null,
       streetDetails,
-      landmark,
+      landmark: landmark || null,
+      city,
+      state,
+      country: country || 'India',
+      postalCode,
       name,
       mobileNumber,
       createdBy,
     };
 
-    await AddressModel.create(convertCamelToSnake(doc), {
+    address = await AddressModel.create(convertCamelToSnake(doc), {
       transaction,
     });
-  }
+  } else {
+    // Try to find the most recent address for the user
+    address = await AddressModel.findOne({
+      where: { created_by: createdBy },
+      attributes: [ 'id', 'created_by' ],
+      transaction,
+      order: [ [ 'created_at', 'DESC' ] ],
+    });
 
-  const address = await AddressModel.findOne({
-    where: { created_by: createdBy },
-    attributes: [ 'id', 'created_by' ],
-    transaction,
-    order: [ [ 'created_at', 'DESC' ] ],
-  });
-
-  if (!address) {
-    return { error: 'Address not found. Please provide address details.' };
+    if (!address) {
+      return { error: 'Address not found. Please provide address details or addressId.' };
+    }
   }
 
   // Calculate shipping charges (default to 0 if not provided)
@@ -458,41 +486,21 @@ const getOrder = async (payload) => {
       ],
       include: [
         {
-          model: AddressModel,
-          as: 'address',
-          attributes: [ 'id', 'house_no', 'street_details', 'landmark', 'name', 'mobile_number' ],
-        },
-        {
           model: UserModel,
           as: 'user',
           attributes: [ 'id', 'name', 'email', 'mobile_number' ],
         },
         {
-          model: OrderDiscountModel,
-          as: 'orderDiscount',
-          attributes: [
-            'id',
-            'discount_type',
-            'discount_amount',
-            'discount_percentage',
-            'original_amount',
-            'final_amount',
-          ],
+          model: OrderItemModel,
+          as: 'orderItems',
+          attributes: [ 'id', 'product_id', 'quantity' ],
           include: [
             {
-              model: OfferModel,
-              as: 'offer',
-              attributes: [ 'id', 'code', 'description' ],
-              required: false,
-            },
-            {
-              model: PromocodeModel,
-              as: 'promocode',
-              attributes: [ 'id', 'code', 'description' ],
-              required: false,
+              model: ProductModel,
+              as: 'product',
+              attributes: [ 'id', 'title' ],
             },
           ],
-          required: false,
         },
       ],
       order,
@@ -695,10 +703,254 @@ const getTotalReturnsOfToday = async () => {
   }
 };
 
+const getOrderDetails = async (orderId, userId = null) => {
+  try {
+    const whereClause = { id: orderId };
+
+    // If userId is provided, ensure the order belongs to that user
+    if (userId) {
+      whereClause.created_by = userId;
+    }
+
+    const order = await OrderModel.findOne({
+      where: whereClause,
+      attributes: [
+        'id',
+        'order_number',
+        'total_amount',
+        'discount_amount',
+        'shipping_charges',
+        'final_amount',
+        'order_priority',
+        'estimated_delivery_time',
+        'status',
+        'payment_status',
+        'created_at',
+        'updated_at',
+      ],
+      include: [
+        {
+          model: UserModel,
+          as: 'user',
+          attributes: [ 'id', 'name', 'email', 'mobile_number' ],
+        },
+        {
+          model: AddressModel,
+          as: 'address',
+          attributes: [
+            'id',
+            'house_no',
+            'address_line_2',
+            'street_details',
+            'landmark',
+            'city',
+            'state',
+            'country',
+            'postal_code',
+            'name',
+            'mobile_number',
+          ],
+        },
+        {
+          model: OrderItemModel,
+          as: 'orderItems',
+          attributes: [
+            'id',
+            'product_id',
+            'quantity',
+            'price_at_purchase',
+          ],
+          include: [
+            {
+              model: ProductModel,
+              as: 'product',
+              attributes: [
+                'id',
+                'title',
+                'selling_price',
+                'price',
+                'image',
+              ],
+            },
+          ],
+        },
+        {
+          model: OrderDiscountModel,
+          as: 'orderDiscount',
+          attributes: [
+            'id',
+            'discount_type',
+            'discount_amount',
+            'discount_percentage',
+            'original_amount',
+            'final_amount',
+          ],
+          include: [
+            {
+              model: OfferModel,
+              as: 'offer',
+              attributes: [ 'id', 'code', 'description', 'status' ],
+              required: false,
+            },
+            {
+              model: PromocodeModel,
+              as: 'promocode',
+              attributes: [ 'id', 'code', 'description', 'status' ],
+              required: false,
+            },
+          ],
+          required: false,
+        },
+      ],
+    });
+
+    if (!order) {
+      return { error: 'Order not found' };
+    }
+
+    // Transform the data to match the UI structure
+    const orderData = order.toJSON();
+
+    // Calculate item-level discounts and totals
+    const orderItems = orderData.orderItems.map((item) => {
+      const { price_at_purchase: unitPrice, quantity } = item;
+
+      const itemSubtotal = unitPrice * quantity;
+
+      // Calculate discount per item (proportional to total discount)
+      // If there's a discount, distribute it proportionally
+      let itemDiscount = 0;
+
+      if (orderData.discount_amount > 0 && orderData.total_amount > 0) {
+        const discountRatio = orderData.discount_amount / orderData.total_amount;
+
+        itemDiscount = itemSubtotal * discountRatio;
+      }
+
+      const itemTotal = itemSubtotal - itemDiscount;
+
+      return {
+        id: item.id,
+        product: {
+          id: item.product.id,
+          title: item.product.title,
+          image: item.product.image,
+          selling_price: item.product.selling_price,
+          price: item.product.price,
+        },
+        quantity,
+        unit_price: parseFloat(unitPrice.toFixed(2)),
+        discount: parseFloat(itemDiscount.toFixed(2)),
+        total: parseFloat(itemTotal.toFixed(2)),
+      };
+    });
+
+    // Prepare applied discounts
+    const appliedDiscounts = [];
+    const orderDiscountData = orderData.orderDiscount;
+    let discounts = [];
+
+    if (Array.isArray(orderDiscountData)) {
+      discounts = orderDiscountData;
+    } else if (orderDiscountData) {
+      discounts = [ orderDiscountData ];
+    }
+
+    discounts.forEach((discount) => {
+      if (discount.discount_type === 'PROMOCODE' && discount.promocode) {
+        appliedDiscounts.push({
+          type: 'promocode',
+          code: discount.promocode.code,
+          description: discount.promocode.description || `${discount.discount_percentage}% off`,
+          discount_amount: parseFloat(discount.discount_amount.toFixed(2)),
+          status: discount.promocode.status || 'ACTIVE',
+        });
+      }
+
+      if (discount.discount_type === 'OFFER' && discount.offer) {
+        appliedDiscounts.push({
+          type: 'offer',
+          code: discount.offer.code,
+          description: discount.offer.description || `₹${discount.discount_amount} off`,
+          discount_amount: parseFloat(discount.discount_amount.toFixed(2)),
+          status: discount.offer.status || 'ACTIVE',
+        });
+      }
+    });
+
+    // Calculate summary
+    const subtotal = parseFloat(orderData.total_amount.toFixed(2));
+    const totalDiscount = parseFloat(orderData.discount_amount.toFixed(2));
+    const shipping = parseFloat(orderData.shipping_charges.toFixed(2));
+    const total = parseFloat(orderData.final_amount.toFixed(2));
+
+    // Format delivery address
+    const deliveryAddress = orderData.address ? {
+      recipient_name: orderData.address.name,
+      address_line_1: orderData.address.house_no,
+      address_line_2: orderData.address.address_line_2 || '',
+      street_details: orderData.address.street_details,
+      landmark: orderData.address.landmark || '',
+      city: orderData.address.city,
+      state: orderData.address.state,
+      country: orderData.address.country,
+      postal_code: orderData.address.postal_code,
+      mobile_number: orderData.address.mobile_number,
+    } : null;
+
+    // Calculate estimated delivery date
+    let estimatedDeliveryDate = null;
+
+    if (orderData.estimated_delivery_time) {
+      const deliveryDate = new Date(orderData.created_at);
+
+      deliveryDate.setMinutes(deliveryDate.getMinutes() + orderData.estimated_delivery_time);
+      estimatedDeliveryDate = deliveryDate.toISOString();
+    }
+
+    // Format response to match UI structure
+    const response = {
+      order_id: orderData.id,
+      order_number: orderData.order_number,
+      order_items: orderItems,
+      summary: {
+        subtotal,
+        discount: totalDiscount,
+        shipping,
+        total,
+      },
+      applied_discounts: appliedDiscounts,
+      customer_information: {
+        name: orderData.user?.name || '',
+        email: orderData.user?.email || '',
+        mobile_number: orderData.user?.mobile_number || '',
+      },
+      delivery_address: deliveryAddress,
+      order_information: {
+        order_date: orderData.created_at,
+        estimated_delivery: estimatedDeliveryDate,
+        priority: orderData.order_priority,
+        payment_status: orderData.payment_status,
+        order_status: orderData.status,
+      },
+    };
+
+    // Convert image URLs to CloudFront URLs (recursively handles nested objects/arrays)
+    const responseWithCloudFront = convertImageFieldsToCloudFront(JSON.parse(JSON.stringify(response)), [ 'image' ]);
+
+    return { doc: responseWithCloudFront };
+  } catch (error) {
+    console.error('Error in getOrderDetails:', error);
+
+    return { error: 'Failed to fetch order details' };
+  }
+};
+
 module.exports = {
   placeOrder,
   getOrder,
   getStatsOfOrdersCompleted,
   updateOrder,
   getTotalReturnsOfToday,
+  getOrderDetails,
 };

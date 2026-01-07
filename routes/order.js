@@ -4,6 +4,7 @@ const {
   getStatsOfOrdersCompleted,
   updateOrder,
   getTotalReturnsOfToday,
+  getOrderDetails,
 } = require('../controllers/orderController');
 const { isAuthenticated } = require('../middleware/auth');
 const validate = require('../middleware/validation');
@@ -11,6 +12,7 @@ const {
   placeOrder: placeOrderSchema,
   getOrder: getOrderSchema,
   updateOrder: updateOrderSchema,
+  getOrderDetails: getOrderDetailsSchema,
 } = require('../schemas');
 
 module.exports = (router) => {
@@ -435,4 +437,153 @@ module.exports = (router) => {
    *                   example: "5000.00"
    */
   router.get('/get-total-returns-of-today', isAuthenticated, getTotalReturnsOfToday);
+
+  /**
+   * @swagger
+   * /get-order-details:
+   *   post:
+   *     summary: Get detailed order information including items, discounts, customer, and address
+   *     tags: [Orders]
+   *     security:
+   *       - bearerAuth: []
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             required:
+   *               - orderId
+   *             properties:
+   *               orderId:
+   *                 type: integer
+   *                 example: 1
+   *                 description: Order ID to fetch details for
+   *     responses:
+   *       200:
+   *         description: Order details retrieved successfully
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 success:
+   *                   type: boolean
+   *                   example: true
+   *                 data:
+   *                   type: object
+   *                   properties:
+   *                     order_id:
+   *                       type: integer
+   *                     order_number:
+   *                       type: string
+   *                     order_items:
+   *                       type: array
+   *                       items:
+   *                         type: object
+   *                         properties:
+   *                           id:
+   *                             type: integer
+   *                           product:
+   *                             type: object
+   *                             properties:
+   *                               id:
+   *                                 type: integer
+   *                               title:
+   *                                 type: string
+   *                               image:
+   *                                 type: string
+   *                           quantity:
+   *                             type: integer
+   *                           unit_price:
+   *                             type: number
+   *                           discount:
+   *                             type: number
+   *                           total:
+   *                             type: number
+   *                     summary:
+   *                       type: object
+   *                       properties:
+   *                         subtotal:
+   *                           type: number
+   *                         discount:
+   *                           type: number
+   *                         shipping:
+   *                           type: number
+   *                         total:
+   *                           type: number
+   *                     applied_discounts:
+   *                       type: array
+   *                       items:
+   *                         type: object
+   *                         properties:
+   *                           type:
+   *                             type: string
+   *                             enum: [promocode, offer]
+   *                           code:
+   *                             type: string
+   *                           description:
+   *                             type: string
+   *                           discount_amount:
+   *                             type: number
+   *                           status:
+   *                             type: string
+   *                     customer_information:
+   *                       type: object
+   *                       properties:
+   *                         name:
+   *                           type: string
+   *                         email:
+   *                           type: string
+   *                         mobile_number:
+   *                           type: string
+   *                     delivery_address:
+   *                       type: object
+   *                       properties:
+   *                         recipient_name:
+   *                           type: string
+   *                         address_line_1:
+   *                           type: string
+   *                         address_line_2:
+   *                           type: string
+   *                         street_details:
+   *                           type: string
+   *                         landmark:
+   *                           type: string
+   *                         city:
+   *                           type: string
+   *                         state:
+   *                           type: string
+   *                         country:
+   *                           type: string
+   *                         postal_code:
+   *                           type: string
+   *                         mobile_number:
+   *                           type: string
+   *                     order_information:
+   *                       type: object
+   *                       properties:
+   *                         order_date:
+   *                           type: string
+   *                           format: date-time
+   *                         estimated_delivery:
+   *                           type: string
+   *                           format: date-time
+   *                         priority:
+   *                           type: string
+   *                           enum: [NORMAL, EXPRESS, URGENT]
+   *                         payment_status:
+   *                           type: string
+   *                           enum: [PAID, UNPAID, FAILED]
+   *                         order_status:
+   *                           type: string
+   *       404:
+   *         description: Order not found
+   */
+  router.post(
+    '/get-order-details',
+    isAuthenticated,
+    validate(getOrderDetailsSchema),
+    getOrderDetails,
+  );
 };

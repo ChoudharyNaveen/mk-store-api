@@ -12,11 +12,32 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.STRING,
         allowNull: false,
       },
+      address_line_2: {
+        type: DataTypes.STRING,
+        allowNull: true,
+      },
       street_details: {
         type: DataTypes.STRING,
         allowNull: false,
       },
       landmark: {
+        type: DataTypes.STRING,
+        allowNull: true,
+      },
+      city: {
+        type: DataTypes.STRING,
+        allowNull: false,
+      },
+      state: {
+        type: DataTypes.STRING,
+        allowNull: false,
+      },
+      country: {
+        type: DataTypes.STRING,
+        allowNull: false,
+        defaultValue: 'India',
+      },
+      postal_code: {
         type: DataTypes.STRING,
         allowNull: false,
       },
