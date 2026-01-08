@@ -14,6 +14,12 @@ const {
   generateOrderCondition,
   findAndCountAllWithTotal,
 } = require('../utils/helper');
+const {
+  ValidationError,
+  NotFoundError,
+  ConcurrencyError,
+  handleServiceError,
+} = require('../utils/serviceErrors');
 
 const saveCart = async (data) => withTransaction(sequelize, async (transaction) => {
   const {
@@ -28,16 +34,16 @@ const saveCart = async (data) => withTransaction(sequelize, async (transaction) 
   });
 
   if (!product) {
-    return { errors: { message: 'Product not found' } };
+    throw new NotFoundError('Product not found');
   }
 
   // Validate that provided vendorId and branchId match the product
   if (vendorId !== product.vendor_id) {
-    return { errors: { message: 'Vendor ID does not match the product\'s vendor' } };
+    throw new ValidationError('Vendor ID does not match the product\'s vendor');
   }
 
   if (branchId !== product.branch_id) {
-    return { errors: { message: 'Branch ID does not match the product\'s branch' } };
+    throw new ValidationError('Branch ID does not match the product\'s branch');
   }
 
   // Validate branch exists and belongs to vendor
@@ -48,7 +54,7 @@ const saveCart = async (data) => withTransaction(sequelize, async (transaction) 
   });
 
   if (!branch) {
-    return { errors: { message: 'Branch not found or does not belong to vendor' } };
+    throw new ValidationError('Branch not found or does not belong to vendor');
   }
 
   const finalVendorId = vendorId;
@@ -84,11 +90,7 @@ const saveCart = async (data) => withTransaction(sequelize, async (transaction) 
   });
 
   return { doc: { cat } };
-}).catch((error) => {
-  console.log(error);
-
-  return { errors: { message: 'failed to save cart' } };
-});
+}).catch((error) => handleServiceError(error, 'Failed to save cart'));
 
 const getCartOfUser = async (payload) => {
   const {
@@ -154,9 +156,7 @@ const deleteCart = async (cartId) => {
 
     return { doc: { message: 'successfully deleted cart' } };
   } catch (error) {
-    console.log(error);
-
-    return { errors: { message: 'failed to delete cart' } };
+    return handleServiceError(error, 'Failed to delete cart');
   }
 };
 
@@ -171,7 +171,7 @@ const updateCart = async (data) => withTransaction(sequelize, async (transaction
   });
 
   if (!response) {
-    return { errors: { message: 'Cart item not found' } };
+    throw new NotFoundError('Cart item not found');
   }
 
   if (quantity === 0) {
@@ -186,7 +186,7 @@ const updateCart = async (data) => withTransaction(sequelize, async (transaction
   const { concurrency_stamp: stamp } = response;
 
   if (concurrencyStamp !== stamp) {
-    return { concurrencyError: { message: 'invalid concurrency stamp' } };
+    throw new ConcurrencyError('invalid concurrency stamp');
   }
 
   const newConcurrencyStamp = uuidV4();
@@ -202,11 +202,7 @@ const updateCart = async (data) => withTransaction(sequelize, async (transaction
   });
 
   return { doc: { concurrencyStamp: newConcurrencyStamp } };
-}).catch((error) => {
-  console.log(error);
-
-  return { errors: { message: 'transaction failed' } };
-});
+}).catch((error) => handleServiceError(error, 'Transaction failed'));
 
 module.exports = {
   saveCart,

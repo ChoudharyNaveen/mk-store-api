@@ -12,6 +12,12 @@ const {
 } = require('../utils/helper');
 const { uploadFile } = require('../config/aws');
 const { convertImageFieldsToCloudFront } = require('../utils/s3Helper');
+const {
+  NotFoundError,
+  ConcurrencyError,
+  ValidationError,
+  handleServiceError,
+} = require('../utils/serviceErrors');
 
 const saveBrand = async ({ data, logoFile }) => {
   let transaction = null;
@@ -30,9 +36,7 @@ const saveBrand = async ({ data, logoFile }) => {
       });
 
       if (!branch) {
-        await transaction.rollback();
-
-        return { errors: { message: 'Branch not found' } };
+        throw new NotFoundError('Branch not found');
       }
 
       // Set vendor_id from branch
@@ -69,12 +73,11 @@ const saveBrand = async ({ data, logoFile }) => {
 
     return { doc: { brand } };
   } catch (error) {
-    console.log(error);
     if (transaction) {
       await transaction.rollback();
     }
 
-    return { errors: { message: 'failed to save brand' } };
+    return handleServiceError(error, 'Failed to save brand');
   }
 };
 
@@ -89,13 +92,13 @@ const updateBrand = async ({ data, logoFile }) => withTransaction(sequelize, asy
   });
 
   if (!response) {
-    return { errors: { message: 'Brand not found' } };
+    throw new NotFoundError('Brand not found');
   }
 
   const { concurrency_stamp: stamp } = response;
 
   if (concurrencyStamp !== stamp) {
-    return { concurrencyError: { message: 'invalid concurrency stamp' } };
+    throw new ConcurrencyError('invalid concurrency stamp');
   }
 
   const newConcurrencyStamp = uuidV4();
@@ -121,11 +124,7 @@ const updateBrand = async ({ data, logoFile }) => withTransaction(sequelize, asy
   });
 
   return { doc: { concurrencyStamp: newConcurrencyStamp } };
-}).catch((error) => {
-  console.log(error);
-
-  return { errors: { message: 'transaction failed' } };
-});
+}).catch((error) => handleServiceError(error, 'Transaction failed'));
 
 const getBrand = async (payload) => {
   const {
@@ -182,7 +181,7 @@ const deleteBrand = async (brandId) => withTransaction(sequelize, async (transac
   });
 
   if (productCount > 0) {
-    return { errors: { message: 'Cannot delete brand with associated products' } };
+    throw new ValidationError('Cannot delete brand with associated products');
   }
 
   await BrandModel.destroy({
@@ -191,11 +190,7 @@ const deleteBrand = async (brandId) => withTransaction(sequelize, async (transac
   });
 
   return { doc: { message: 'successfully deleted brand' } };
-}).catch((error) => {
-  console.log(error);
-
-  return { errors: { message: 'failed to delete brand' } };
-});
+}).catch((error) => handleServiceError(error, 'Failed to delete brand'));
 
 module.exports = {
   saveBrand,

@@ -14,6 +14,12 @@ const {
 } = require('../utils/helper');
 const config = require('../config');
 const { sendSMS } = require('../config/aws');
+const { createUserRegistrationNotification } = require('./notificationService');
+const {
+  NotFoundError,
+  ValidationError,
+  handleServiceError,
+} = require('../utils/serviceErrors');
 
 const sendOtpSMSForUser = async (mobileNumber, vendorId) => {
   let transaction = null;
@@ -42,7 +48,7 @@ const sendOtpSMSForUser = async (mobileNumber, vendorId) => {
     });
 
     if (!vendor) {
-      return { message: 'failed', error: 'Vendor not found' };
+      throw new NotFoundError('Vendor not found');
     }
 
     // If user doesn't exist for this vendor, create a new user
@@ -54,9 +60,7 @@ const sendOtpSMSForUser = async (mobileNumber, vendorId) => {
       });
 
       if (!userRole) {
-        await transaction.rollback();
-
-        return { message: 'failed', error: 'User role not found' };
+        throw new NotFoundError('User role not found');
       }
 
       const concurrencyStamp = uuidV4();
@@ -84,6 +88,25 @@ const sendOtpSMSForUser = async (mobileNumber, vendorId) => {
         },
         { transaction },
       );
+
+      // Create notification for new user registration (after transaction commit)
+      transaction.afterCommit(async () => {
+        try {
+          await createUserRegistrationNotification({
+            userId: newUser.id,
+            userName: null, // User name not available at registration
+            userEmail: null, // User email not available at registration
+            mobileNumber,
+            vendorId,
+            branchId: null, // Branch ID not available at this point
+            roleName: userRole.name,
+          });
+        } catch (error) {
+          console.error('Error creating user registration notification:', error);
+          // Don't fail registration if notification fails
+        }
+      });
+
       user = newUser ?? user;
     }
 
@@ -91,9 +114,7 @@ const sendOtpSMSForUser = async (mobileNumber, vendorId) => {
     const smsResult = await sendSMS(mobileNumber, message);
 
     if (!smsResult.success) {
-      await transaction.rollback();
-
-      return { message: 'failed', error: smsResult.error };
+      throw new ValidationError(smsResult.error);
     }
 
     const userId = user.id;
@@ -131,9 +152,8 @@ const sendOtpSMSForUser = async (mobileNumber, vendorId) => {
     if (transaction) {
       await transaction.rollback();
     }
-    console.error('Error occurred:', error.message);
 
-    return { message: 'failed', error: error.message };
+    return handleServiceError(error, 'Failed to send OTP');
   }
 };
 
@@ -168,11 +188,7 @@ const verifyOtpSMSForUser = async (payload) => {
     });
 
     if (!user) {
-      await transaction.rollback();
-
-      return {
-        errors: [ { message: 'User not found. Please send OTP first.', name: 'user' } ],
-      };
+      throw new NotFoundError('User not found. Please send OTP first.');
     }
 
     const userId = user.id;
@@ -185,19 +201,13 @@ const verifyOtpSMSForUser = async (payload) => {
     });
 
     if (!otpResult || otpResult.dataValues.status === 'INACTIVE') {
-      await transaction.rollback();
-
-      return {
-        errors: [ { message: 'OTP not valid. Please try again', name: 'otp' } ],
-      };
+      throw new ValidationError('OTP not valid. Please try again');
     }
 
     const { otp: otpResponse } = otpResult;
 
     if (otpResponse !== otp) {
-      await transaction.rollback();
-
-      return { errors: [ { message: 'Invalid OTP.', name: 'otp' } ] };
+      throw new ValidationError('Invalid OTP.');
     }
 
     // Mark OTP as inactive
@@ -242,10 +252,9 @@ const verifyOtpSMSForUser = async (payload) => {
       },
     };
   } catch (error) {
-    console.log(error);
     await transaction.rollback();
 
-    return { errors: [ { message: 'transaction failed', name: 'transaction' } ] };
+    return handleServiceError(error, 'Transaction failed');
   }
 };
 

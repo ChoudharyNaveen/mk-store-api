@@ -26,6 +26,13 @@ const {
   findAndCountAllWithTotal,
 } = require('../utils/helper');
 const { convertImageFieldsToCloudFront } = require('../utils/s3Helper');
+const { createOrderPlacedNotification, createOrderUpdatedNotification } = require('./notificationService');
+const {
+  ValidationError,
+  NotFoundError,
+  ConcurrencyError,
+  handleServiceError,
+} = require('../utils/serviceErrors');
 
 // Generate unique order number
 const generateOrderNumber = async (transaction) => {
@@ -85,16 +92,16 @@ const placeOrder = async (data) => withTransaction(sequelize, async (transaction
 
   // Verify branch exists
   if (!branchId) {
-    return { error: 'branchId is required' };
+    throw new ValidationError('branchId is required');
   }
 
   if (!vendorId) {
-    return { error: 'vendorId is required' };
+    throw new ValidationError('vendorId is required');
   }
 
   // Validate that only one discount type is provided
   if (offerCode && promocodeId) {
-    return { error: 'Cannot apply both offer code and promo code. Please choose one.' };
+    throw new ValidationError('Cannot apply both offer code and promo code. Please choose one.');
   }
 
   const branch = await BranchModel.findOne({
@@ -104,7 +111,7 @@ const placeOrder = async (data) => withTransaction(sequelize, async (transaction
   });
 
   if (!branch) {
-    return { error: 'Branch not found or does not belong to the specified vendor' };
+    throw new ValidationError('Branch not found or does not belong to the specified vendor');
   }
 
   // Use provided vendorId
@@ -129,7 +136,7 @@ const placeOrder = async (data) => withTransaction(sequelize, async (transaction
   });
 
   if (cartItems.length === 0) {
-    return { error: 'no item in the cart' };
+    throw new ValidationError('No items in the cart');
   }
 
   // Fetch all products in parallel for validation and quantity checks
@@ -152,14 +159,16 @@ const placeOrder = async (data) => withTransaction(sequelize, async (transaction
 
     if (!product) {
       return {
-        error: `Product with id ${item.product_id} not found`,
+        errors: { message: `Product with id ${item.product_id} not found` },
       };
     }
 
     if (quantity > product.quantity) {
       return {
-        error: `we apologize for the inconvenience, quantity for the ${product.title} is left with only ${product.quantity}.
+        errors: {
+          message: `we apologize for the inconvenience, quantity for the ${product.title} is left with only ${product.quantity}.
           please try with lower quantity`,
+        },
       };
     }
 
@@ -176,16 +185,68 @@ const placeOrder = async (data) => withTransaction(sequelize, async (transaction
   });
 
   // Early exit on first validation error
-  const errorResult = validationResults.find((result) => result?.error);
+  const errorResult = validationResults.find((result) => result?.errors);
 
   if (errorResult) {
-    return { error: errorResult.error };
+    throw new ValidationError(errorResult?.errors?.message);
   }
 
   const orderItemsData = validationResults.map((result) => result?.orderItem);
 
   totalAmount += validationResults.reduce((sum, result) => sum + (result?.subtotal || 0), 0);
 
+  // ✅ VALIDATE ADDRESS BEFORE REDUCING PRODUCT QUANTITIES
+  // Handle address - either use existing addressId or create new address
+  let address;
+
+  if (addressId) {
+    // Use existing address
+    address = await AddressModel.findOne({
+      where: { id: addressId, created_by: createdBy },
+      attributes: [ 'id', 'created_by' ],
+      transaction,
+    });
+
+    if (!address) {
+      throw new ValidationError('Address not found or does not belong to you.');
+    }
+  } else if (houseNo && streetDetails && city && state && postalCode && name && mobileNumber) {
+    // Create new address if address fields are provided
+    const addressConcurrencyStamp = uuidV4();
+
+    const doc = {
+      concurrencyStamp: addressConcurrencyStamp,
+      houseNo,
+      addressLine2: addressLine2 || null,
+      streetDetails,
+      landmark: landmark || null,
+      city,
+      state,
+      country: country || 'India',
+      postalCode,
+      name,
+      mobileNumber,
+      createdBy,
+    };
+
+    address = await AddressModel.create(convertCamelToSnake(doc), {
+      transaction,
+    });
+  } else {
+    // Try to find the most recent address for the user
+    address = await AddressModel.findOne({
+      where: { created_by: createdBy },
+      attributes: [ 'id', 'created_by' ],
+      transaction,
+      order: [ [ 'created_at', 'DESC' ] ],
+    });
+
+    if (!address) {
+      throw new ValidationError('Address not found. Please provide address details or addressId.');
+    }
+  }
+
+  // ✅ NOW REDUCE PRODUCT QUANTITIES (after all validations pass)
   // Update all product quantities in parallel
   await Promise.all(orderItemsData.map(async (itemData) => {
     const productQuanityRemaining = itemData.product_quantity - itemData.quantity;
@@ -233,15 +294,13 @@ const placeOrder = async (data) => withTransaction(sequelize, async (transaction
           discountType = 'OFFER';
           discountId = offer.id;
         } else {
-          return {
-            error: `Order amount must be atleast ₹${offer.min_order_price} to use this offer`,
-          };
+          throw new ValidationError(`Order amount must be atleast ₹${offer.min_order_price} to use this offer`);
         }
       } else {
-        return { error: 'This offer is not valid at the moment.' };
+        throw new ValidationError('This offer is not valid at the moment.');
       }
     } else {
-      return { error: 'Invalid offer code.' };
+      throw new ValidationError('Invalid offer code.');
     }
   }
 
@@ -266,7 +325,7 @@ const placeOrder = async (data) => withTransaction(sequelize, async (transaction
       ) {
         // Validate branch if promo code is branch-specific
         if (promocode.branch_id && promocode.branch_id !== branchId) {
-          return { error: 'This promo code is not valid for this branch.' };
+          throw new ValidationError('This promo code is not valid for this branch.');
         }
 
         discountPercentage = promocode.percentage;
@@ -276,60 +335,10 @@ const placeOrder = async (data) => withTransaction(sequelize, async (transaction
         discountType = 'PROMOCODE';
         discountId = promocode.id;
       } else {
-        return { error: 'This promo code is not valid at the moment.' };
+        throw new ValidationError('This promo code is not valid at the moment.');
       }
     } else {
-      return { error: 'Invalid promo code.' };
-    }
-  }
-
-  // Handle address - either use existing addressId or create new address
-  let address;
-
-  if (addressId) {
-    // Use existing address
-    address = await AddressModel.findOne({
-      where: { id: addressId, created_by: createdBy },
-      attributes: [ 'id', 'created_by' ],
-      transaction,
-    });
-
-    if (!address) {
-      return { error: 'Address not found or does not belong to you.' };
-    }
-  } else if (houseNo && streetDetails && city && state && postalCode && name && mobileNumber) {
-    // Create new address if address fields are provided
-    const addressConcurrencyStamp = uuidV4();
-
-    const doc = {
-      concurrencyStamp: addressConcurrencyStamp,
-      houseNo,
-      addressLine2: addressLine2 || null,
-      streetDetails,
-      landmark: landmark || null,
-      city,
-      state,
-      country: country || 'India',
-      postalCode,
-      name,
-      mobileNumber,
-      createdBy,
-    };
-
-    address = await AddressModel.create(convertCamelToSnake(doc), {
-      transaction,
-    });
-  } else {
-    // Try to find the most recent address for the user
-    address = await AddressModel.findOne({
-      where: { created_by: createdBy },
-      attributes: [ 'id', 'created_by' ],
-      transaction,
-      order: [ [ 'created_at', 'DESC' ] ],
-    });
-
-    if (!address) {
-      return { error: 'Address not found. Please provide address details or addressId.' };
+      throw new ValidationError('Invalid promo code.');
     }
   }
 
@@ -359,6 +368,7 @@ const placeOrder = async (data) => withTransaction(sequelize, async (transaction
     paymentStatus: 'UNPAID',
     concurrencyStamp: orderConcurrencyStamp,
     createdBy,
+    vendorId,
   };
 
   const newOrder = await OrderModel.create(
@@ -421,12 +431,29 @@ const placeOrder = async (data) => withTransaction(sequelize, async (transaction
   }));
 
   // deleting cart
-  await CartModel.destroy({
-    where: {
-      created_by: createdBy,
-      status: 'ACTIVE',
-    },
-    transaction,
+  // await CartModel.destroy({
+  //   where: {
+  //     created_by: createdBy,
+  //     status: 'ACTIVE',
+  //   },
+  //   transaction,
+  // });
+
+  // Create notification for new order (after transaction commit)
+  transaction.afterCommit(async () => {
+    try {
+      await createOrderPlacedNotification({
+        orderId: newOrder.id,
+        orderNumber: newOrder.order_number,
+        vendorId: branch.vendor_id,
+        branchId,
+        totalAmount: newOrder.final_amount,
+        userId: createdBy,
+        entityId: newOrder.id,
+      });
+    } catch (error) {
+      console.error('Error creating order notification:', error);
+    }
   });
 
   return {
@@ -442,11 +469,7 @@ const placeOrder = async (data) => withTransaction(sequelize, async (transaction
       item_count: orderItemsData.length,
     },
   };
-}).catch((error) => {
-  console.log(error);
-
-  return { error };
-});
+}).catch((error) => handleServiceError(error, 'Failed to place order'));
 
 const getOrder = async (payload) => {
   const {
@@ -563,9 +586,7 @@ const getStatsOfOrdersCompleted = async () => {
 
     return { data: fullStats };
   } catch (error) {
-    console.error('Error in getStatsOfOrdersCompleted:', error);
-
-    return { error: 'Internal server error' };
+    return handleServiceError(error, 'Failed to get stats of orders completed');
   }
 };
 
@@ -610,7 +631,7 @@ const updateOrder = async (data) => withTransaction(sequelize, async (transactio
   ]);
 
   if (!response) {
-    return { errors: { message: 'Order not found' } };
+    throw new NotFoundError('Order not found');
   }
 
   const modifiedData = { ...data };
@@ -623,7 +644,7 @@ const updateOrder = async (data) => withTransaction(sequelize, async (transactio
   const { concurrency_stamp: stamp } = response;
 
   if (concurrencyStamp !== stamp) {
-    return { concurrencyError: { message: 'invalid concurrency stamp' } };
+    throw new ConcurrencyError('invalid concurrency stamp');
   }
 
   // Recalculate final_amount if discount_amount or shipping_charges are updated
@@ -668,12 +689,41 @@ const updateOrder = async (data) => withTransaction(sequelize, async (transactio
     transaction,
   });
 
-  return { doc: { concurrencyStamp: newConcurrencyStamp } };
-}).catch((error) => {
-  console.log(error);
+  // Create notification for order update (after transaction commit)
+  if (newStatus && newStatus !== oldStatus) {
+    transaction.afterCommit(async () => {
+      try {
+        const updatedOrder = await OrderModel.findOne({
+          where: { id },
+          attributes: [ 'id', 'order_number', 'branch_id', 'created_by' ],
+          include: [
+            {
+              model: BranchModel,
+              as: 'branch',
+              attributes: [ 'vendor_id' ],
+            },
+          ],
+        });
 
-  return { errors: { message: 'transaction failed' } };
-});
+        if (updatedOrder) {
+          await createOrderUpdatedNotification({
+            orderId: updatedOrder.id,
+            orderNumber: updatedOrder.order_number,
+            vendorId: updatedOrder.branch?.vendor_id,
+            branchId: updatedOrder.branch_id,
+            status: newStatus,
+            userId: updatedOrder.created_by,
+            updatedBy,
+          });
+        }
+      } catch (error) {
+        console.error('Error creating order update notification:', error);
+      }
+    });
+  }
+
+  return { doc: { concurrencyStamp: newConcurrencyStamp } };
+}).catch((error) => handleServiceError(error, 'Transaction failed'));
 
 const getTotalReturnsOfToday = async () => {
   try {
@@ -698,7 +748,7 @@ const getTotalReturnsOfToday = async () => {
 
     return { data: parseFloat(total).toFixed(2) };
   } catch (error) {
-    return { error: 'failed to fetch returns' };
+    return handleServiceError(error, 'Failed to get total returns of today');
   }
 };
 
@@ -804,7 +854,7 @@ const getOrderDetails = async (orderId, userId = null) => {
     });
 
     if (!order) {
-      return { error: 'Order not found' };
+      return handleServiceError(new NotFoundError('Order not found'));
     }
 
     // Transform the data to match the UI structure
@@ -939,9 +989,7 @@ const getOrderDetails = async (orderId, userId = null) => {
 
     return { doc: responseWithCloudFront };
   } catch (error) {
-    console.error('Error in getOrderDetails:', error);
-
-    return { error: 'Failed to fetch order details' };
+    return handleServiceError(error, 'Failed to fetch order details');
   }
 };
 

@@ -12,6 +12,9 @@ const {
   generateOrderCondition,
   findAndCountAllWithTotal,
 } = require('../utils/helper');
+const {
+  handleServiceError,
+} = require('../utils/serviceErrors');
 
 const saveWishlist = async (data) => withTransaction(sequelize, async (transaction) => {
   const { createdBy, productId, ...datas } = data;
@@ -39,11 +42,7 @@ const saveWishlist = async (data) => withTransaction(sequelize, async (transacti
   });
 
   return { doc: { cat } };
-}).catch((error) => {
-  console.log(error);
-
-  return { errors: { message: 'failed to save wishlist' } };
-});
+}).catch((error) => handleServiceError(error, 'Failed to save wishlist'));
 
 const getWishlist = async (payload) => {
   const {
@@ -95,9 +94,7 @@ const deleteWishlist = async (wishlistId) => {
 
     return { doc: { message: 'successfully deleted wishlist' } };
   } catch (error) {
-    console.log(error);
-
-    return { errors: { message: 'failed to delete wishlist' } };
+    return handleServiceError(error, 'Failed to delete wishlist');
   }
 };
 

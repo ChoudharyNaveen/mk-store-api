@@ -13,6 +13,11 @@ module.exports = (sequelize, DataTypes) => {
         allowNull: false,
         index: true,
       },
+      vendor_id: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        index: true,
+      },
       total_amount: {
         type: DataTypes.FLOAT,
         allowNull: false,

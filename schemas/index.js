@@ -13,6 +13,7 @@ const orderItem = require('./orderItem');
 const vendor = require('./vendor');
 const branch = require('./branch');
 const brand = require('./brand');
+const notification = require('./notification');
 
 module.exports = {
   ...user,
@@ -30,4 +31,5 @@ module.exports = {
   ...vendor,
   ...branch,
   ...brand,
+  ...notification,
 };

@@ -2,6 +2,7 @@ const multer = require('multer');
 const {
   saveSubCategory,
   getSubCategory,
+  getSubCategoriesByCategoryId,
   updateSubCategory,
   getSubCategoryDetails,
 } = require('../controllers/subCategoryController');
@@ -10,6 +11,7 @@ const validate = require('../middleware/validation');
 const {
   saveSubCategory: saveSubCategorySchema,
   getSubCategory: getSubCategorySchema,
+  getSubCategoriesByCategoryId: getSubCategoriesByCategoryIdSchema,
   updateSubCategory: updateSubCategorySchema,
 } = require('../schemas');
 
@@ -186,6 +188,138 @@ module.exports = (router) => {
    *                   type: integer
    */
   router.post('/get-sub-category', isAuthenticated, validate(getSubCategorySchema), getSubCategory);
+
+  /**
+   * @swagger
+   * /get-sub-categories-by-category-id:
+   *   post:
+   *     summary: Get subcategories by category ID with pagination
+   *     tags: [SubCategories]
+   *     security:
+   *       - bearerAuth: []
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             required:
+   *               - categoryId
+   *             properties:
+   *               categoryId:
+   *                 type: integer
+   *                 example: 1
+   *                 description: Category ID (required)
+   *               pageSize:
+   *                 type: integer
+   *                 enum: [1, 5, 10, 20, 30, 40, 50, 100, 500]
+   *                 default: 10
+   *                 description: Number of results per page
+   *               pageNumber:
+   *                 type: integer
+   *                 minimum: 1
+   *                 default: 1
+   *                 description: Page number
+   *               filters:
+   *                 type: array
+   *                 items:
+   *                   type: object
+   *                   properties:
+   *                     key:
+   *                       type: string
+   *                     eq:
+   *                       type: string
+   *                     in:
+   *                       type: array
+   *                       items:
+   *                         type: string
+   *                     neq:
+   *                       type: string
+   *                     gt:
+   *                       type: string
+   *                     gte:
+   *                       type: string
+   *                     lt:
+   *                       type: string
+   *                     lte:
+   *                       type: string
+   *                     like:
+   *                       type: string
+   *                     iLike:
+   *                       type: string
+   *                 description: Array of filter objects
+   *               sorting:
+   *                 type: array
+   *                 items:
+   *                   type: object
+   *                   properties:
+   *                     key:
+   *                       type: string
+   *                     direction:
+   *                       type: string
+   *                       enum: [ASC, DESC]
+   *                 description: Array of sorting objects
+   *     responses:
+   *       200:
+   *         description: Subcategories retrieved successfully
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 success:
+   *                   type: boolean
+   *                   example: true
+   *                 doc:
+   *                   type: array
+   *                   items:
+   *                     type: object
+   *                     properties:
+   *                       name:
+   *                         type: string
+   *                         example: "Smartphones"
+   *                         description: Subcategory name
+   *                       products_count:
+   *                         type: integer
+   *                         example: 25
+   *                         description: Number of active products in this subcategory
+   *                       status:
+   *                         type: string
+   *                         enum: [ACTIVE, INACTIVE]
+   *                         example: ACTIVE
+   *                         description: Subcategory status
+   *                 pagination:
+   *                   type: object
+   *                   properties:
+   *                     pageSize:
+   *                       type: integer
+   *                       example: 10
+   *                     pageNumber:
+   *                       type: integer
+   *                       example: 1
+   *                     totalCount:
+   *                       type: integer
+   *                       example: 50
+   *                     totalPages:
+   *                       type: integer
+   *                       example: 5
+   *       400:
+   *         description: Validation error
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 success:
+   *                   type: boolean
+   *                   example: false
+   *                 message:
+   *                   type: string
+   *                   example: "Parameter: categoryId is required."
+   *       401:
+   *         description: Unauthorized
+   */
+  router.post('/get-sub-categories-by-category-id', isAuthenticated, validate(getSubCategoriesByCategoryIdSchema), getSubCategoriesByCategoryId);
 
   /**
    * @swagger

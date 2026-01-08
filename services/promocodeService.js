@@ -8,6 +8,11 @@ const {
   generateOrderCondition,
   findAndCountAllWithTotal,
 } = require('../utils/helper');
+const {
+  NotFoundError,
+  ConcurrencyError,
+  handleServiceError,
+} = require('../utils/serviceErrors');
 
 const savePromocode = async (data) => {
   let transaction = null;
@@ -32,12 +37,11 @@ const savePromocode = async (data) => {
 
     return { doc: { cat } };
   } catch (error) {
-    console.log(error);
     if (transaction) {
       await transaction.rollback();
     }
 
-    return { errors: { message: 'failed to save course Promocode' } };
+    return handleServiceError(error, 'Failed to save course Promocode');
   }
 };
 
@@ -52,13 +56,13 @@ const updatePromocode = async (data) => withTransaction(sequelize, async (transa
   });
 
   if (!response) {
-    return { errors: { message: 'Promocode not found' } };
+    throw new NotFoundError('Promocode not found');
   }
 
   const { concurrency_stamp: stamp } = response;
 
   if (concurrencyStamp !== stamp) {
-    return { concurrencyError: { message: 'invalid concurrency stamp' } };
+    throw new ConcurrencyError('invalid concurrency stamp');
   }
 
   const newConcurrencyStamp = uuidV4();
@@ -74,11 +78,7 @@ const updatePromocode = async (data) => withTransaction(sequelize, async (transa
   });
 
   return { doc: { concurrencyStamp: newConcurrencyStamp } };
-}).catch((error) => {
-  console.log(error);
-
-  return { errors: { message: 'transaction failed' } };
-});
+}).catch((error) => handleServiceError(error, 'Transaction failed'));
 
 const getPromocode = async (payload) => {
   const {

@@ -12,6 +12,11 @@ const {
 } = require('../utils/helper');
 const { uploadFile } = require('../config/aws');
 const { convertImageFieldsToCloudFront } = require('../utils/s3Helper');
+const {
+  NotFoundError,
+  ConcurrencyError,
+  handleServiceError,
+} = require('../utils/serviceErrors');
 
 const saveOffer = async ({ data, imageFile }) => {
   let transaction = null;
@@ -50,12 +55,11 @@ const saveOffer = async ({ data, imageFile }) => {
 
     return { doc: { cat } };
   } catch (error) {
-    console.log(error);
     if (transaction) {
       await transaction.rollback();
     }
 
-    return { errors: { message: 'failed to save course offer' } };
+    return handleServiceError(error, 'Failed to save course offer');
   }
 };
 
@@ -70,13 +74,13 @@ const updateOffer = async ({ data, imageFile }) => withTransaction(sequelize, as
   });
 
   if (!response) {
-    return { errors: { message: 'Offer not found' } };
+    throw new NotFoundError('Offer not found');
   }
 
   const { concurrency_stamp: stamp } = response;
 
   if (concurrencyStamp !== stamp) {
-    return { concurrencyError: { message: 'invalid concurrency stamp' } };
+    throw new ConcurrencyError('invalid concurrency stamp');
   }
 
   const newConcurrencyStamp = uuidV4();
@@ -102,11 +106,7 @@ const updateOffer = async ({ data, imageFile }) => withTransaction(sequelize, as
   });
 
   return { doc: { concurrencyStamp: newConcurrencyStamp } };
-}).catch((error) => {
-  console.log(error);
-
-  return { errors: { message: 'transaction failed' } };
-});
+}).catch((error) => handleServiceError(error, 'Transaction failed'));
 
 const getOffer = async (payload) => {
   const {

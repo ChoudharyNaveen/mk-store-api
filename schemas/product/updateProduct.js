@@ -14,14 +14,16 @@ const updateProduct = Joi.object({
       'number.base': 'Parameter: brandId must be a number',
     }),
   status: Joi.string().valid('ACTIVE', 'INACTIVE').optional(),
-  quantity: Joi.number().integer().min(0).optional().messages({
-    'number.min': 'Parameter: quantity must be greater than or equal to 0',
-    'number.base': 'Parameter: quantity must be a number',
-  }),
-  itemsPerUnit: Joi.number().integer().min(1).optional().messages({
-    'number.min': 'Parameter: itemsPerUnit must be greater than or equal to 1',
-    'number.base': 'Parameter: itemsPerUnit must be an integer',
-  }),
+  quantity: Joi.number().integer().min(0).optional()
+    .messages({
+      'number.min': 'Parameter: quantity must be greater than or equal to 0',
+      'number.base': 'Parameter: quantity must be a number',
+    }),
+  itemsPerUnit: Joi.number().integer().min(1).optional()
+    .messages({
+      'number.min': 'Parameter: itemsPerUnit must be greater than or equal to 1',
+      'number.base': 'Parameter: itemsPerUnit must be an integer',
+    }),
   updatedBy: Joi.number().integer().required(),
   concurrencyStamp: Joi.string().required(),
   expiryDate: Joi.date().optional().messages({

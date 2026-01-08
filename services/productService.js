@@ -22,6 +22,12 @@ const {
 } = require('../utils/helper');
 const { uploadFile } = require('../config/aws');
 const { convertImageFieldsToCloudFront } = require('../utils/s3Helper');
+const {
+  NotFoundError,
+  ValidationError,
+  ConcurrencyError,
+  handleServiceError,
+} = require('../utils/serviceErrors');
 
 const saveProduct = async ({ data, imageFile }) => {
   let transaction = null;
@@ -42,9 +48,7 @@ const saveProduct = async ({ data, imageFile }) => {
       });
 
       if (!branch) {
-        await transaction.rollback();
-
-        return { errors: { message: 'Branch not found' } };
+        throw new NotFoundError('Branch not found');
       }
 
       // Set vendor_id from branch
@@ -61,23 +65,17 @@ const saveProduct = async ({ data, imageFile }) => {
       });
 
       if (!brand) {
-        await transaction.rollback();
-
-        return { errors: { message: 'Brand not found' } };
+        throw new NotFoundError('Brand not found');
       }
 
       // Verify brand belongs to the same vendor as the product
       if (brand.vendor_id !== datas.vendorId) {
-        await transaction.rollback();
-
-        return { errors: { message: 'Brand does not belong to the same vendor' } };
+        throw new ValidationError('Brand does not belong to the same vendor');
       }
 
       // Verify brand is active
       if (brand.status !== 'ACTIVE') {
-        await transaction.rollback();
-
-        return { errors: { message: 'Brand is not active' } };
+        throw new ValidationError('Brand is not active');
       }
 
       datas.brandId = brandId;
@@ -112,12 +110,11 @@ const saveProduct = async ({ data, imageFile }) => {
 
     return { doc: { cat } };
   } catch (error) {
-    console.log(error);
     if (transaction) {
       await transaction.rollback();
     }
 
-    return { errors: { message: 'failed to save product' } };
+    return handleServiceError(error, 'Failed to save product');
   }
 };
 
@@ -134,13 +131,13 @@ const updateProduct = async ({ data, imageFile }) => withTransaction(sequelize, 
   });
 
   if (!response) {
-    return { errors: { message: 'Product not found' } };
+    throw new NotFoundError('Product not found');
   }
 
   const { concurrency_stamp: stamp } = response;
 
   if (concurrencyStamp !== stamp) {
-    return { concurrencyError: { message: 'invalid concurrency stamp' } };
+    throw new ConcurrencyError('invalid concurrency stamp');
   }
 
   // Get the final vendor_id (from existing product or update)
@@ -159,17 +156,17 @@ const updateProduct = async ({ data, imageFile }) => withTransaction(sequelize, 
       });
 
       if (!brand) {
-        return { errors: { message: 'Brand not found' } };
+        throw new NotFoundError('Brand not found');
       }
 
       // Verify brand belongs to the same vendor as the product
       if (brand.vendor_id !== finalVendorId) {
-        return { errors: { message: 'Brand does not belong to the same vendor' } };
+        throw new ValidationError('Brand does not belong to the same vendor');
       }
 
       // Verify brand is active
       if (brand.status !== 'ACTIVE') {
-        return { errors: { message: 'Brand is not active' } };
+        throw new ValidationError('Brand is not active');
       }
     }
   }
@@ -196,11 +193,7 @@ const updateProduct = async ({ data, imageFile }) => withTransaction(sequelize, 
   });
 
   return { doc: { concurrencyStamp: newConcurrencyStamp } };
-}).catch((error) => {
-  console.log(error);
-
-  return { errors: { message: 'transaction failed' } };
-});
+}).catch((error) => handleServiceError(error, 'Transaction failed'));
 
 const getProduct = async (payload) => {
   const {
@@ -376,11 +369,7 @@ const deleteProduct = async (productId) => withTransaction(sequelize, async (tra
   ]);
 
   return { doc: { message: 'successfully deleted product' } };
-}).catch((error) => {
-  console.log(error);
-
-  return { errors: { message: 'failed to delete product' } };
-});
+}).catch((error) => handleServiceError(error, 'Failed to delete product'));
 
 const getProductDetails = async (productId) => {
   try {
@@ -437,7 +426,7 @@ const getProductDetails = async (productId) => {
     });
 
     if (!product) {
-      return { error: 'Product not found' };
+      return handleServiceError(new NotFoundError('Product not found'));
     }
 
     // Get statistics
@@ -499,9 +488,7 @@ const getProductDetails = async (productId) => {
       },
     };
   } catch (error) {
-    console.error('Error in getProductDetails:', error);
-
-    return { error: 'Failed to fetch product details' };
+    return handleServiceError(error, 'Failed to fetch product details');
   }
 };
 

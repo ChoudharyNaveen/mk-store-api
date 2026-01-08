@@ -1,4 +1,5 @@
 const { User: UserService } = require('../services');
+const { disconnectUser } = require('../services/socketService');
 const Helper = require('../utils/helper');
 const { createPaginationObject } = require('../utils/helper');
 
@@ -198,6 +199,30 @@ const getUsers = async (req, res) => {
   }
 };
 
+// Logout
+const logout = async (req, res) => {
+  try {
+    const userId = req.user?.id;
+
+    if (!userId) {
+      return sendErrorResponse(res, 401, 'User ID not found in token', 'AUTHENTICATION_FAILED');
+    }
+
+    // Disconnect all socket connections for this user
+    const disconnectResult = disconnectUser(userId);
+
+    return res.status(200).json({
+      success: true,
+      message: 'Logged out successfully',
+      doc: {
+        disconnectedSockets: disconnectResult.disconnectedCount || 0,
+      },
+    });
+  } catch (error) {
+    return handleServerError(error, req, res);
+  }
+};
+
 module.exports = {
   createSuperAdmin,
   authLogin,
@@ -207,4 +232,5 @@ module.exports = {
   getUserProfile,
   refreshToken,
   getUsers,
+  logout,
 };

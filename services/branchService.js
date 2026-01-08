@@ -13,6 +13,12 @@ const {
   generateOrderCondition,
   findAndCountAllWithTotal,
 } = require('../utils/helper');
+const {
+  NotFoundError,
+  ConflictError,
+  ConcurrencyError,
+  handleServiceError,
+} = require('../utils/serviceErrors');
 
 const saveBranch = async ({ data }) => {
   let transaction = null;
@@ -32,9 +38,7 @@ const saveBranch = async ({ data }) => {
     });
 
     if (!vendor) {
-      await transaction.rollback();
-
-      return { errors: { message: 'Vendor not found' } };
+      throw new NotFoundError('Vendor not found');
     }
 
     // Check if branch code is provided and if it already exists
@@ -45,9 +49,7 @@ const saveBranch = async ({ data }) => {
       });
 
       if (existingBranch) {
-        await transaction.rollback();
-
-        return { errors: { message: 'Branch code already exists. Please use a different code.' } };
+        throw new ConflictError('Branch code already exists. Please use a different code.');
       }
     }
 
@@ -69,18 +71,17 @@ const saveBranch = async ({ data }) => {
 
     return { doc: { branch } };
   } catch (error) {
-    console.log(error);
     if (transaction) {
       await transaction.rollback();
     }
     // Handle unique constraint violation from database
     if (error.name === 'SequelizeUniqueConstraintError') {
       if (error.errors && error.errors.some((e) => e.path === 'code')) {
-        return { errors: { message: 'Branch code already exists. Please use a different code.' } };
+        return handleServiceError(new ConflictError('Branch code already exists. Please use a different code.'));
       }
     }
 
-    return { errors: { message: 'failed to save branch' } };
+    return handleServiceError(error, 'Failed to save branch');
   }
 };
 
@@ -99,9 +100,7 @@ const updateBranch = async ({ data }) => withTransaction(sequelize, async (trans
     });
 
     if (!vendor) {
-      await transaction.rollback();
-
-      return { errors: { message: 'Vendor not found' } };
+      throw new NotFoundError('Vendor not found');
     }
   }
 
@@ -113,9 +112,7 @@ const updateBranch = async ({ data }) => withTransaction(sequelize, async (trans
     });
 
     if (existingBranch) {
-      await transaction.rollback();
-
-      return { errors: { message: 'Branch code already exists. Please use a different code.' } };
+      throw new ConflictError('Branch code already exists. Please use a different code.');
     }
   }
 
@@ -126,13 +123,13 @@ const updateBranch = async ({ data }) => withTransaction(sequelize, async (trans
   });
 
   if (!response) {
-    return { errors: { message: 'Branch not found' } };
+    throw new NotFoundError('Branch not found');
   }
 
   const { concurrency_stamp: stamp } = response;
 
   if (concurrencyStamp !== stamp) {
-    return { concurrencyError: { message: 'invalid concurrency stamp' } };
+    throw new ConcurrencyError('invalid concurrency stamp');
   }
 
   const newConcurrencyStamp = uuidV4();
@@ -149,15 +146,14 @@ const updateBranch = async ({ data }) => withTransaction(sequelize, async (trans
 
   return { doc: { concurrencyStamp: newConcurrencyStamp } };
 }).catch((error) => {
-  console.log(error);
   // Handle unique constraint violation from database
   if (error.name === 'SequelizeUniqueConstraintError') {
     if (error.errors && error.errors.some((e) => e.path === 'code')) {
-      return { errors: { message: 'Branch code already exists. Please use a different code.' } };
+      return handleServiceError(new ConflictError('Branch code already exists. Please use a different code.'));
     }
   }
 
-  return { errors: { message: 'transaction failed' } };
+  return handleServiceError(error, 'Transaction failed');
 });
 
 const getBranch = async (payload) => {

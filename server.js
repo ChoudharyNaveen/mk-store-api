@@ -101,9 +101,17 @@ const server = app.listen(port, '127.0.0.1', () => {
   console.log(`Server running on port ${port} in ${process.env.NODE_ENV}`);
 });
 
+// Initialize Socket.IO
+const { initializeSocket, cleanup: cleanupSocket } = require('./services/socketService');
+
+initializeSocket(server);
+
 // Graceful shutdown handler
 const gracefulShutdown = async (signal) => {
   console.log(`\n${signal} received. Starting graceful shutdown...`);
+
+  // Close Socket.IO connections
+  cleanupSocket();
 
   server.close(async () => {
     console.log('HTTP server closed');

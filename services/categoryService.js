@@ -18,6 +18,11 @@ const {
 } = require('../utils/helper');
 const { uploadFile } = require('../config/aws');
 const { convertImageFieldsToCloudFront } = require('../utils/s3Helper');
+const {
+  NotFoundError,
+  ConcurrencyError,
+  handleServiceError,
+} = require('../utils/serviceErrors');
 
 const saveCategory = async ({ data, imageFile }) => {
   let transaction = null;
@@ -36,9 +41,7 @@ const saveCategory = async ({ data, imageFile }) => {
       });
 
       if (!branch) {
-        await transaction.rollback();
-
-        return { errors: { message: 'Branch not found' } };
+        throw new NotFoundError('Branch not found');
       }
 
       // Set vendor_id from branch
@@ -75,12 +78,11 @@ const saveCategory = async ({ data, imageFile }) => {
 
     return { doc: { cat } };
   } catch (error) {
-    console.log(error);
     if (transaction) {
       await transaction.rollback();
     }
 
-    return { errors: { message: 'failed to save category' } };
+    return handleServiceError(error, 'Failed to save category');
   }
 };
 
@@ -95,13 +97,13 @@ const updateCategory = async ({ data, imageFile }) => withTransaction(sequelize,
   });
 
   if (!response) {
-    return { errors: { message: 'Category not found' } };
+    throw new NotFoundError('Category not found');
   }
 
   const { concurrency_stamp: stamp } = response;
 
   if (concurrencyStamp !== stamp) {
-    return { concurrencyError: { message: 'invalid concurrency stamp' } };
+    throw new ConcurrencyError('invalid concurrency stamp');
   }
 
   const newConcurrencyStamp = uuidV4();
@@ -127,11 +129,7 @@ const updateCategory = async ({ data, imageFile }) => withTransaction(sequelize,
   });
 
   return { doc: { concurrencyStamp: newConcurrencyStamp } };
-}).catch((error) => {
-  console.log(error);
-
-  return { errors: { message: 'transaction failed' } };
-});
+}).catch((error) => handleServiceError(error, 'Transaction failed'));
 
 const getCategory = async (payload) => {
   const {
@@ -199,7 +197,7 @@ const getCategoryDetails = async (categoryId) => {
     });
 
     if (!category) {
-      return { error: 'Category not found' };
+      return handleServiceError(new NotFoundError('Category not found'));
     }
 
     // Get all subcategories
@@ -277,9 +275,7 @@ const getCategoryDetails = async (categoryId) => {
       },
     };
   } catch (error) {
-    console.error('Error in getCategoryDetails:', error);
-
-    return { error: 'Failed to fetch category details' };
+    return handleServiceError(error, 'Failed to fetch category details');
   }
 };
 

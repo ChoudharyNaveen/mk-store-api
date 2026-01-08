@@ -12,6 +12,11 @@ const {
   generateOrderCondition,
   findAndCountAllWithTotal,
 } = require('../utils/helper');
+const {
+  NotFoundError,
+  ConcurrencyError,
+  handleServiceError,
+} = require('../utils/serviceErrors');
 
 const saveAddress = async (data) => withTransaction(sequelize, async (transaction) => {
   const { createdBy, ...datas } = data;
@@ -28,11 +33,7 @@ const saveAddress = async (data) => withTransaction(sequelize, async (transactio
   });
 
   return { doc: { cat } };
-}).catch((error) => {
-  console.log(error);
-
-  return { errors: { message: 'failed to save address' } };
-});
+}).catch((error) => handleServiceError(error, 'Failed to save address'));
 
 const updateAddress = async (data) => withTransaction(sequelize, async (transaction) => {
   const { id, ...datas } = data;
@@ -45,13 +46,13 @@ const updateAddress = async (data) => withTransaction(sequelize, async (transact
   });
 
   if (!response) {
-    return { errors: { message: 'Address not found' } };
+    throw new NotFoundError('Address not found');
   }
 
   const { concurrency_stamp: stamp } = response;
 
   if (concurrencyStamp !== stamp) {
-    return { concurrencyError: { message: 'invalid concurrency stamp' } };
+    throw new ConcurrencyError('invalid concurrency stamp');
   }
 
   const newConcurrencyStamp = uuidV4();
@@ -67,11 +68,7 @@ const updateAddress = async (data) => withTransaction(sequelize, async (transact
   });
 
   return { doc: { concurrencyStamp: newConcurrencyStamp } };
-}).catch((error) => {
-  console.log(error);
-
-  return { errors: { message: 'transaction failed' } };
-});
+}).catch((error) => handleServiceError(error, 'Transaction failed'));
 
 const getAddress = async (payload) => {
   const {
@@ -88,7 +85,9 @@ const getAddress = async (payload) => {
     AddressModel,
     {
       where: { ...where },
-      attributes: [ 'id', 'house_no', 'address_line_2', 'street_details', 'landmark', 'city', 'state', 'country', 'postal_code', 'name', 'mobile_number', 'created_by', 'created_at', 'updated_at', 'concurrency_stamp' ],
+      attributes: [ 'id', 'house_no', 'address_line_2', 'street_details',
+        'landmark', 'city', 'state', 'country', 'postal_code', 'name',
+        'mobile_number', 'created_by', 'created_at', 'updated_at', 'concurrency_stamp' ],
       include: [
         {
           model: UserModel,

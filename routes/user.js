@@ -8,6 +8,7 @@ const {
   getUserProfile,
   refreshToken,
   getUsers,
+  logout,
 } = require('../controllers/userController');
 
 const upload = multer();
@@ -597,4 +598,38 @@ module.exports = (router) => {
    *         description: Unauthorized - Invalid or missing token
    */
   router.post('/get-users', isAuthenticated, validate(getUsersSchema), getUsers);
+
+  /**
+   * @swagger
+   * /logout:
+   *   post:
+   *     summary: Logout user and close all socket connections
+   *     tags: [Authentication]
+   *     security:
+   *       - bearerAuth: []
+   *     responses:
+   *       200:
+   *         description: Logged out successfully
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 success:
+   *                   type: boolean
+   *                   example: true
+   *                 message:
+   *                   type: string
+   *                   example: "Logged out successfully"
+   *                 doc:
+   *                   type: object
+   *                   properties:
+   *                     disconnectedSockets:
+   *                       type: integer
+   *                       description: Number of socket connections that were disconnected
+   *                       example: 2
+   *       401:
+   *         description: Unauthorized - Invalid or missing token
+   */
+  router.post('/auth-logout', isAuthenticated, logout);
 };

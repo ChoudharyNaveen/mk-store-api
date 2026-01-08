@@ -24,6 +24,13 @@ const {
 const { uploadUserFile } = require('../config/aws');
 const { convertImageFieldsToCloudFront } = require('../utils/s3Helper');
 const config = require('../config/index');
+const {
+  ValidationError,
+  NotFoundError,
+  ConflictError,
+  ConcurrencyError,
+  handleServiceError,
+} = require('../utils/serviceErrors');
 
 // Create Super Admin
 const createSuperAdmin = async ({ data, imageFile }) => {
@@ -50,11 +57,11 @@ const createSuperAdmin = async ({ data, imageFile }) => {
     });
 
     if (userExists) {
-      return { errors: 'user already exists with that email or mobile number' };
+      throw new ConflictError('user already exists with that email or mobile number');
     }
 
     if (password !== confirmPassword) {
-      return { errors: 'password missmatched' };
+      throw new ValidationError('password missmatched');
     }
 
     transaction = await sequelize.transaction();
@@ -68,7 +75,7 @@ const createSuperAdmin = async ({ data, imageFile }) => {
     });
 
     if (!superAdminRole) {
-      return { errors: 'Super admin role not found' };
+      throw new NotFoundError('Super admin role not found');
     }
 
     const concurrencyStamp = uuidV4();
@@ -123,9 +130,8 @@ const createSuperAdmin = async ({ data, imageFile }) => {
     if (transaction) {
       await transaction.rollback();
     }
-    console.log(error);
 
-    return { errors: 'failed to create super admin' };
+    return handleServiceError(error, 'Failed to create super admin');
   }
 };
 
@@ -161,7 +167,7 @@ const getUserById = async (payload) => {
     return { doc: docWithCloudFrontUrl };
   }
 
-  return { errors: { message: 'User not found' } };
+  return handleServiceError(new NotFoundError('User not found'));
 };
 
 // Get user profile (includes role and vendor information)
@@ -174,7 +180,7 @@ const getUserProfile = async (payload) => {
   });
 
   if (!user) {
-    return { errors: { message: 'User not found' } };
+    return handleServiceError(new NotFoundError('User not found'));
   }
 
   const userData = convertSnakeToCamel(user.dataValues);
@@ -241,15 +247,11 @@ const createVendorAdmin = async ({ data, imageFile }) => {
     ]);
 
     if (!vendor) {
-      await transaction.rollback();
-
-      return { errors: { message: 'Vendor not found' } };
+      throw new NotFoundError('Vendor not found');
     }
 
     if (!adminRole) {
-      await transaction.rollback();
-
-      return { errors: { message: 'Admin role not found' } };
+      throw new NotFoundError('Admin role not found');
     }
 
     // Check if vendor already has an admin and if user exists in parallel
@@ -273,17 +275,11 @@ const createVendorAdmin = async ({ data, imageFile }) => {
     ]);
 
     if (existingAdmin) {
-      await transaction.rollback();
-
-      return { errors: { message: 'Vendor already has an admin assigned' } };
+      throw new ConflictError('Vendor already has an admin assigned');
     }
 
     if (userExists) {
-      await transaction.rollback();
-
-      return {
-        errors: { message: 'User already exists with that email or mobile number' },
-      };
+      throw new ConflictError('User already exists with that email or mobile number');
     }
 
     // Hash password if provided
@@ -333,6 +329,9 @@ const createVendorAdmin = async ({ data, imageFile }) => {
       { transaction },
     );
 
+    // Note: No notification for VENDOR_ADMIN creation
+    // Notifications are only for regular USER registrations
+
     await transaction.commit();
 
     return { doc: { user } };
@@ -340,9 +339,8 @@ const createVendorAdmin = async ({ data, imageFile }) => {
     if (transaction) {
       await transaction.rollback();
     }
-    console.log(error);
 
-    return { errors: { message: 'failed to create vendor admin' } };
+    return handleServiceError(error, 'Failed to create vendor admin');
   }
 };
 
@@ -358,13 +356,13 @@ const updateUser = async ({ data, imageFile }) => withTransaction(sequelize, asy
   });
 
   if (!response) {
-    return { errors: { message: 'User not found' } };
+    throw new NotFoundError('User not found');
   }
 
   const { concurrency_stamp: stamp } = response;
 
   if (concurrencyStamp !== stamp) {
-    return { concurrencyError: { message: 'invalid concurrency stamp' } };
+    throw new ConcurrencyError('invalid concurrency stamp');
   }
 
   const newConcurrencyStamp = uuidV4();
@@ -396,11 +394,7 @@ const updateUser = async ({ data, imageFile }) => withTransaction(sequelize, asy
   });
 
   return { doc: { concurrencyStamp: newConcurrencyStamp } };
-}).catch((error) => {
-  console.log(error);
-
-  return { errors: { message: 'transaction failed' } };
-});
+}).catch((error) => handleServiceError(error, 'Transaction failed'));
 
 // Convert User to Rider
 const convertUserToRider = async ({ userId }) => {
@@ -446,31 +440,19 @@ const convertUserToRider = async ({ userId }) => {
     ]);
 
     if (!user) {
-      await transaction.rollback();
-      console.error(`[convertUserToRider] Error: User not found with userId: ${userId}`);
-
-      return { errors: { message: 'User not found' } };
+      throw new NotFoundError('User not found');
     }
 
     if (!riderRole) {
-      await transaction.rollback();
-      console.error('[convertUserToRider] Error: RIDER role not found in database');
-
-      return { errors: { message: 'RIDER role not found' } };
+      throw new NotFoundError('RIDER role not found');
     }
 
     if (existingRiderMapping) {
-      await transaction.rollback();
-      console.error(`[convertUserToRider] Error: User ${userId} is already a rider`);
-
-      return { errors: { message: 'User is already a rider' } };
+      throw new ConflictError('User is already a rider');
     }
 
     if (!existingMapping) {
-      await transaction.rollback();
-      console.error(`[convertUserToRider] Error: No existing role mapping found for user ${userId}`);
-
-      return { errors: { message: 'No existing role mapping found for user' } };
+      throw new ValidationError('No existing role mapping found for user');
     }
 
     // Update existing mapping to RIDER role
@@ -501,10 +483,8 @@ const convertUserToRider = async ({ userId }) => {
     if (transaction) {
       await transaction.rollback();
     }
-    console.error('[convertUserToRider] Error:', error);
-    console.error('[convertUserToRider] Stack trace:', error.stack);
 
-    return { errors: { message: 'Failed to convert user to rider' } };
+    return handleServiceError(error, 'Failed to convert user to rider');
   }
 };
 
@@ -521,21 +501,21 @@ const authLogin = async (payload) => {
     });
 
     if (!user) {
-      return { errors: { message: 'User not found. Please sign up first.' } };
+      return handleServiceError(new NotFoundError('User not found. Please sign up first.'));
     }
 
     const userData = convertSnakeToCamel(user.dataValues);
 
     // Check if user has password
     if (!userData.password) {
-      return { errors: { message: 'Invalid credentials' } };
+      return handleServiceError(new ValidationError('Invalid credentials'));
     }
 
     // Verify password
     const passwordMatch = await bcrypt.compare(password, userData.password);
 
     if (!passwordMatch) {
-      return { errors: { message: 'Invalid credentials' } };
+      return handleServiceError(new ValidationError('Invalid credentials'));
     }
 
     // Get role mappings and role information
@@ -591,6 +571,8 @@ const authLogin = async (payload) => {
       expiresIn: config.jwt.token_life,
     });
 
+    // No notification for login - notifications are only for user registration
+
     return {
       doc: {
         message: 'Login successful. User authenticated.',
@@ -599,9 +581,7 @@ const authLogin = async (payload) => {
       },
     };
   } catch (error) {
-    console.log('authLogin error', error);
-
-    return { errors: { message: 'Failed to authenticate user' } };
+    return handleServiceError(error, 'Failed to authenticate user');
   }
 };
 
@@ -623,10 +603,10 @@ const refreshToken = async (payload) => {
         decoded = jwt.decode(token);
 
         if (!decoded) {
-          return { errors: { message: 'Invalid token' } };
+          return handleServiceError(new ValidationError('Invalid token'));
         }
       } else {
-        return { errors: { message: 'Invalid token' } };
+        return handleServiceError(new ValidationError('Invalid token'));
       }
     }
 
@@ -640,7 +620,7 @@ const refreshToken = async (payload) => {
     });
 
     if (!user) {
-      return { errors: { message: 'User not found or inactive' } };
+      return handleServiceError(new NotFoundError('User not found or inactive'));
     }
 
     const userData = convertSnakeToCamel(user.dataValues);
@@ -687,9 +667,7 @@ const refreshToken = async (payload) => {
 
     return { doc: { token: newToken, user: userResponse } };
   } catch (error) {
-    console.log('refreshToken error', error);
-
-    return { errors: { message: 'Failed to refresh token' } };
+    return handleServiceError(error, 'Failed to refresh token');
   }
 };
 
@@ -712,7 +690,7 @@ const getUsers = async (payload) => {
       });
 
       if (!role) {
-        return { errors: { message: `Role with name '${roleName}' not found` } };
+        return handleServiceError(new NotFoundError(`Role with name '${roleName}' not found`));
       }
     }
 
@@ -777,9 +755,7 @@ const getUsers = async (payload) => {
 
     return { count: 0, totalCount: 0, doc: [] };
   } catch (error) {
-    console.log('getUsers error', error);
-
-    return { errors: { message: 'Failed to fetch users' } };
+    return handleServiceError(error, 'Failed to fetch users');
   }
 };
 

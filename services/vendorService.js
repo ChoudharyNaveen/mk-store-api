@@ -15,6 +15,12 @@ const {
   generateOrderCondition,
   findAndCountAllWithTotal,
 } = require('../utils/helper');
+const {
+  NotFoundError,
+  ConflictError,
+  ConcurrencyError,
+  handleServiceError,
+} = require('../utils/serviceErrors');
 
 const saveVendor = async ({ data }) => {
   let transaction = null;
@@ -56,15 +62,11 @@ const saveVendor = async ({ data }) => {
     ]);
 
     if (existingVendor) {
-      await transaction.rollback();
-
-      return { errors: { message: 'Vendor code already exists. Please use a different code.' } };
+      throw new ConflictError('Vendor code already exists. Please use a different code.');
     }
 
     if (existingBranch) {
-      await transaction.rollback();
-
-      return { errors: { message: 'Branch code already exists. Please use a different code.' } };
+      throw new ConflictError('Branch code already exists. Please use a different code.');
     }
 
     const concurrencyStamp = uuidV4();
@@ -109,24 +111,23 @@ const saveVendor = async ({ data }) => {
 
     return { doc: { vendor, branch } };
   } catch (error) {
-    console.log(error);
     if (transaction) {
       await transaction.rollback();
     }
     // Handle unique constraint violation from database
     if (error.name === 'SequelizeUniqueConstraintError') {
       if (error.errors && error.errors.some((e) => e.path === 'code' && e.instance?.tableName === 'vendor')) {
-        return { errors: { message: 'Vendor code already exists. Please use a different code.' } };
+        return handleServiceError(new ConflictError('Vendor code already exists. Please use a different code.'));
       }
       if (error.errors && error.errors.some((e) => e.path === 'code' && e.instance?.tableName === 'branch')) {
-        return { errors: { message: 'Branch code already exists. Please use a different code.' } };
+        return handleServiceError(new ConflictError('Branch code already exists. Please use a different code.'));
       }
       if (error.errors && error.errors.some((e) => e.path === 'email')) {
-        return { errors: { message: 'Vendor email already exists. Please use a different email.' } };
+        return handleServiceError(new ConflictError('Vendor email already exists. Please use a different email.'));
       }
     }
 
-    return { errors: { message: 'failed to save vendor' } };
+    return handleServiceError(error, 'Failed to save vendor');
   }
 };
 
@@ -141,13 +142,13 @@ const updateVendor = async ({ data }) => withTransaction(sequelize, async (trans
   });
 
   if (!response) {
-    return { errors: { message: 'Vendor not found' } };
+    throw new NotFoundError('Vendor not found');
   }
 
   const { concurrency_stamp: stamp } = response;
 
   if (concurrencyStamp !== stamp) {
-    return { concurrencyError: { message: 'invalid concurrency stamp' } };
+    throw new ConcurrencyError('invalid concurrency stamp');
   }
 
   const newConcurrencyStamp = uuidV4();
@@ -163,11 +164,7 @@ const updateVendor = async ({ data }) => withTransaction(sequelize, async (trans
   });
 
   return { doc: { concurrencyStamp: newConcurrencyStamp } };
-}).catch((error) => {
-  console.log(error);
-
-  return { errors: { message: 'transaction failed' } };
-});
+}).catch((error) => handleServiceError(error, 'Transaction failed'));
 
 const getVendor = async (payload) => {
   const {
@@ -210,14 +207,12 @@ const getVendorByCode = async (code) => {
     });
 
     if (!vendor) {
-      return { errors: { message: 'Vendor not found' } };
+      return handleServiceError(new NotFoundError('Vendor not found'));
     }
 
     return { doc: vendor.dataValues };
   } catch (error) {
-    console.log(error);
-
-    return { errors: { message: 'failed to get vendor by code' } };
+    return handleServiceError(error, 'Failed to get vendor by code');
   }
 };
 
@@ -236,7 +231,7 @@ const getVendorWithUsers = async (vendorId) => {
     ]);
 
     if (!adminRole || !riderRole) {
-      return { errors: { message: 'Roles not found' } };
+      return handleServiceError(new NotFoundError('Roles not found'));
     }
 
     const vendor = await VendorModel.findOne({
@@ -264,7 +259,7 @@ const getVendorWithUsers = async (vendorId) => {
     });
 
     if (!vendor) {
-      return { errors: { message: 'Vendor not found' } };
+      return handleServiceError(new NotFoundError('Vendor not found'));
     }
 
     // Separate admin and riders
@@ -283,9 +278,7 @@ const getVendorWithUsers = async (vendorId) => {
 
     return { doc: result };
   } catch (error) {
-    console.log(error);
-
-    return { errors: { message: 'failed to get vendor with users' } };
+    return handleServiceError(error, 'Failed to get vendor with users');
   }
 };
 

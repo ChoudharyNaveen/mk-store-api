@@ -7,7 +7,7 @@ const placeOrder = async (req, res) => {
   try {
     const data = req.validatedData;
 
-    const { doc, error } = await OrderService.placeOrder(data);
+    const { doc, errors } = await OrderService.placeOrder({ ...data, createdBy: req.user.id });
 
     if (doc) {
       return res.status(201).json({
@@ -16,7 +16,7 @@ const placeOrder = async (req, res) => {
       });
     }
 
-    return sendErrorResponse(res, 400, extractErrorMessage(error), 'VALIDATION_ERROR');
+    return sendErrorResponse(res, 400, extractErrorMessage(errors), 'VALIDATION_ERROR');
   } catch (error) {
     return handleServerError(error, req, res);
   }
@@ -39,9 +39,13 @@ const getOrder = async (req, res) => {
 
 const getStatsOfOrdersCompleted = async (req, res) => {
   try {
-    const { data } = await OrderService.getStatsOfOrdersCompleted();
+    const { doc, errors } = await OrderService.getStatsOfOrdersCompleted();
 
-    return res.status(200).json({ success: true, data });
+    if (doc) {
+      return res.status(200).json({ success: true, data: doc });
+    }
+
+    return sendErrorResponse(res, 400, extractErrorMessage(errors), 'VALIDATION_ERROR');
   } catch (error) {
     return handleServerError(error, req, res);
   }
