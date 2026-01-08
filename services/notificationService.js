@@ -92,7 +92,7 @@ const createOrderPlacedNotification = async (orderData) => {
     entity_type: 'ORDER',
     entity_id: orderId,
     priority: 'HIGH',
-    action_url: `/orders/${orderId}`,
+    action_url: `/orders/detail/${orderId}`,
     icon: 'shopping-cart',
     metadata: {
       order_id: orderId,
@@ -142,7 +142,7 @@ const createOrderUpdatedNotification = async (orderData) => {
     entity_type: 'ORDER',
     entity_id: orderId,
     priority: status === 'CANCELLED' ? 'URGENT' : 'MEDIUM',
-    action_url: `/orders/${orderId}`,
+    action_url: `/orders/detail/${orderId}`,
     icon: 'package',
     metadata: {
       order_id: orderId,
@@ -176,7 +176,7 @@ const createOrderUpdatedNotification = async (orderData) => {
       entity_type: 'ORDER',
       entity_id: orderId,
       priority: 'MEDIUM',
-      action_url: `/orders/${orderId}`,
+      action_url: `/orders/detail/${orderId}`,
       icon: 'check-circle',
       metadata: {
         order_id: orderId,
