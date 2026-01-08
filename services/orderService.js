@@ -431,13 +431,13 @@ const placeOrder = async (data) => withTransaction(sequelize, async (transaction
   }));
 
   // deleting cart
-  // await CartModel.destroy({
-  //   where: {
-  //     created_by: createdBy,
-  //     status: 'ACTIVE',
-  //   },
-  //   transaction,
-  // });
+  await CartModel.destroy({
+    where: {
+      created_by: createdBy,
+      status: 'ACTIVE',
+    },
+    transaction,
+  });
 
   // Create notification for new order (after transaction commit)
   transaction.afterCommit(async () => {
