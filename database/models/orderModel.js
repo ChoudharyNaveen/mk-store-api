@@ -47,6 +47,21 @@ module.exports = (sequelize, DataTypes) => {
         allowNull: true,
         comment: 'Estimated delivery time in minutes',
       },
+      distance: {
+        type: DataTypes.FLOAT,
+        allowNull: true,
+        comment: 'Distance in kilometers, from road-distance API or Haversine fallback',
+      },
+      distance_method: {
+        type: DataTypes.STRING,
+        enum: [ 'ROAD_API', 'HAVERSINE_FALLBACK', 'MANUAL' ],
+        allowNull: true,
+      },
+      estimated_delivery_eta: {
+        type: DataTypes.INTEGER,
+        allowNull: true,
+        comment: 'Estimated delivery time in minutes, from road-distance API',
+      },
       refund_amount: {
         type: DataTypes.FLOAT,
         allowNull: false,
@@ -143,6 +158,15 @@ module.exports = (sequelize, DataTypes) => {
       foreignKey: 'order_id',
       sourceKey: 'id',
       as: 'orderStatusHistory',
+    });
+    order.hasMany(models.inventoryMovement, {
+      foreignKey: 'reference_id',
+      sourceKey: 'id',
+      as: 'inventoryMovements',
+      constraints: false,
+      scope: {
+        reference_type: 'ORDER',
+      },
     });
   };
 

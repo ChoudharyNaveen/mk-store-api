@@ -59,7 +59,7 @@ module.exports = {
       'always',
       { exceptAfterSingleLine: true },
     ],
-    'max-len': [ 'error', { code: 160, comments: 160, ignoreUrls: true } ],
+    'max-len': [ 'error', { code: 260, comments: 260, ignoreUrls: true } ],
     'max-lines': [
       'error',
       { max: 700, skipBlankLines: true, skipComments: true },

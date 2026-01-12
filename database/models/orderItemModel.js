@@ -14,7 +14,17 @@ module.exports = (sequelize, DataTypes) => {
       },
       product_id: {
         type: DataTypes.INTEGER,
-        allowNull: false,
+        allowNull: true,
+      },
+      variant_id: {
+        type: DataTypes.INTEGER,
+        allowNull: true,
+        index: true,
+      },
+      variant_name: {
+        type: DataTypes.STRING,
+        allowNull: true,
+        comment: 'Snapshot for historical accuracy',
       },
       quantity: {
         type: DataTypes.INTEGER,
@@ -57,6 +67,11 @@ module.exports = (sequelize, DataTypes) => {
       foreignKey: 'product_id',
       targetKey: 'id',
       as: 'product',
+    });
+    orderItem.belongsTo(models.productVariant, {
+      foreignKey: 'variant_id',
+      targetKey: 'id',
+      as: 'variant',
     });
   };
 

@@ -2,6 +2,7 @@ const {
   orderItem: OrderItemModel,
   order: OrderModel,
   product: ProductModel,
+  productVariant: ProductVariantModel,
   user: UserModel,
   address: AddressModel,
 } = require('../database');
@@ -27,7 +28,7 @@ const getOrderItem = async (payload) => {
     OrderItemModel,
     {
       where: { ...where },
-      attributes: [ 'id', 'order_id', 'product_id', 'quantity', 'price_at_purchase', 'created_by', 'created_at', 'updated_at', 'concurrency_stamp' ],
+      attributes: [ 'id', 'order_id', 'product_id', 'variant_id', 'variant_name', 'quantity', 'price_at_purchase', 'created_by', 'created_at', 'updated_at', 'concurrency_stamp' ],
       include: [
         {
           model: UserModel,
@@ -48,6 +49,20 @@ const getOrderItem = async (payload) => {
           model: ProductModel,
           as: 'product',
           attributes: [ 'id', 'title', 'selling_price', 'image' ],
+          required: false,
+        },
+        {
+          model: ProductVariantModel,
+          as: 'variant',
+          attributes: [ 'id', 'variant_name', 'variant_type', 'selling_price' ],
+          required: false,
+          include: [
+            {
+              model: ProductModel,
+              as: 'product',
+              attributes: [ 'id', 'title', 'image' ],
+            },
+          ],
         },
       ],
       order,

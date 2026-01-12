@@ -3,6 +3,8 @@ const {
   cart: CartModel,
   user: UserModel,
   product: ProductModel,
+  productVariant: ProductVariantModel,
+  productImage: ProductImageModel,
   branch: BranchModel,
   sequelize,
 } = require('../database');
@@ -23,32 +25,74 @@ const {
 
 const saveCart = async (data) => withTransaction(sequelize, async (transaction) => {
   const {
-    createdBy, productId, vendorId, branchId, ...datas
+    createdBy, productId, variantId, vendorId, branchId, ...datas
   } = data;
 
-  // Fetch product to validate vendor_id and branch_id match
-  const product = await ProductModel.findOne({
-    where: { id: productId },
-    attributes: [ 'id', 'vendor_id', 'branch_id' ],
-    transaction,
-  });
-
-  if (!product) {
-    throw new NotFoundError('Product not found');
+  // Validate: Either productId or variantId must be provided
+  if (!productId && !variantId) {
+    throw new ValidationError('Either productId or variantId must be provided');
   }
 
-  // Validate that provided vendorId and branchId match the product
-  if (vendorId !== product.vendor_id) {
-    throw new ValidationError('Vendor ID does not match the product\'s vendor');
+  let finalVendorId;
+  let finalBranchId;
+  let finalProductId = productId;
+  const finalVariantId = variantId || null;
+
+  // If variant is provided, use variant's product, vendor, and branch
+  if (variantId) {
+    const variant = await ProductVariantModel.findOne({
+      where: { id: variantId },
+      attributes: [ 'id', 'product_id' ],
+      include: [
+        {
+          model: ProductModel,
+          as: 'product',
+          attributes: [ 'id', 'vendor_id', 'branch_id' ],
+        },
+      ],
+      transaction,
+    });
+
+    if (!variant) {
+      throw new NotFoundError('Product variant not found');
+    }
+
+    finalProductId = variant.product_id;
+    finalVendorId = variant.product.vendor_id;
+    finalBranchId = variant.product.branch_id;
+
+    // Validate provided productId matches variant's product (if provided)
+    if (productId && productId !== finalProductId) {
+      throw new ValidationError('Product ID does not match the variant\'s product');
+    }
+  } else {
+    // No variant, use product directly
+    const product = await ProductModel.findOne({
+      where: { id: productId },
+      attributes: [ 'id', 'vendor_id', 'branch_id' ],
+      transaction,
+    });
+
+    if (!product) {
+      throw new NotFoundError('Product not found');
+    }
+
+    finalVendorId = product.vendor_id;
+    finalBranchId = product.branch_id;
   }
 
-  if (branchId !== product.branch_id) {
-    throw new ValidationError('Branch ID does not match the product\'s branch');
+  // Validate that provided vendorId and branchId match (if provided)
+  if (vendorId && vendorId !== finalVendorId) {
+    throw new ValidationError('Vendor ID does not match');
+  }
+
+  if (branchId && branchId !== finalBranchId) {
+    throw new ValidationError('Branch ID does not match');
   }
 
   // Validate branch exists and belongs to vendor
   const branch = await BranchModel.findOne({
-    where: { id: branchId, vendor_id: vendorId },
+    where: { id: finalBranchId, vendor_id: finalVendorId },
     attributes: [ 'id' ],
     transaction,
   });
@@ -57,19 +101,26 @@ const saveCart = async (data) => withTransaction(sequelize, async (transaction) 
     throw new ValidationError('Branch not found or does not belong to vendor');
   }
 
-  const finalVendorId = vendorId;
-  const finalBranchId = branchId;
-
   const concurrencyStamp = uuidV4();
 
+  // Check if cart item already exists (same product/variant, user, vendor, branch)
+  const existingWhere = {
+    created_by: createdBy,
+    vendor_id: finalVendorId,
+    branch_id: finalBranchId,
+  };
+
+  if (finalVariantId) {
+    existingWhere.variant_id = finalVariantId;
+    existingWhere.product_id = null;
+  } else {
+    existingWhere.product_id = finalProductId;
+    existingWhere.variant_id = null;
+  }
+
   const isExists = await CartModel.findOne({
-    where: {
-      product_id: productId,
-      created_by: createdBy,
-      vendor_id: finalVendorId,
-      branch_id: finalBranchId,
-    },
-    attributes: [ 'id', 'product_id', 'quantity' ],
+    where: existingWhere,
+    attributes: [ 'id', 'product_id', 'variant_id', 'quantity' ],
     transaction,
   });
 
@@ -79,12 +130,14 @@ const saveCart = async (data) => withTransaction(sequelize, async (transaction) 
 
   const doc = {
     ...datas,
-    productId,
+    productId: finalVariantId ? null : finalProductId, // Set to null if variant is used
+    variantId: finalVariantId,
     vendorId: finalVendorId,
     branchId: finalBranchId,
     concurrencyStamp,
     createdBy,
   };
+
   const cat = await CartModel.create(convertCamelToSnake(doc), {
     transaction,
   });
@@ -116,12 +169,36 @@ const getCartOfUser = async (payload) => {
     CartModel,
     {
       where: { ...where, status: 'ACTIVE' },
-      attributes: [ 'id', 'product_id', 'vendor_id', 'branch_id', 'quantity', 'status', 'created_by', 'created_at', 'updated_at', 'concurrency_stamp' ],
+      attributes: [ 'id', 'product_id', 'variant_id', 'vendor_id', 'branch_id', 'quantity', 'status', 'created_by', 'created_at', 'updated_at', 'concurrency_stamp' ],
       include: [
         {
           model: ProductModel,
           as: 'productDetails',
-          attributes: [ 'id', 'title', 'selling_price', 'quantity', 'image', 'product_status' ],
+          attributes: [ 'id', 'title' ],
+          required: false,
+        },
+        {
+          model: ProductVariantModel,
+          as: 'variant',
+          attributes: [ 'id', 'variant_name', 'variant_type', 'selling_price', 'quantity', 'product_status' ],
+          required: false,
+          include: [
+            {
+              model: ProductModel,
+              as: 'product',
+              attributes: [ 'id', 'title' ],
+              include: [
+                {
+                  model: ProductImageModel,
+                  as: 'images',
+                  where: { status: 'ACTIVE', is_default: 1 },
+                  required: false,
+                  attributes: [ 'id', 'image_url' ],
+                  limit: 1,
+                },
+              ],
+            },
+          ],
         },
         {
           model: UserModel,

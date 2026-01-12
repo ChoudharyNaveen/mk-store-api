@@ -20,6 +20,18 @@ const placeOrder = Joi.object({
   state: Joi.string().optional(),
   country: Joi.string().optional().default('India'),
   postalCode: Joi.string().optional(),
+  latitude: Joi.number().min(-90).max(90).optional()
+    .allow(null)
+    .messages({
+      'number.min': 'Parameter: latitude must be between -90 and 90',
+      'number.max': 'Parameter: latitude must be between -90 and 90',
+    }),
+  longitude: Joi.number().min(-180).max(180).optional()
+    .allow(null)
+    .messages({
+      'number.min': 'Parameter: longitude must be between -180 and 180',
+      'number.max': 'Parameter: longitude must be between -180 and 180',
+    }),
   name: Joi.string().optional(),
   mobileNumber: Joi.string().optional(),
   // Discount fields - only one can be provided

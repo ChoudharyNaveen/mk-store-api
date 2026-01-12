@@ -2,6 +2,8 @@ const user = require('./user');
 const category = require('./category');
 const subCategory = require('./subCategory');
 const product = require('./product');
+const productVariant = require('./productVariant');
+const productImage = require('./productImage');
 const promocode = require('./promocode');
 const offer = require('./offer');
 const otp = require('./otp');
@@ -14,12 +16,16 @@ const vendor = require('./vendor');
 const branch = require('./branch');
 const brand = require('./brand');
 const notification = require('./notification');
+const shipping = require('./shipping');
+const inventory = require('./inventory');
 
 module.exports = {
   ...user,
   ...category,
   ...subCategory,
   ...product,
+  ...productVariant,
+  ...productImage,
   ...promocode,
   ...offer,
   ...otp,
@@ -32,4 +38,6 @@ module.exports = {
   ...branch,
   ...brand,
   ...notification,
+  ...shipping,
+  ...inventory,
 };

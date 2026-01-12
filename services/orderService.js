@@ -5,6 +5,7 @@ const {
   order: OrderModel,
   cart: CartModel,
   product: ProductModel,
+  productVariant: ProductVariantModel,
   orderItem: OrderItemModel,
   address: AddressModel,
   user: UserModel,
@@ -14,6 +15,7 @@ const {
   branch: BranchModel,
   orderDiscount: OrderDiscountModel,
   orderStatusHistory: OrderStatusHistoryModel,
+  productImage: ProductImageModel,
   sequelize,
   Sequelize: { Op },
 } = require('../database');
@@ -27,6 +29,8 @@ const {
 } = require('../utils/helper');
 const { convertImageFieldsToCloudFront } = require('../utils/s3Helper');
 const { createOrderPlacedNotification, createOrderUpdatedNotification } = require('./notificationService');
+const ShippingService = require('./shippingService');
+const InventoryMovementService = require('./inventoryMovementService');
 const {
   ValidationError,
   NotFoundError,
@@ -124,12 +128,20 @@ const placeOrder = async (data) => withTransaction(sequelize, async (transaction
       vendor_id: branchVendorId,
       branch_id: branchId,
     },
-    attributes: [ 'id', 'product_id', 'vendor_id', 'branch_id', 'quantity', 'created_by' ],
+    attributes: [ 'id', 'product_id', 'variant_id', 'vendor_id', 'branch_id', 'quantity', 'created_by' ],
     include: [
       {
-        model: ProductModel,
-        as: 'productDetails',
-        attributes: [ 'id', 'title', 'selling_price', 'quantity', 'concurrency_stamp' ],
+        model: ProductVariantModel,
+        as: 'variant',
+        attributes: [ 'id', 'variant_name', 'product_id', 'selling_price', 'quantity', 'concurrency_stamp' ],
+        required: true, // Variant is required
+        include: [
+          {
+            model: ProductModel,
+            as: 'product',
+            attributes: [ 'id', 'title' ],
+          },
+        ],
       },
     ],
     transaction,
@@ -139,34 +151,50 @@ const placeOrder = async (data) => withTransaction(sequelize, async (transaction
     throw new ValidationError('No items in the cart');
   }
 
-  // Fetch all products in parallel for validation and quantity checks
-  const productIds = cartItems.map((item) => item.product_id);
-  const products = await ProductModel.findAll({
-    where: { id: { [Op.in]: productIds } },
-    attributes: [ 'id', 'title', 'quantity', 'concurrency_stamp' ],
+  // Validate that all cart items have variants
+  const invalidItems = cartItems.filter((item) => !item.variant_id || !item.variant);
+
+  if (invalidItems.length > 0) {
+    throw new ValidationError('All cart items must have a variant. Products without variants are not supported.');
+  }
+
+  // Fetch all variants for validation and quantity checks
+  const variantIds = cartItems.map((item) => item.variant_id).filter(Boolean);
+
+  const variants = await ProductVariantModel.findAll({
+    where: { id: { [Op.in]: variantIds } },
+    attributes: [ 'id', 'variant_name', 'product_id', 'quantity', 'selling_price', 'concurrency_stamp' ],
     transaction,
   });
 
-  const productMap = new Map(products.map((p) => [ p.id, p ]));
+  const variantMap = new Map(variants.map((v) => [ v.id, v ]));
 
-  // calculate total amount and validate quantities
+  // Calculate total amount and validate quantities
   let totalAmount = 0;
   const validationResults = cartItems.map((item) => {
-    const price = item.productDetails.selling_price;
     const { quantity } = item;
-    const subtotal = price * quantity;
-    const product = productMap.get(item.product_id);
+    const variant = variantMap.get(item.variant_id);
 
-    if (!product) {
+    if (!variant) {
       return {
-        errors: { message: `Product with id ${item.product_id} not found` },
+        errors: { message: `Product variant with id ${item.variant_id} not found` },
       };
     }
 
-    if (quantity > product.quantity) {
+    const price = variant.selling_price;
+    const itemTitle = variant.variant_name;
+    const currentQuantity = variant.quantity;
+    const itemConcurrencyStamp = variant.concurrency_stamp;
+    const itemProductId = variant.product_id;
+    const itemVariantId = variant.id;
+    const itemVariantName = variant.variant_name;
+
+    const subtotal = price * quantity;
+
+    if (quantity > currentQuantity) {
       return {
         errors: {
-          message: `we apologize for the inconvenience, quantity for the ${product.title} is left with only ${product.quantity}.
+          message: `we apologize for the inconvenience, quantity for the ${itemTitle} is left with only ${currentQuantity}.
           please try with lower quantity`,
         },
       };
@@ -174,11 +202,13 @@ const placeOrder = async (data) => withTransaction(sequelize, async (transaction
 
     return {
       orderItem: {
-        product_id: item.product_id,
+        product_id: itemProductId,
+        variant_id: itemVariantId,
+        variant_name: itemVariantName,
         quantity,
         price_at_purchase: price,
-        product_quantity: product.quantity,
-        product_concurrency_stamp: product.concurrency_stamp,
+        product_quantity: currentQuantity,
+        product_concurrency_stamp: itemConcurrencyStamp,
       },
       subtotal,
     };
@@ -203,7 +233,7 @@ const placeOrder = async (data) => withTransaction(sequelize, async (transaction
     // Use existing address
     address = await AddressModel.findOne({
       where: { id: addressId, created_by: createdBy },
-      attributes: [ 'id', 'created_by' ],
+      attributes: [ 'id', 'created_by', 'latitude', 'longitude' ],
       transaction,
     });
 
@@ -217,6 +247,8 @@ const placeOrder = async (data) => withTransaction(sequelize, async (transaction
     const doc = {
       concurrencyStamp: addressConcurrencyStamp,
       houseNo,
+      latitude: data.latitude || null,
+      longitude: data.longitude || null,
       addressLine2: addressLine2 || null,
       streetDetails,
       landmark: landmark || null,
@@ -245,20 +277,6 @@ const placeOrder = async (data) => withTransaction(sequelize, async (transaction
       throw new ValidationError('Address not found. Please provide address details or addressId.');
     }
   }
-
-  // ✅ NOW REDUCE PRODUCT QUANTITIES (after all validations pass)
-  // Update all product quantities in parallel
-  await Promise.all(orderItemsData.map(async (itemData) => {
-    const productQuanityRemaining = itemData.product_quantity - itemData.quantity;
-
-    await ProductModel.update(
-      { quantity: productQuanityRemaining, concurrency_stamp: uuidV4() },
-      {
-        where: { id: itemData.product_id },
-        transaction,
-      },
-    );
-  }));
 
   // Discount application variables
   let discountApplied = false;
@@ -342,13 +360,67 @@ const placeOrder = async (data) => withTransaction(sequelize, async (transaction
     }
   }
 
-  // Calculate shipping charges (default to 0 if not provided)
-  const shippingChargesValue = shippingCharges || 0;
+  // Calculate shipping charges using shipping service (road-distance API with fallback)
+  let shippingChargesValue = 0;
+  let distance = null;
+  let distanceMethod = 'MANUAL';
+  let estimatedDeliveryETA = null;
+
+  // Get delivery type from orderPriority (EXPRESS/URGENT = SAME_DAY, NORMAL = NEXT_DAY)
+  const deliveryType = (orderPriority === 'EXPRESS' || orderPriority === 'URGENT') ? 'SAME_DAY' : 'NEXT_DAY';
+
+  // Get address coordinates if available
+  const addressWithCoords = await AddressModel.findOne({
+    where: { id: address.id },
+    attributes: [ 'id', 'latitude', 'longitude' ],
+    transaction,
+  });
+
+  // Get branch coordinates
+  const branchWithCoords = await BranchModel.findOne({
+    where: { id: branchId },
+    attributes: [ 'id', 'latitude', 'longitude' ],
+    transaction,
+  });
+
+  if (addressWithCoords?.latitude && addressWithCoords?.longitude && branchWithCoords?.latitude && branchWithCoords?.longitude) {
+    // Calculate shipping charges using shipping service
+    try {
+      const shippingResult = await ShippingService.calculateShippingCharges(
+        branchId,
+        addressWithCoords.latitude,
+        addressWithCoords.longitude,
+        totalAmount,
+        deliveryType,
+      );
+
+      if (shippingResult.doc && !shippingResult.errors) {
+        shippingChargesValue = shippingResult.doc.shippingCharges || 0;
+        distance = shippingResult.doc.distance || null;
+        distanceMethod = shippingResult.doc.method || 'MANUAL';
+        estimatedDeliveryETA = shippingResult.doc.eta || null;
+      } else {
+        // Fallback to provided shipping charges or 0
+        shippingChargesValue = shippingCharges || 0;
+        distanceMethod = 'MANUAL';
+      }
+    } catch (error) {
+      console.error('Error calculating shipping charges:', error);
+
+      // Fallback to provided shipping charges or 0
+      shippingChargesValue = shippingCharges || 0;
+      distanceMethod = 'MANUAL';
+    }
+  } else {
+    // If coordinates not available, use provided shippingCharges or default to 0
+    shippingChargesValue = shippingCharges || 0;
+    distanceMethod = 'MANUAL';
+  }
 
   // Calculate final amount: totalAmount - discountAmount + shippingCharges
   const finalAmount = totalAmount - discountAmount + shippingChargesValue;
 
-  // create order
+  // Create order
   const orderConcurrencyStamp = uuidV4();
   const orderNumber = await generateOrderNumber(transaction);
 
@@ -362,6 +434,9 @@ const placeOrder = async (data) => withTransaction(sequelize, async (transaction
     orderNumber,
     orderPriority: orderPriority || 'NORMAL',
     estimatedDeliveryTime: estimatedDeliveryTime || null,
+    distance,
+    distanceMethod,
+    estimatedDeliveryETA,
     refundAmount: 0,
     refundStatus: 'NONE',
     status: 'PENDING',
@@ -414,20 +489,57 @@ const placeOrder = async (data) => withTransaction(sequelize, async (transaction
     transaction,
   });
 
-  // create order items in parallel
+  // Create order items in parallel and reduce quantities
   await Promise.all(orderItemsData.map(async (item) => {
     const itemDoc = {
       concurrencyStamp: uuidV4(),
       orderId: newOrder.id,
       productId: item.product_id,
+      variantId: item.variant_id || null,
+      variantName: item.variant_name || null,
       quantity: item.quantity,
       priceAtPurchase: item.price_at_purchase,
       createdBy,
     };
 
-    await OrderItemModel.create(convertCamelToSnake(itemDoc), {
+    const orderItem = await OrderItemModel.create(convertCamelToSnake(itemDoc), {
       transaction,
     });
+
+    // Reduce variant quantity and create inventory movement
+    const quantityRemaining = item.product_quantity - item.quantity;
+    const quantityChange = -item.quantity; // Negative for REMOVED
+
+    // Update variant quantity
+    await ProductVariantModel.update(
+      {
+        quantity: quantityRemaining,
+        product_status: quantityRemaining > 0 ? 'INSTOCK' : 'OUT-OF-STOCK',
+        concurrency_stamp: uuidV4(),
+      },
+      {
+        where: { id: item.variant_id },
+        transaction,
+      },
+    );
+
+    // Create inventory movement for variant
+    await InventoryMovementService.createInventoryMovement({
+      productId: item.product_id,
+      variantId: item.variant_id,
+      vendorId: branchVendorId,
+      branchId,
+      movementType: 'REMOVED',
+      quantityChange,
+      quantityBefore: item.product_quantity,
+      quantityAfter: quantityRemaining,
+      referenceType: 'ORDER',
+      referenceId: newOrder.id,
+      userId: createdBy,
+      notes: `Order ${orderNumber}`,
+    });
+
+    return orderItem;
   }));
 
   // deleting cart
@@ -445,7 +557,7 @@ const placeOrder = async (data) => withTransaction(sequelize, async (transaction
       await createOrderPlacedNotification({
         orderId: newOrder.id,
         orderNumber: newOrder.order_number,
-        vendorId: branch.vendor_id,
+        vendorId: branchVendorId,
         branchId,
         totalAmount: newOrder.final_amount,
         userId: createdBy,
@@ -466,6 +578,9 @@ const placeOrder = async (data) => withTransaction(sequelize, async (transaction
       final_amount: newOrder.final_amount,
       order_priority: newOrder.order_priority,
       estimated_delivery_time: newOrder.estimated_delivery_time,
+      distance: newOrder.distance,
+      distance_method: newOrder.distance_method,
+      estimated_delivery_eta: newOrder.estimated_delivery_eta,
       item_count: orderItemsData.length,
     },
   };
@@ -495,6 +610,9 @@ const getOrder = async (payload) => {
         'final_amount',
         'order_priority',
         'estimated_delivery_time',
+        'distance',
+        'distance_method',
+        'estimated_delivery_eta',
         'refund_amount',
         'refund_status',
         'status',
@@ -516,12 +634,19 @@ const getOrder = async (payload) => {
         {
           model: OrderItemModel,
           as: 'orderItems',
-          attributes: [ 'id', 'product_id', 'quantity' ],
+          attributes: [ 'id', 'product_id', 'variant_id', 'variant_name', 'quantity', 'price_at_purchase' ],
           include: [
             {
               model: ProductModel,
               as: 'product',
               attributes: [ 'id', 'title' ],
+              required: false,
+            },
+            {
+              model: ProductVariantModel,
+              as: 'variant',
+              attributes: [ 'id', 'variant_name', 'variant_type' ],
+              required: false,
             },
           ],
         },
@@ -607,8 +732,11 @@ const updateOrder = async (data) => withTransaction(sequelize, async (transactio
       where: { id },
       attributes: [
         'id',
+        'order_number',
         'concurrency_stamp',
         'status',
+        'vendor_id',
+        'branch_id',
         'total_amount',
         'discount_amount',
         'shipping_charges',
@@ -675,6 +803,62 @@ const updateOrder = async (data) => withTransaction(sequelize, async (transactio
     await OrderStatusHistoryModel.create(convertCamelToSnake(statusHistoryDoc), {
       transaction,
     });
+
+    // Handle order cancellation: restore quantities and create inventory movements
+    if (newStatus === 'CANCELLED' && oldStatus !== 'CANCELLED') {
+      // Get order items with variants
+      const orderItems = await OrderItemModel.findAll({
+        where: { order_id: id },
+        attributes: [ 'id', 'product_id', 'variant_id', 'variant_name', 'quantity' ],
+        transaction,
+      });
+
+      // Restore quantities for each order item
+      await Promise.all(orderItems.map(async (item) => {
+        if (item.variant_id) {
+          // Restore variant quantity
+          const variant = await ProductVariantModel.findOne({
+            where: { id: item.variant_id },
+            attributes: [ 'id', 'quantity', 'product_id' ],
+            transaction,
+          });
+
+          if (variant) {
+            const quantityBefore = variant.quantity;
+            const quantityAfter = quantityBefore + item.quantity;
+            const quantityChange = item.quantity; // Positive for REVERTED
+
+            await ProductVariantModel.update(
+              {
+                quantity: quantityAfter,
+                product_status: quantityAfter > 0 ? 'INSTOCK' : 'OUT-OF-STOCK',
+                concurrency_stamp: uuidV4(),
+              },
+              {
+                where: { id: item.variant_id },
+                transaction,
+              },
+            );
+
+            // Create inventory movement (REVERTED)
+            await InventoryMovementService.createInventoryMovement({
+              productId: variant.product_id,
+              variantId: item.variant_id,
+              vendorId: response.vendor_id || null,
+              branchId: response.branch_id || null,
+              movementType: 'REVERTED',
+              quantityChange,
+              quantityBefore,
+              quantityAfter,
+              referenceType: 'ORDER',
+              referenceId: id,
+              userId: updatedBy,
+              notes: `Order ${response.order_number || id} cancelled`,
+            });
+          }
+        }
+      }));
+    }
   }
 
   const newConcurrencyStamp = uuidV4();
@@ -772,6 +956,9 @@ const getOrderDetails = async (orderId, userId = null) => {
         'final_amount',
         'order_priority',
         'estimated_delivery_time',
+        'distance',
+        'distance_method',
+        'estimated_delivery_eta',
         'status',
         'payment_status',
         'created_at',
@@ -796,6 +983,8 @@ const getOrderDetails = async (orderId, userId = null) => {
             'state',
             'country',
             'postal_code',
+            'latitude',
+            'longitude',
             'name',
             'mobile_number',
           ],
@@ -806,6 +995,8 @@ const getOrderDetails = async (orderId, userId = null) => {
           attributes: [
             'id',
             'product_id',
+            'variant_id',
+            'variant_name',
             'quantity',
             'price_at_purchase',
           ],
@@ -816,9 +1007,35 @@ const getOrderDetails = async (orderId, userId = null) => {
               attributes: [
                 'id',
                 'title',
+              ],
+              required: false,
+            },
+            {
+              model: ProductVariantModel,
+              as: 'variant',
+              attributes: [
+                'id',
+                'variant_name',
+                'variant_type',
                 'selling_price',
-                'price',
-                'image',
+              ],
+              required: false,
+              include: [
+                {
+                  model: ProductModel,
+                  as: 'product',
+                  attributes: [ 'id', 'title' ],
+                  include: [
+                    {
+                      model: ProductImageModel,
+                      as: 'images',
+                      where: { status: 'ACTIVE', is_default: 1 },
+                      required: false,
+                      attributes: [ 'id', 'image_url', 'is_default', 'display_order' ],
+                      limit: 1,
+                    },
+                  ],
+                },
               ],
             },
           ],
@@ -878,15 +1095,26 @@ const getOrderDetails = async (orderId, userId = null) => {
 
       const itemTotal = itemSubtotal - itemDiscount;
 
+      // Use variant data if available, otherwise use product data
+      const productId = item.variant?.product?.id || item.product?.id;
+      const productTitle = item.variant?.product?.title || item.product?.title;
+      const productImage = item.variant?.product?.images?.[0]?.image_url || null;
+      const variantId = item.variant?.id || null;
+      const variantName = item.variant?.variant_name || item.variant_name || null;
+      const variantPrice = item.variant?.selling_price || unitPrice;
+
       return {
         id: item.id,
         product: {
-          id: item.product.id,
-          title: item.product.title,
-          image: item.product.image,
-          selling_price: item.product.selling_price,
-          price: item.product.price,
+          id: productId,
+          title: productTitle,
+          image: productImage,
         },
+        variant: variantId ? {
+          id: variantId,
+          name: variantName,
+          selling_price: variantPrice,
+        } : null,
         quantity,
         unit_price: parseFloat(unitPrice.toFixed(2)),
         discount: parseFloat(itemDiscount.toFixed(2)),

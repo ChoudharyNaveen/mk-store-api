@@ -71,4 +71,16 @@ module.exports = {
     USE_MOCK_SMS: process.env.USE_MOCK_SMS === 'true' || false,
     MOCK_OTP: process.env.MOCK_OTP || '654321',
   },
+  ROAD_DISTANCE_API: {
+    url: process.env.ROAD_DISTANCE_API_URL,
+    apiKey: process.env.ROAD_DISTANCE_API_KEY,
+    timeout: parseInt(process.env.ROAD_DISTANCE_API_TIMEOUT) || 5000,
+    enabled: process.env.ROAD_DISTANCE_API_ENABLED !== 'false',
+    cache: {
+      ttl: parseInt(process.env.ROAD_DISTANCE_CACHE_TTL) || 86400, // 24 hours in seconds
+    },
+    fallback: {
+      haversineBuffer: parseFloat(process.env.ROAD_DISTANCE_FALLBACK_BUFFER) || 1.3,
+    },
+  },
 };

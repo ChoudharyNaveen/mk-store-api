@@ -30,6 +30,18 @@ const saveAddress = Joi.object({
     'any.required': 'Parameter: postal_code is required',
     'string.empty': 'Parameter: postal_code is required',
   }),
+  latitude: Joi.number().min(-90).max(90).optional()
+    .allow(null)
+    .messages({
+      'number.min': 'Parameter: latitude must be between -90 and 90',
+      'number.max': 'Parameter: latitude must be between -90 and 90',
+    }),
+  longitude: Joi.number().min(-180).max(180).optional()
+    .allow(null)
+    .messages({
+      'number.min': 'Parameter: longitude must be between -180 and 180',
+      'number.max': 'Parameter: longitude must be between -180 and 180',
+    }),
   name: Joi.string().required().messages({
     'any.required': 'Parameter: name is required',
     'string.empty': 'Parameter: name is required',

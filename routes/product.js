@@ -1,3 +1,4 @@
+/* eslint-disable max-len */
 const multer = require('multer');
 const {
   saveProduct,
@@ -84,11 +85,6 @@ module.exports = (router) => {
    *                 type: integer
    *                 example: 25
    *                 description: Number of items per unit (optional, e.g., 25 items per unit)
-   *               expiryDate:
-   *                 type: string
-   *                 format: date
-   *                 example: "2024-12-31"
-   *                 description: Product expiry date (required)
    *               itemQuantity:
    *                 type: number
    *                 format: float
@@ -101,7 +97,21 @@ module.exports = (router) => {
    *               file:
    *                 type: string
    *                 format: binary
-   *                 description: Product image file (required)
+   *                 description: Product image file (optional, legacy support - use 'images' for multiple images)
+   *               images:
+   *                 type: array
+   *                 items:
+   *                   type: string
+   *                   format: binary
+   *                 description: Multiple product image files (optional, max 10 images)
+   *               variants:
+   *                 type: string
+   *                 description: "JSON array of variant objects (optional). Each variant must include variantName (required), variantType (optional), variantValue (optional), price (required), sellingPrice (required), quantity (required), itemQuantity (optional), itemUnit (optional), expiryDate (required), status (optional)"
+   *                 example: '[{"variantName":"500g","variantType":"WEIGHT","price":500,"sellingPrice":450,"quantity":100,"expiryDate":"2024-12-31"}]'
+   *               imagesData:
+   *                 type: string
+   *                 description: "JSON array of pre-uploaded image objects (optional). Each image can include imageUrl (required), isDefault (optional), displayOrder (optional), variantId (optional)"
+   *                 example: '[{"imageUrl":"https://example.com/image.jpg","isDefault":true,"displayOrder":1}]'
    *     responses:
    *       200:
    *         description: Product created successfully
@@ -133,7 +143,10 @@ module.exports = (router) => {
     '/save-product',
     isAuthenticated,
     isVendorAdmin,
-    upload.fields([ { name: 'file', maxCount: 1 } ]),
+    upload.fields([
+      { name: 'file', maxCount: 1 }, // Legacy single image (backward compatibility)
+      { name: 'images', maxCount: 10 }, // Multiple images (max 10 per product)
+    ]),
     validate(saveProductSchema),
     saveProduct,
   );
@@ -307,11 +320,6 @@ module.exports = (router) => {
    *                 type: integer
    *                 example: 25
    *                 description: Number of items per unit (optional, e.g., 25 items per unit)
-   *               expiryDate:
-   *                 type: string
-   *                 format: date
-   *                 example: "2024-12-31"
-   *                 description: Product expiry date (optional)
    *               itemQuantity:
    *                 type: number
    *                 format: float
@@ -333,7 +341,29 @@ module.exports = (router) => {
    *               file:
    *                 type: string
    *                 format: binary
-   *                 description: Product image file (optional)
+   *                 description: Product image file (optional, legacy support - use 'images' for multiple images)
+   *               images:
+   *                 type: array
+   *                 items:
+   *                   type: string
+   *                   format: binary
+   *                 description: Multiple product image files (optional, max 10 images)
+   *               variants:
+   *                 type: string
+   *                 description: "JSON array of variant objects (optional). For updates include id and concurrencyStamp. For new omit id. To delete use variantIdsToDelete array"
+   *                 example: '[{"id":1,"variantName":"500g","variantType":"WEIGHT","price":500,"sellingPrice":450,"quantity":100,"expiryDate":"2024-12-31","concurrencyStamp":"stamp"},{"variantName":"1kg","variantType":"WEIGHT","price":900,"sellingPrice":800,"quantity":50,"expiryDate":"2024-12-31"}]'
+   *               variantIdsToDelete:
+   *                 type: string
+   *                 description: "JSON array of variant IDs to delete (optional). Example [2,3]"
+   *                 example: '[2,3]'
+   *               imagesData:
+   *                 type: string
+   *                 description: "JSON array of image objects (optional). For updates include id and concurrencyStamp. For new include imageUrl. To delete use imageIdsToDelete array"
+   *                 example: '[{"id":1,"isDefault":true,"displayOrder":1,"concurrencyStamp":"stamp"},{"imageUrl":"https://example.com/new.jpg","isDefault":false,"displayOrder":2}]'
+   *               imageIdsToDelete:
+   *                 type: string
+   *                 description: "JSON array of image IDs to delete (optional). Example [4,5]"
+   *                 example: '[4,5]'
    *     responses:
    *       200:
    *         description: Product updated successfully
@@ -357,7 +387,10 @@ module.exports = (router) => {
     '/update-product/:id',
     isAuthenticated,
     isVendorAdmin,
-    upload.fields([ { name: 'file', maxCount: 1 } ]),
+    upload.fields([
+      { name: 'file', maxCount: 1 }, // Legacy single image (backward compatibility)
+      { name: 'images', maxCount: 10 }, // Multiple images (max 10 per product)
+    ]),
     validate(updateProductSchema),
     updateProduct,
   );

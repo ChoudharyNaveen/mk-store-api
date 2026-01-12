@@ -2,6 +2,8 @@ const { v4: uuidV4 } = require('uuid');
 const {
   wishlist: WishlistModel,
   product: ProductModel,
+  productVariant: ProductVariantModel,
+  productImage: ProductImageModel,
   sequelize,
 } = require('../database');
 const {
@@ -64,7 +66,26 @@ const getWishlist = async (payload) => {
         {
           model: ProductModel,
           as: 'productDetails',
-          attributes: [ 'id', 'title', 'selling_price', 'quantity', 'image', 'product_status' ],
+          attributes: [ 'id', 'title' ],
+          include: [
+            {
+              model: ProductVariantModel,
+              as: 'variants',
+              where: { status: 'ACTIVE' },
+              required: false,
+              attributes: [ 'id', 'variant_name', 'variant_type', 'selling_price', 'quantity', 'product_status' ],
+              limit: 1,
+              order: [ [ 'created_at', 'ASC' ] ],
+            },
+            {
+              model: ProductImageModel,
+              as: 'images',
+              where: { status: 'ACTIVE', is_default: 1 },
+              required: false,
+              attributes: [ 'id', 'image_url' ],
+              limit: 1,
+            },
+          ],
         },
       ],
       order,

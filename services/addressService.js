@@ -86,7 +86,7 @@ const getAddress = async (payload) => {
     {
       where: { ...where },
       attributes: [ 'id', 'house_no', 'address_line_2', 'street_details',
-        'landmark', 'city', 'state', 'country', 'postal_code', 'name',
+        'landmark', 'city', 'state', 'country', 'postal_code', 'latitude', 'longitude', 'name',
         'mobile_number', 'created_by', 'created_at', 'updated_at', 'concurrency_stamp' ],
       include: [
         {

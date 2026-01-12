@@ -1,6 +1,6 @@
 module.exports = (sequelize, DataTypes) => {
-  const cart = sequelize.define(
-    'cart',
+  const productImage = sequelize.define(
+    'productImage',
     {
       id: {
         allowNull: false,
@@ -10,26 +10,29 @@ module.exports = (sequelize, DataTypes) => {
       },
       product_id: {
         type: DataTypes.INTEGER,
-        allowNull: true,
+        allowNull: false,
+        index: true,
       },
       variant_id: {
         type: DataTypes.INTEGER,
         allowNull: true,
         index: true,
       },
-      vendor_id: {
-        type: DataTypes.INTEGER,
+      image_url: {
+        type: DataTypes.STRING(500),
         allowNull: false,
+      },
+      is_default: {
+        type: DataTypes.BOOLEAN,
+        allowNull: false,
+        defaultValue: false,
         index: true,
       },
-      branch_id: {
+      display_order: {
         type: DataTypes.INTEGER,
         allowNull: false,
+        defaultValue: 0,
         index: true,
-      },
-      quantity: {
-        type: DataTypes.INTEGER,
-        allowNull: false,
       },
       status: {
         type: DataTypes.STRING,
@@ -53,36 +56,32 @@ module.exports = (sequelize, DataTypes) => {
       freezeTableName: true,
       underscored: true,
       timestamps: true,
+      tableName: 'product_image',
     },
   );
 
-  cart.associate = (models) => {
-    cart.belongsTo(models.user, {
-      foreignKey: 'created_by',
-      targetKey: 'id',
-      as: 'user',
-    });
-    cart.belongsTo(models.product, {
+  productImage.associate = (models) => {
+    productImage.belongsTo(models.product, {
       foreignKey: 'product_id',
       targetKey: 'id',
-      as: 'productDetails',
+      as: 'product',
     });
-    cart.belongsTo(models.vendor, {
-      foreignKey: 'vendor_id',
-      targetKey: 'id',
-      as: 'vendor',
-    });
-    cart.belongsTo(models.branch, {
-      foreignKey: 'branch_id',
-      targetKey: 'id',
-      as: 'branch',
-    });
-    cart.belongsTo(models.productVariant, {
+    productImage.belongsTo(models.productVariant, {
       foreignKey: 'variant_id',
       targetKey: 'id',
       as: 'variant',
     });
+    productImage.belongsTo(models.user, {
+      foreignKey: 'created_by',
+      targetKey: 'id',
+      as: 'createdByUser',
+    });
+    productImage.belongsTo(models.user, {
+      foreignKey: 'updated_by',
+      targetKey: 'id',
+      as: 'updatedByUser',
+    });
   };
 
-  return cart;
+  return productImage;
 };
