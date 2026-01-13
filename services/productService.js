@@ -35,107 +35,109 @@ const {
   handleServiceError,
 } = require('../utils/serviceErrors');
 
-const saveProduct = async ({ data, imageFile, imageFiles }) => {
-  let transaction = null;
+const saveProduct = async ({ data, imageFiles }) => withTransaction(sequelize, async (transaction) => {
+  const {
+    createdBy, branchId, brandId, variants: variantsData, ...datas
+  } = data;
 
-  try {
-    const {
-      createdBy, branchId, brandId, variants: variantsData, imagesData, ...datas
-    } = data;
+  // Parallel validation: branch and brand checks (if needed)
+  const validationPromises = [];
 
-    transaction = await sequelize.transaction();
-
-    // Verify branch exists and get vendor_id
-    if (branchId) {
-      const branch = await BranchModel.findOne({
+  if (branchId) {
+    validationPromises.push(
+      BranchModel.findOne({
         where: { id: branchId },
         attributes: [ 'id', 'vendor_id' ],
         transaction,
-      });
+      }),
+    );
+  } else {
+    validationPromises.push(Promise.resolve(null));
+  }
 
-      if (!branch) {
-        throw new NotFoundError('Branch not found');
-      }
-
-      // Set vendor_id from branch
-      datas.vendorId = branch.vendor_id;
-      datas.branchId = branchId;
-    }
-
-    // Verify brand exists and belongs to the same vendor (if brandId is provided)
-    if (brandId) {
-      const brand = await BrandModel.findOne({
+  if (brandId) {
+    validationPromises.push(
+      BrandModel.findOne({
         where: { id: brandId },
         attributes: [ 'id', 'vendor_id', 'branch_id', 'status' ],
         transaction,
-      });
+      }),
+    );
+  } else {
+    validationPromises.push(Promise.resolve(null));
+  }
 
-      if (!brand) {
-        throw new NotFoundError('Brand not found');
-      }
+  const [ branch, brand ] = await Promise.all(validationPromises);
 
-      // Verify brand belongs to the same vendor as the product
-      if (brand.vendor_id !== datas.vendorId) {
-        throw new ValidationError('Brand does not belong to the same vendor');
-      }
-
-      // Verify brand is active
-      if (brand.status !== 'ACTIVE') {
-        throw new ValidationError('Brand is not active');
-      }
-
-      datas.brandId = brandId;
+  // Validate branch
+  if (branchId) {
+    if (!branch) {
+      throw new NotFoundError('Branch not found');
     }
 
-    const concurrencyStamp = uuidV4();
+    datas.vendorId = branch.vendor_id;
+    datas.branchId = branchId;
+  }
 
-    const doc = {
-      ...datas,
-      concurrencyStamp,
-      createdBy,
-    };
-
-    const cat = await ProductModel.create(convertCamelToSnake(doc), {
-      transaction,
-    });
-
-    // Handle legacy single image file (for backward compatibility) - now creates product_image record
-    if (imageFile) {
-      const filename = `product-${cat.id}-${Date.now()}.jpg`;
-      const { vendorId } = datas;
-
-      const imageUrl = await uploadFile(imageFile, filename, vendorId, branchId);
-
-      // Create product_image record instead of updating product.image
-      const imageConcurrencyStamp = uuidV4();
-      const imageDoc = {
-        productId: cat.id,
-        variantId: null,
-        imageUrl,
-        isDefault: true,
-        displayOrder: 1,
-        concurrencyStamp: imageConcurrencyStamp,
-        createdBy,
-      };
-
-      await ProductImageModel.create(convertCamelToSnake(imageDoc), {
-        transaction,
-      });
+  // Validate brand
+  if (brandId) {
+    if (!brand) {
+      throw new NotFoundError('Brand not found');
     }
 
-    // Create variants if provided (within the same transaction)
-    const createdVariants = [];
+    if (brand.vendor_id !== datas.vendorId) {
+      throw new ValidationError('Brand does not belong to the same vendor');
+    }
 
-    if (variantsData && Array.isArray(variantsData) && variantsData.length > 0) {
-      // Validate variant names don't conflict
-      const variantNames = variantsData.map((v) => v.variantName);
+    if (brand.status !== 'ACTIVE') {
+      throw new ValidationError('Brand is not active');
+    }
 
-      if (new Set(variantNames).size !== variantNames.length) {
-        throw new ValidationError('Duplicate variant names are not allowed');
+    datas.brandId = brandId;
+  }
+
+  const concurrencyStamp = uuidV4();
+
+  const doc = {
+    ...datas,
+    concurrencyStamp,
+    createdBy,
+  };
+
+  const cat = await ProductModel.create(convertCamelToSnake(doc), {
+    transaction,
+  });
+
+  // Create variants if provided (within the same transaction)
+  const createdVariants = [];
+
+  // Validate: at least one variant is mandatory
+  if (!variantsData || !Array.isArray(variantsData) || variantsData.length === 0) {
+    throw new ValidationError('At least one variant is required');
+  }
+
+  if (variantsData && Array.isArray(variantsData) && variantsData.length > 0) {
+    // Fast validation: duplicate names in input
+    const variantNames = variantsData.map((v) => v.variantName);
+
+    if (new Set(variantNames).size !== variantNames.length) {
+      throw new ValidationError('Duplicate variant names are not allowed');
+    }
+
+    // Fast validation: duplicate values in input
+    const variantValues = variantsData.filter((v) => v.variantValue).map((v) => v.variantValue);
+
+    if (variantValues.length > 0) {
+      const duplicateValues = variantValues.filter((value, index) => variantValues.indexOf(value) !== index);
+
+      if (duplicateValues.length > 0) {
+        throw new ValidationError(`Duplicate variant values: ${duplicateValues.join(', ')}`);
       }
+    }
 
-      // Check for existing variants with same names
-      const existingVariants = await ProductVariantModel.findAll({
+    // Parallel database checks: existing names and values
+    const variantChecks = await Promise.all([
+      ProductVariantModel.findAll({
         where: {
           product_id: cat.id,
           variant_name: { [Op.in]: variantNames },
@@ -143,302 +145,138 @@ const saveProduct = async ({ data, imageFile, imageFiles }) => {
         },
         attributes: [ 'variant_name' ],
         transaction,
-      });
-
-      if (existingVariants.length > 0) {
-        throw new ValidationError(`Variant name(s) already exist: ${existingVariants.map((v) => v.variant_name).join(', ')}`);
-      }
-
-      // Check for duplicate variant values
-      const variantValues = variantsData.filter((v) => v.variantValue).map((v) => v.variantValue);
-
-      if (variantValues.length > 0) {
-        const duplicateValues = variantValues.filter((value, index) => variantValues.indexOf(value) !== index);
-
-        if (duplicateValues.length > 0) {
-          throw new ValidationError(`Duplicate variant values: ${duplicateValues.join(', ')}`);
-        }
-
-        // Check existing variant values
-        const existingValues = await ProductVariantModel.findAll({
+      }),
+      variantValues.length > 0
+        ? ProductVariantModel.findAll({
           where: {
             variant_value: { [Op.in]: variantValues },
             status: 'ACTIVE',
           },
           attributes: [ 'variant_value' ],
           transaction,
-        });
+        })
+        : Promise.resolve([]),
+    ]);
 
-        if (existingValues.length > 0) {
-          throw new ValidationError(`Variant value(s) already exist: ${existingValues.map((v) => v.variant_value).join(', ')}`);
-        }
-      }
+    const [ existingVariants, existingValues ] = variantChecks;
 
-      // Create all variants in parallel
-      const variantPromises = variantsData.map(async (variantData) => {
-        const {
-          variantName, variantType, variantValue, price, sellingPrice, quantity,
-          itemsPerUnit, units, itemQuantity, itemUnit, expiryDate, status: variantStatus,
-        } = variantData;
-
-        const variantConcurrencyStamp = uuidV4();
-
-        const variantDoc = {
-          productId: cat.id,
-          variantName,
-          variantType: variantType || null,
-          variantValue: variantValue || null,
-          price,
-          sellingPrice,
-          quantity: quantity || 0,
-          itemsPerUnit: itemsPerUnit || null,
-          units: units || null,
-          itemQuantity: itemQuantity || null,
-          itemUnit: itemUnit || null,
-          expiryDate,
-          productStatus: (quantity || 0) > 0 ? 'INSTOCK' : 'OUT-OF-STOCK',
-          status: variantStatus || 'ACTIVE',
-          concurrencyStamp: variantConcurrencyStamp,
-          createdBy,
-        };
-
-        const variant = await ProductVariantModel.create(convertCamelToSnake(variantDoc), {
-          transaction,
-        });
-
-        // Create inventory movement for variant (ADDED) in parallel
-        const inventoryMovementPromise = variant.quantity > 0
-          ? InventoryMovementService.createInventoryMovement({
-            productId: cat.id,
-            variantId: variant.id,
-            vendorId: datas.vendorId,
-            branchId,
-            movementType: 'ADDED',
-            quantityChange: variant.quantity,
-            quantityBefore: 0,
-            quantityAfter: variant.quantity,
-            referenceType: 'PRODUCT',
-            referenceId: cat.id,
-            userId: createdBy,
-            notes: 'Initial variant creation with product',
-          })
-          : Promise.resolve();
-
-        await inventoryMovementPromise;
-
-        return convertSnakeToCamel(variant.dataValues);
-      });
-
-      const createdVariantsResults = await Promise.all(variantPromises);
-
-      createdVariants.push(...createdVariantsResults);
+    if (existingVariants.length > 0) {
+      throw new ValidationError(`Variant name(s) already exist: ${existingVariants.map((v) => v.variant_name).join(', ')}`);
     }
 
-    // Upload and create images if provided (imageFiles from multipart/form-data)
-    const createdImages = [];
+    if (existingValues.length > 0) {
+      throw new ValidationError(`Variant value(s) already exist: ${existingValues.map((v) => v.variant_value).join(', ')}`);
+    }
 
-    if (imageFiles && Array.isArray(imageFiles) && imageFiles.length > 0) {
-      // Validate max images (10 per product)
-      if (imageFiles.length > 10) {
-        throw new ValidationError(`Maximum 10 images allowed per product. Received ${imageFiles.length} images.`);
-      }
+    // Create all variants in parallel
+    const variantPromises = variantsData.map(async (variantData) => {
+      const {
+        variantName, variantType, variantValue, price, sellingPrice, quantity,
+        itemsPerUnit, units, itemQuantity, itemUnit, expiryDate, status: variantStatus,
+      } = variantData;
 
-      // Check if there's already a default image
-      const hasDefault = await ProductImageModel.findOne({
-        where: {
-          product_id: cat.id,
-          variant_id: null,
-          is_default: true,
-          status: 'ACTIVE',
-        },
+      const variantConcurrencyStamp = uuidV4();
+
+      const variantDoc = {
+        productId: cat.id,
+        variantName,
+        variantType: variantType || null,
+        variantValue: variantValue || null,
+        price,
+        sellingPrice,
+        quantity: quantity || 0,
+        itemsPerUnit: itemsPerUnit || null,
+        units: units || null,
+        itemQuantity: itemQuantity || null,
+        itemUnit: itemUnit || null,
+        expiryDate,
+        productStatus: (quantity || 0) > 0 ? 'INSTOCK' : 'OUT-OF-STOCK',
+        status: variantStatus || 'ACTIVE',
+        concurrencyStamp: variantConcurrencyStamp,
+        createdBy,
+      };
+
+      const variant = await ProductVariantModel.create(convertCamelToSnake(variantDoc), {
         transaction,
       });
 
-      // Get max display_order
-      const maxDisplayOrder = await ProductImageModel.max('display_order', {
-        where: {
-          product_id: cat.id,
-          variant_id: null,
-          status: 'ACTIVE',
-        },
-        transaction,
-      }) || 0;
+      // Create inventory movement for variant (ADDED) in parallel
+      const inventoryMovementPromise = InventoryMovementService.createInventoryMovement({
+        productId: cat.id,
+        variantId: variant.id,
+        vendorId: datas.vendorId,
+        branchId,
+        movementType: 'ADDED',
+        quantityChange: variant.quantity,
+        quantityBefore: 0,
+        quantityAfter: variant.quantity,
+        referenceType: 'PRODUCT',
+        referenceId: cat.id,
+        userId: createdBy,
+        notes: 'Initial variant creation with product',
+      }, transaction);
 
-      // Upload all images in parallel
-      const baseTimestamp = Date.now();
-      const uploadPromises = imageFiles.map((imgFile, i) => {
-        const filename = `product-image-${cat.id}-main-${baseTimestamp}-${i}.jpg`;
+      await inventoryMovementPromise;
 
-        return uploadFile(imgFile, filename, datas.vendorId, branchId);
-      });
+      return convertSnakeToCamel(variant.dataValues);
+    });
 
-      const uploadedImageUrls = await Promise.all(uploadPromises);
+    const createdVariantsResults = await Promise.all(variantPromises);
 
-      // If first image should be default, unset other default images first
-      if (!hasDefault && imageFiles.length > 0) {
-        await ProductImageModel.update(
-          { is_default: false },
-          {
-            where: {
-              product_id: cat.id,
-              variant_id: null,
-              status: 'ACTIVE',
-            },
-            transaction,
-          },
-        );
-      }
-
-      // Create all image records in parallel
-      const imageCreatePromises = uploadedImageUrls.map(async (uploadedImageUrl, i) => {
-        const imageConcurrencyStamp = uuidV4();
-        const isDefault = !hasDefault && i === 0; // First image is default if no default exists
-        const displayOrder = maxDisplayOrder + i + 1;
-
-        const imageDoc = {
-          productId: cat.id,
-          variantId: null,
-          imageUrl: uploadedImageUrl,
-          isDefault,
-          displayOrder,
-          concurrencyStamp: imageConcurrencyStamp,
-          createdBy,
-        };
-
-        const image = await ProductImageModel.create(convertCamelToSnake(imageDoc), {
-          transaction,
-        });
-
-        return convertSnakeToCamel(image.dataValues);
-      });
-
-      const createdImagesResults = await Promise.all(imageCreatePromises);
-
-      createdImages.push(...createdImagesResults);
-
-      // Images are now stored in product_image table, no need to update product.image
-    }
-
-    // Handle pre-uploaded image URLs (from imagesData array)
-    if (imagesData && Array.isArray(imagesData) && imagesData.length > 0) {
-      // Validate that all images have imageUrl
-      const invalidImages = imagesData.filter((img) => !img.imageUrl);
-
-      if (invalidImages.length > 0) {
-        throw new ValidationError('All images in imagesData must have imageUrl');
-      }
-
-      // Check if there's already a default image (from imageFiles or existing)
-      const hasDefault = await ProductImageModel.findOne({
-        where: {
-          product_id: cat.id,
-          variant_id: null,
-          is_default: true,
-          status: 'ACTIVE',
-        },
-        transaction,
-      }) || createdImages.some((img) => img.isDefault);
-
-      // Get max display_order (from created images or existing)
-      const existingMaxDisplayOrder = await ProductImageModel.max('display_order', {
-        where: {
-          product_id: cat.id,
-          variant_id: null,
-          status: 'ACTIVE',
-        },
-        transaction,
-      }) || 0;
-
-      const maxDisplayOrder = Math.max(
-        existingMaxDisplayOrder,
-        createdImages.length > 0 ? Math.max(...createdImages.map((img) => img.displayOrder || 0)) : 0,
-      );
-
-      // Group images by variantId to handle default image updates efficiently
-      const variantGroups = new Map();
-
-      imagesData.forEach((imgData, i) => {
-        const variantKey = imgData.variantId || 'main';
-
-        if (!variantGroups.has(variantKey)) {
-          variantGroups.set(variantKey, []);
-        }
-        variantGroups.get(variantKey).push({ imgData, index: i });
-      });
-
-      // Unset default images for variants that will have new defaults
-      const defaultUnsetPromises = [];
-
-      imagesData.forEach((imgData, i) => {
-        const isDefault = imgData.isDefault !== undefined ? imgData.isDefault : (!hasDefault && i === 0);
-
-        if (isDefault) {
-          defaultUnsetPromises.push(
-            ProductImageModel.update(
-              { is_default: false },
-              {
-                where: {
-                  product_id: cat.id,
-                  variant_id: imgData.variantId || null,
-                  status: 'ACTIVE',
-                },
-                transaction,
-              },
-            ),
-          );
-        }
-      });
-
-      await Promise.all(defaultUnsetPromises);
-
-      // Create all image records in parallel
-      const imageCreatePromises = imagesData.map(async (imgData, i) => {
-        const imageConcurrencyStamp = uuidV4();
-        const isDefault = imgData.isDefault !== undefined ? imgData.isDefault : (!hasDefault && i === 0);
-        const displayOrder = imgData.displayOrder !== undefined ? imgData.displayOrder : (maxDisplayOrder + i + 1);
-
-        const imageDoc = {
-          productId: cat.id,
-          variantId: imgData.variantId || null,
-          imageUrl: imgData.imageUrl,
-          isDefault,
-          displayOrder,
-          concurrencyStamp: imageConcurrencyStamp,
-          createdBy,
-        };
-
-        const image = await ProductImageModel.create(convertCamelToSnake(imageDoc), {
-          transaction,
-        });
-
-        return convertSnakeToCamel(image.dataValues);
-      });
-
-      const createdImagesResults = await Promise.all(imageCreatePromises);
-
-      createdImages.push(...createdImagesResults);
-
-      // Images are now stored in product_image table, no need to update product.image
-    }
-
-    await transaction.commit();
-
-    const productData = convertSnakeToCamel(cat.dataValues);
-
-    productData.variants = createdVariants;
-    productData.images = createdImages;
-
-    return { doc: productData };
-  } catch (error) {
-    if (transaction) {
-      await transaction.rollback();
-    }
-
-    return handleServiceError(error, 'Failed to save product');
+    createdVariants.push(...createdVariantsResults);
   }
-};
 
-const updateProduct = async ({ data, imageFile, imageFiles }) => withTransaction(sequelize, async (transaction) => {
+  // Upload and create images if provided (imageFiles from multipart/form-data)
+  const createdImages = [];
+
+  if (imageFiles && Array.isArray(imageFiles) && imageFiles.length > 0) {
+    // Upload all images to S3 in parallel
+    const baseTimestamp = Date.now();
+    const uploadPromises = imageFiles.map((imgFile, i) => {
+      const filename = `product-image-${cat.id}-main-${baseTimestamp}-${i}.jpg`;
+
+      return uploadFile(imgFile, filename, datas.vendorId, branchId);
+    });
+
+    const uploadedImageUrls = await Promise.all(uploadPromises);
+
+    // Create all image records in parallel - first image is default
+    const imageCreatePromises = uploadedImageUrls.map(async (uploadedImageUrl, i) => {
+      const imageConcurrencyStamp = uuidV4();
+      const isDefault = i === 0; // First image is always default
+      const displayOrder = i + 1;
+
+      const imageDoc = {
+        productId: cat.id,
+        variantId: null,
+        imageUrl: uploadedImageUrl,
+        isDefault,
+        displayOrder,
+        concurrencyStamp: imageConcurrencyStamp,
+        createdBy,
+      };
+
+      const image = await ProductImageModel.create(convertCamelToSnake(imageDoc), {
+        transaction,
+      });
+
+      return convertSnakeToCamel(image.dataValues);
+    });
+
+    const createdImagesResults = await Promise.all(imageCreatePromises);
+
+    createdImages.push(...createdImagesResults);
+  }
+
+  const productData = convertSnakeToCamel(cat.dataValues);
+
+  productData.variants = createdVariants;
+  productData.images = createdImages;
+
+  return { doc: productData };
+}).catch((error) => handleServiceError(error, 'Failed to save product'));
+
+const updateProduct = async ({ data, imageFiles }) => withTransaction(sequelize, async (transaction) => {
   const { id, ...datas } = data;
   const {
     concurrencyStamp, updatedBy, brandId, vendorId, variants: variantsData, imagesData, variantIdsToDelete, imageIdsToDelete,
@@ -497,17 +335,6 @@ const updateProduct = async ({ data, imageFile, imageFiles }) => withTransaction
     updated_by: updatedBy,
     concurrency_stamp: newConcurrencyStamp,
   };
-
-  // Handle legacy single image file (for backward compatibility)
-  if (imageFile) {
-    const filename = `product-${id}-${Date.now()}.jpg`;
-    const branchId = response.branch_id;
-    const imageVendorId = vendorId || response.vendor_id;
-
-    const imageUrl = await uploadFile(imageFile, filename, imageVendorId, branchId);
-
-    doc.image = imageUrl;
-  }
 
   await ProductModel.update(doc, {
     where: { id },
@@ -686,7 +513,7 @@ const updateProduct = async ({ data, imageFile, imageFiles }) => withTransaction
           referenceId: id,
           userId: updatedBy,
           notes: 'Variant quantity updated',
-        })
+        }, transaction)
         : Promise.resolve();
 
       await inventoryPromise;
@@ -733,22 +560,20 @@ const updateProduct = async ({ data, imageFile, imageFiles }) => withTransaction
       });
 
       // Create inventory movement for new variant (ADDED)
-      const inventoryPromise = newVariant.quantity > 0
-        ? InventoryMovementService.createInventoryMovement({
-          productId: id,
-          variantId: newVariant.id,
-          vendorId: finalVendorId,
-          branchId: response.branch_id,
-          movementType: 'ADDED',
-          quantityChange: newVariant.quantity,
-          quantityBefore: 0,
-          quantityAfter: newVariant.quantity,
-          referenceType: 'PRODUCT',
-          referenceId: id,
-          userId: updatedBy,
-          notes: 'Variant added during product update',
-        })
-        : Promise.resolve();
+      const inventoryPromise = InventoryMovementService.createInventoryMovement({
+        productId: id,
+        variantId: newVariant.id,
+        vendorId: finalVendorId,
+        branchId: response.branch_id,
+        movementType: 'ADDED',
+        quantityChange: newVariant.quantity,
+        quantityBefore: 0,
+        quantityAfter: newVariant.quantity,
+        referenceType: 'PRODUCT',
+        referenceId: id,
+        userId: updatedBy,
+        notes: 'Variant added during product update',
+      }, transaction);
 
       await inventoryPromise;
 
@@ -776,42 +601,56 @@ const updateProduct = async ({ data, imageFile, imageFiles }) => withTransaction
         },
       );
     }
+
+    // Validate: at least one variant must remain after all operations
+    const remainingVariantsCount = await ProductVariantModel.count({
+      where: { product_id: id, status: 'ACTIVE' },
+      transaction,
+    });
+
+    if (remainingVariantsCount === 0) {
+      throw new ValidationError('At least one variant is required. Cannot delete all variants.');
+    }
+  } else if (variantIdsToDelete && Array.isArray(variantIdsToDelete) && variantIdsToDelete.length > 0) {
+    // If only deleting variants without adding/updating, check remaining count
+    const existingVariantsCount = await ProductVariantModel.count({
+      where: { product_id: id, status: 'ACTIVE' },
+      transaction,
+    });
+
+    if (existingVariantsCount <= variantIdsToDelete.length) {
+      throw new ValidationError('At least one variant is required. Cannot delete all variants.');
+    }
+
+    await ProductVariantModel.update(
+      {
+        status: 'INACTIVE',
+        concurrency_stamp: uuidV4(),
+      },
+      {
+        where: {
+          id: { [Op.in]: variantIdsToDelete },
+          product_id: id,
+          status: 'ACTIVE',
+        },
+        transaction,
+      },
+    );
   }
 
   // Handle images: update existing, add new (from files or URLs), delete marked
   const updatedImages = [];
 
   if (imageFiles && Array.isArray(imageFiles) && imageFiles.length > 0) {
-    // Validate max images
+    // Simple check: total images cannot exceed 3
     const existingImageCount = await ProductImageModel.count({
       where: { product_id: id, variant_id: null, status: 'ACTIVE' },
       transaction,
     });
 
-    if (existingImageCount + imageFiles.length > 10) {
-      throw new ValidationError(`Cannot add ${imageFiles.length} images. Product already has ${existingImageCount} images. Maximum is 10.`);
+    if (existingImageCount + imageFiles.length > 3) {
+      throw new ValidationError(`Cannot add ${imageFiles.length} images. Product already has ${existingImageCount} images. Maximum is 3.`);
     }
-
-    // Check if there's already a default image
-    const hasDefault = await ProductImageModel.findOne({
-      where: {
-        product_id: id,
-        variant_id: null,
-        is_default: true,
-        status: 'ACTIVE',
-      },
-      transaction,
-    });
-
-    // Get max display_order
-    const maxDisplayOrder = await ProductImageModel.max('display_order', {
-      where: {
-        product_id: id,
-        variant_id: null,
-        status: 'ACTIVE',
-      },
-      transaction,
-    }) || 0;
 
     // Upload all images in parallel
     const baseTimestamp = Date.now();
@@ -826,8 +665,8 @@ const updateProduct = async ({ data, imageFile, imageFiles }) => withTransaction
 
     const uploadedImageUrls = await Promise.all(uploadPromises);
 
-    // If first image should be default, unset other default images first
-    if (!hasDefault && imageFiles.length > 0) {
+    // Unset all existing default images if adding new images
+    if (imageFiles.length > 0) {
       await ProductImageModel.update(
         { is_default: false },
         {
@@ -841,11 +680,11 @@ const updateProduct = async ({ data, imageFile, imageFiles }) => withTransaction
       );
     }
 
-    // Create all image records in parallel
+    // Create all image records in parallel - first image is default
     const imageCreatePromises = uploadedImageUrls.map(async (uploadedImageUrl, i) => {
       const imageConcurrencyStamp = uuidV4();
-      const isDefault = !hasDefault && i === 0; // First image is default if no default exists
-      const displayOrder = maxDisplayOrder + i + 1;
+      const isDefault = i === 0; // First image is always default
+      const displayOrder = existingImageCount + i + 1;
 
       const imageDoc = {
         productId: id,
@@ -871,7 +710,7 @@ const updateProduct = async ({ data, imageFile, imageFiles }) => withTransaction
 
   // Handle pre-uploaded image URLs (from imagesData array)
   if (imagesData && Array.isArray(imagesData) && imagesData.length > 0) {
-    // Get existing images for this product
+    // Get existing images once
     const existingImages = await ProductImageModel.findAll({
       where: { product_id: id, variant_id: null, status: 'ACTIVE' },
       attributes: [ 'id', 'is_default', 'display_order', 'concurrency_stamp' ],
@@ -892,23 +731,31 @@ const updateProduct = async ({ data, imageFile, imageFiles }) => withTransaction
     const imagesToUpdate = validImagesData.filter((imgData) => imgData.id);
     const imagesToCreate = validImagesData.filter((imgData) => !imgData.id && imgData.imageUrl);
 
-    // Batch unset default images for updates
-    const defaultUnsetPromises = imagesToUpdate
-      .filter((imgData) => imgData.isDefault === true)
-      .map((imgData) => ProductImageModel.update(
+    // Check total images won't exceed 3
+    const totalAfterCreate = existingImages.length - imagesToUpdate.length + imagesToCreate.length;
+
+    if (totalAfterCreate > 3) {
+      throw new ValidationError(`Cannot add ${imagesToCreate.length} images. Maximum is 3 images per product.`);
+    }
+
+    // Unset default for images being set as default
+    const imagesToSetAsDefault = imagesToUpdate.filter((img) => img.isDefault === true)
+      .concat(imagesToCreate.filter((img) => img.isDefault !== false));
+
+    if (imagesToSetAsDefault.length > 0) {
+      await ProductImageModel.update(
         { is_default: false },
         {
           where: {
             product_id: id,
-            variant_id: imgData.variantId || null,
-            id: { [Op.ne]: imgData.id },
+            variant_id: null,
+            id: { [Op.notIn]: imagesToSetAsDefault.map((img) => img.id).filter(Boolean) },
             status: 'ACTIVE',
           },
           transaction,
         },
-      ));
-
-    await Promise.all(defaultUnsetPromises);
+      );
+    }
 
     // Process all updates in parallel
     const updatePromises = imagesToUpdate.map(async (imgData) => {
@@ -951,72 +798,16 @@ const updateProduct = async ({ data, imageFile, imageFiles }) => withTransaction
 
     updatedImages.push(...updatedImageResults);
 
-    // Process creates: first batch count checks and default checks
-    const variantIdsToCheck = [ ...new Set(imagesToCreate.map((img) => img.variantId || null)) ];
-    const countChecks = await Promise.all(
-      variantIdsToCheck.map((variantId) => ProductImageModel.count({
-        where: { product_id: id, variant_id: variantId, status: 'ACTIVE' },
-        transaction,
-      })),
-    );
-    const countMap = new Map(variantIdsToCheck.map((vid, i) => [ vid, countChecks[i] ]));
-
-    const defaultChecks = await Promise.all(
-      variantIdsToCheck.map((variantId) => ProductImageModel.findOne({
-        where: {
-          product_id: id,
-          variant_id: variantId,
-          is_default: true,
-          status: 'ACTIVE',
-        },
-        transaction,
-      })),
-    );
-    const defaultMap = new Map(variantIdsToCheck.map((vid, i) => [ vid, !!defaultChecks[i] ]));
-
-    // Batch unset default images for creates
-    const createDefaultUnsetPromises = imagesToCreate
-      .filter((imgData) => {
-        const isDefaultValue = imgData.isDefault !== undefined
-          ? imgData.isDefault
-          : (!defaultMap.get(imgData.variantId || null) && countMap.get(imgData.variantId || null) === 0);
-
-        return isDefaultValue;
-      })
-      .map((imgData) => ProductImageModel.update(
-        { is_default: false },
-        {
-          where: {
-            product_id: id,
-            variant_id: imgData.variantId || null,
-            status: 'ACTIVE',
-          },
-          transaction,
-        },
-      ));
-
-    await Promise.all(createDefaultUnsetPromises);
-
-    // Process all creates in parallel
+    // Process all creates in parallel - simplified
+    const hasDefault = existingImages.some((img) => img.is_default) || imagesToUpdate.some((img) => img.isDefault === true);
     const createPromises = imagesToCreate.map(async (imgData, i) => {
       const {
         imageUrl, isDefault, displayOrder, variantId,
       } = imgData;
 
-      const existingImageCount = countMap.get(variantId || null) || 0;
-
-      if (existingImageCount >= 10) {
-        throw new ValidationError('Maximum 10 images allowed per product');
-      }
-
-      const hasDefault = defaultMap.get(variantId || null);
       const imageConcurrencyStampNew = uuidV4();
-      const isDefaultValue = isDefault !== undefined
-        ? isDefault
-        : (!hasDefault && existingImageCount === 0);
-      const displayOrderValue = displayOrder !== undefined
-        ? displayOrder
-        : (maxDisplayOrder + i + 1);
+      const isDefaultValue = isDefault !== undefined ? isDefault : (!hasDefault && i === 0);
+      const displayOrderValue = displayOrder !== undefined ? displayOrder : (maxDisplayOrder + i + 1);
 
       const imageDoc = {
         productId: id,
@@ -1139,17 +930,17 @@ const getProduct = async (payload) => {
         {
           model: CategoryModel,
           as: 'category',
-          attributes: [ 'id', 'title', 'image' ],
+          attributes: [ 'id', 'title' ],
         },
         {
           model: SubCategoryModel,
           as: 'subCategory',
-          attributes: [ 'id', 'title', 'image' ],
+          attributes: [ 'id', 'title' ],
         },
         {
           model: BrandModel,
           as: 'brand',
-          attributes: [ 'id', 'name', 'logo' ],
+          attributes: [ 'id', 'name' ],
           required: false,
         },
         {
@@ -1167,18 +958,21 @@ const getProduct = async (payload) => {
             'quantity',
             'item_quantity',
             'item_unit',
+            'items_per_unit',
+            'units',
             'expiry_date',
             'product_status',
             'status',
+            'concurrency_stamp',
           ],
         },
         {
           model: ProductImageModel,
           as: 'images',
-          where: { status: 'ACTIVE', is_default: 1 },
+          where: { status: 'ACTIVE' },
           required: false,
-          attributes: [ 'id', 'image_url', 'is_default', 'display_order', 'variant_id' ],
-          order: [ [ 'display_order', 'ASC' ], [ 'is_default', 'DESC' ] ],
+          attributes: [ 'id', 'image_url', 'is_default', 'display_order', 'variant_id', 'concurrency_stamp' ],
+          order: [ [ 'is_default', 'DESC' ] ],
         },
       ],
       order,
@@ -1336,17 +1130,8 @@ const getProductDetails = async (productId) => {
         'id',
         'title',
         'description',
-        'price',
-        'selling_price',
-        'quantity',
-        'items_per_unit',
-        'image',
-        'product_status',
         'status',
-        'units',
         'nutritional',
-        'item_quantity',
-        'item_unit',
         'concurrency_stamp',
         'created_at',
         'updated_at',

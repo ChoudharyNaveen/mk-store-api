@@ -151,29 +151,38 @@ const placeOrder = async (data) => withTransaction(sequelize, async (transaction
     throw new ValidationError('No items in the cart');
   }
 
-  // Validate that all cart items have variants
-  const invalidItems = cartItems.filter((item) => !item.variant_id || !item.variant);
+  // Validate that all cart items have variants and productId matches variant's product_id
+  const invalidItems = cartItems.filter((item) => {
+    if (!item.variant_id || !item.variant) {
+      return true; // Missing variant
+    }
 
-  if (invalidItems.length > 0) {
-    throw new ValidationError('All cart items must have a variant. Products without variants are not supported.');
-  }
+    // Validate productId matches variant's product_id (both are now required)
+    if (item.product_id !== item.variant.product_id) {
+      return true; // Product ID mismatch
+    }
 
-  // Fetch all variants for validation and quantity checks
-  const variantIds = cartItems.map((item) => item.variant_id).filter(Boolean);
-
-  const variants = await ProductVariantModel.findAll({
-    where: { id: { [Op.in]: variantIds } },
-    attributes: [ 'id', 'variant_name', 'product_id', 'quantity', 'selling_price', 'concurrency_stamp' ],
-    transaction,
+    return false;
   });
 
-  const variantMap = new Map(variants.map((v) => [ v.id, v ]));
+  if (invalidItems.length > 0) {
+    const missingVariant = invalidItems.find((item) => !item.variant_id || !item.variant);
+    const productMismatch = invalidItems.find((item) => item.product_id !== item.variant?.product_id);
+
+    if (missingVariant) {
+      throw new ValidationError('All cart items must have a variant. Products without variants are not supported.');
+    }
+
+    if (productMismatch) {
+      throw new ValidationError('Product ID in cart does not match the variant\'s product. Please refresh your cart.');
+    }
+  }
 
   // Calculate total amount and validate quantities
+  // Use variants from included cart items (already fetched, no need to query again)
   let totalAmount = 0;
   const validationResults = cartItems.map((item) => {
-    const { quantity } = item;
-    const variant = variantMap.get(item.variant_id);
+    const { quantity, variant } = item; // Use variant from included cart item
 
     if (!variant) {
       return {
@@ -265,17 +274,7 @@ const placeOrder = async (data) => withTransaction(sequelize, async (transaction
       transaction,
     });
   } else {
-    // Try to find the most recent address for the user
-    address = await AddressModel.findOne({
-      where: { created_by: createdBy },
-      attributes: [ 'id', 'created_by' ],
-      transaction,
-      order: [ [ 'created_at', 'DESC' ] ],
-    });
-
-    if (!address) {
-      throw new ValidationError('Address not found. Please provide address details or addressId.');
-    }
+    throw new ValidationError('Address not found. Please provide address details(houseNo, streetDetails, city, state, postalCode, name, mobileNumber) or addressId.');
   }
 
   // Discount application variables
@@ -537,7 +536,7 @@ const placeOrder = async (data) => withTransaction(sequelize, async (transaction
       referenceId: newOrder.id,
       userId: createdBy,
       notes: `Order ${orderNumber}`,
-    });
+    }, transaction);
 
     return orderItem;
   }));
@@ -854,7 +853,7 @@ const updateOrder = async (data) => withTransaction(sequelize, async (transactio
               referenceId: id,
               userId: updatedBy,
               notes: `Order ${response.order_number || id} cancelled`,
-            });
+            }, transaction);
           }
         }
       }));

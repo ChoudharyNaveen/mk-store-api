@@ -32,20 +32,29 @@ const sendOtpSMSForUser = async (mobileNumber, vendorId) => {
   try {
     transaction = await sequelize.transaction();
 
-    // Check if user exists and vendor exists in parallel
-    let user = await UserModel.findOne({
-      where: {
-        mobile_number: mobileNumber,
-      },
-      attributes: [ 'id', 'mobile_number' ],
-      transaction,
-    });
-
-    const vendor = await VendorModel.findOne({
-      where: { id: vendorId },
-      attributes: [ 'id' ],
-      transaction,
-    });
+    // Check if user exists, vendor exists, and user role in parallel
+    const results = await Promise.all([
+      UserModel.findOne({
+        where: {
+          mobile_number: mobileNumber,
+        },
+        attributes: [ 'id', 'mobile_number' ],
+        transaction,
+      }),
+      VendorModel.findOne({
+        where: { id: vendorId },
+        attributes: [ 'id' ],
+        transaction,
+      }),
+      RoleModel.findOne({
+        where: { name: 'USER' },
+        attributes: [ 'id', 'name' ],
+        transaction,
+      }),
+    ]);
+    let user = results[0];
+    const vendor = results[1];
+    const userRole = results[2];
 
     if (!vendor) {
       throw new NotFoundError('Vendor not found');
@@ -53,12 +62,6 @@ const sendOtpSMSForUser = async (mobileNumber, vendorId) => {
 
     // If user doesn't exist for this vendor, create a new user
     if (!user) {
-      const userRole = await RoleModel.findOne({
-        where: { name: 'USER' },
-        attributes: [ 'id', 'name' ],
-        transaction,
-      });
-
       if (!userRole) {
         throw new NotFoundError('User role not found');
       }

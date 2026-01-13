@@ -30,25 +30,30 @@ module.exports = (router) => {
    *             type: object
    *             required:
    *               - productId
+   *               - variantId
    *               - quantity
-   *               - vendorId
-   *               - branchId
    *             properties:
    *               productId:
    *                 type: integer
    *                 example: 1
+   *                 description: Product ID (required - must match variant's product)
+   *               variantId:
+   *                 type: integer
+   *                 example: 1
+   *                 description: Product variant ID (required - must belong to the specified product)
    *               quantity:
    *                 type: integer
    *                 minimum: 1
    *                 example: 2
+   *                 description: Quantity to add to cart (required)
    *               vendorId:
    *                 type: integer
    *                 example: 1
-   *                 description: Vendor ID (required - must match product's vendor)
+   *                 description: Vendor ID (optional - will be validated against product's vendor)
    *               branchId:
    *                 type: integer
    *                 example: 1
-   *                 description: Branch ID (required - must match product's branch)
+   *                 description: Branch ID (optional - will be validated against product's branch)
    *     responses:
    *       200:
    *         description: Item added to cart successfully

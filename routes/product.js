@@ -38,10 +38,10 @@ module.exports = (router) => {
    *             required:
    *               - title
    *               - description
-   *               - price
    *               - categoryId
    *               - vendorId
    *               - branchId
+   *               - variants
    *             properties:
    *               title:
    *                 type: string
@@ -51,11 +51,6 @@ module.exports = (router) => {
    *                 type: string
    *                 example: "High-quality wireless headphones with noise cancellation"
    *                 description: Product description (required)
-   *               price:
-   *                 type: number
-   *                 format: integer
-   *                 example: 9999
-   *                 description: Product price in cents (required)
    *               categoryId:
    *                 type: integer
    *                 example: 1
@@ -64,6 +59,11 @@ module.exports = (router) => {
    *                 type: integer
    *                 example: 1
    *                 description: Subcategory ID (optional)
+   *               brandId:
+   *                 type: integer
+   *                 nullable: true
+   *                 example: 1
+   *                 description: Brand ID (optional, can be null)
    *               vendorId:
    *                 type: integer
    *                 example: 1
@@ -77,41 +77,20 @@ module.exports = (router) => {
    *                 enum: [ACTIVE, INACTIVE]
    *                 example: ACTIVE
    *                 description: Product status (optional, defaults to ACTIVE)
-   *               quantity:
-   *                 type: integer
-   *                 example: 2
-   *                 description: Number of units in stock (required)
-   *               itemsPerUnit:
-   *                 type: integer
-   *                 example: 25
-   *                 description: Number of items per unit (optional, e.g., 25 items per unit)
-   *               itemQuantity:
-   *                 type: number
-   *                 format: float
-   *                 example: 500
-   *                 description: Measurement quantity per item (optional, e.g., 500 for 500gm per item)
-   *               itemUnit:
+   *               nutritional:
    *                 type: string
-   *                 example: "G"
-   *                 description: Measurement unit per item (e.g., LTR, KG, ML, G, PCS) (optional)
-   *               file:
-   *                 type: string
-   *                 format: binary
-   *                 description: Product image file (optional, legacy support - use 'images' for multiple images)
+   *                 example: "Calories: 100, Protein: 5g"
+   *                 description: Nutritional information (optional)
    *               images:
    *                 type: array
    *                 items:
    *                   type: string
    *                   format: binary
-   *                 description: Multiple product image files (optional, max 10 images)
+   *                 description: Multiple product image files (optional, max 3 images per product)
    *               variants:
    *                 type: string
-   *                 description: "JSON array of variant objects (optional). Each variant must include variantName (required), variantType (optional), variantValue (optional), price (required), sellingPrice (required), quantity (required), itemQuantity (optional), itemUnit (optional), expiryDate (required), status (optional)"
-   *                 example: '[{"variantName":"500g","variantType":"WEIGHT","price":500,"sellingPrice":450,"quantity":100,"expiryDate":"2024-12-31"}]'
-   *               imagesData:
-   *                 type: string
-   *                 description: "JSON array of pre-uploaded image objects (optional). Each image can include imageUrl (required), isDefault (optional), displayOrder (optional), variantId (optional)"
-   *                 example: '[{"imageUrl":"https://example.com/image.jpg","isDefault":true,"displayOrder":1}]'
+   *                 description: "JSON string array of variant objects (REQUIRED - at least one variant). Each variant must include: variantName (required), variantType (optional), variantValue (optional), price (required), sellingPrice (required), quantity (required), itemsPerUnit (optional), units (optional), itemQuantity (optional), itemUnit (optional), expiryDate (required), status (optional)"
+   *                 example: '[{"variantName":"500g","variantType":"WEIGHT","variantValue":"VAR-001","price":500,"sellingPrice":450,"quantity":100,"itemsPerUnit":2,"units":"PCS","expiryDate":"2024-12-31","status":"ACTIVE"}]'
    *     responses:
    *       200:
    *         description: Product created successfully
@@ -144,7 +123,6 @@ module.exports = (router) => {
     isAuthenticated,
     isVendorAdmin,
     upload.fields([
-      { name: 'file', maxCount: 1 }, // Legacy single image (backward compatibility)
       { name: 'images', maxCount: 10 }, // Multiple images (max 10 per product)
     ]),
     validate(saveProductSchema),
@@ -286,11 +264,6 @@ module.exports = (router) => {
    *                 type: string
    *                 example: "Updated description"
    *                 description: Product description (optional)
-   *               price:
-   *                 type: number
-   *                 format: integer
-   *                 example: 12999
-   *                 description: Product price in cents (optional)
    *               categoryId:
    *                 type: integer
    *                 example: 1
@@ -299,6 +272,11 @@ module.exports = (router) => {
    *                 type: integer
    *                 example: 1
    *                 description: Subcategory ID (optional)
+   *               brandId:
+   *                 type: integer
+   *                 nullable: true
+   *                 example: 1
+   *                 description: Brand ID (optional, can be null)
    *               branchId:
    *                 type: integer
    *                 example: 1
@@ -312,57 +290,40 @@ module.exports = (router) => {
    *                 enum: [ACTIVE, INACTIVE]
    *                 example: ACTIVE
    *                 description: Product status (optional)
-   *               quantity:
-   *                 type: integer
-   *                 example: 2
-   *                 description: Number of units in stock (optional)
-   *               itemsPerUnit:
-   *                 type: integer
-   *                 example: 25
-   *                 description: Number of items per unit (optional, e.g., 25 items per unit)
-   *               itemQuantity:
-   *                 type: number
-   *                 format: float
-   *                 example: 500
-   *                 description: Measurement quantity per item (optional, e.g., 500 for 500gm per item)
-   *               itemUnit:
+   *               nutritional:
    *                 type: string
-   *                 example: "G"
-   *                 description: Measurement unit per item (e.g., LTR, KG, ML, G, PCS) (optional)
+   *                 example: "Calories: 100, Protein: 5g"
+   *                 description: Nutritional information (optional)
    *               updatedBy:
    *                 type: integer
    *                 example: 1
-   *                 description: User ID who is updating the product
+   *                 description: User ID who is updating the product (required)
    *               concurrencyStamp:
    *                 type: string
    *                 format: uuid
    *                 example: "123e4567-e89b-12d3-a456-426614174000"
-   *                 description: Concurrency stamp from previous response
-   *               file:
-   *                 type: string
-   *                 format: binary
-   *                 description: Product image file (optional, legacy support - use 'images' for multiple images)
+   *                 description: Concurrency stamp from previous response (required)
    *               images:
    *                 type: array
    *                 items:
    *                   type: string
    *                   format: binary
-   *                 description: Multiple product image files (optional, max 10 images)
+   *                 description: Multiple product image files (optional, max 3 images per product)
    *               variants:
    *                 type: string
-   *                 description: "JSON array of variant objects (optional). For updates include id and concurrencyStamp. For new omit id. To delete use variantIdsToDelete array"
-   *                 example: '[{"id":1,"variantName":"500g","variantType":"WEIGHT","price":500,"sellingPrice":450,"quantity":100,"expiryDate":"2024-12-31","concurrencyStamp":"stamp"},{"variantName":"1kg","variantType":"WEIGHT","price":900,"sellingPrice":800,"quantity":50,"expiryDate":"2024-12-31"}]'
+   *                 description: "JSON string array of variant objects (optional). For updates include id and concurrencyStamp. For new omit id. Each variant must include: variantName (required), variantType (optional), variantValue (optional), price (required), sellingPrice (required), quantity (required), itemsPerUnit (optional), units (optional), itemQuantity (optional), itemUnit (optional), expiryDate (required), status (optional). At least one variant must remain after all operations."
+   *                 example: '[{"id":1,"variantName":"500g","variantType":"WEIGHT","variantValue":"VAR-001","price":500,"sellingPrice":450,"quantity":100,"itemsPerUnit":2,"units":"PCS","expiryDate":"2024-12-31","concurrencyStamp":"stamp","status":"ACTIVE"},{"variantName":"1kg","variantType":"WEIGHT","variantValue":"VAR-002","price":900,"sellingPrice":800,"quantity":50,"itemsPerUnit":1,"units":"PCS","expiryDate":"2024-12-31","status":"ACTIVE"}]'
    *               variantIdsToDelete:
    *                 type: string
-   *                 description: "JSON array of variant IDs to delete (optional). Example [2,3]"
+   *                 description: "JSON string array of variant IDs to delete (optional). Example: '[2,3]'. Note: At least one variant must remain after deletion."
    *                 example: '[2,3]'
    *               imagesData:
    *                 type: string
-   *                 description: "JSON array of image objects (optional). For updates include id and concurrencyStamp. For new include imageUrl. To delete use imageIdsToDelete array"
+   *                 description: "JSON string array of image objects (optional). For updates include id and concurrencyStamp. For new include imageUrl. Each image can include: id (optional for updates), imageUrl (required for new), isDefault (optional), displayOrder (optional), variantId (optional), status (optional), concurrencyStamp (required for updates)"
    *                 example: '[{"id":1,"isDefault":true,"displayOrder":1,"concurrencyStamp":"stamp"},{"imageUrl":"https://example.com/new.jpg","isDefault":false,"displayOrder":2}]'
    *               imageIdsToDelete:
    *                 type: string
-   *                 description: "JSON array of image IDs to delete (optional). Example [4,5]"
+   *                 description: "JSON string array of image IDs to delete (optional). Example: '[4,5]'"
    *                 example: '[4,5]'
    *     responses:
    *       200:
@@ -388,8 +349,7 @@ module.exports = (router) => {
     isAuthenticated,
     isVendorAdmin,
     upload.fields([
-      { name: 'file', maxCount: 1 }, // Legacy single image (backward compatibility)
-      { name: 'images', maxCount: 10 }, // Multiple images (max 10 per product)
+      { name: 'images', maxCount: 3 }, // Multiple images (max 3 per product)
     ]),
     validate(updateProductSchema),
     updateProduct,

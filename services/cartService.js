@@ -28,57 +28,41 @@ const saveCart = async (data) => withTransaction(sequelize, async (transaction) 
     createdBy, productId, variantId, vendorId, branchId, ...datas
   } = data;
 
-  // Validate: Either productId or variantId must be provided
-  if (!productId && !variantId) {
-    throw new ValidationError('Either productId or variantId must be provided');
+  // Validate: Both productId and variantId are required
+  if (!productId) {
+    throw new ValidationError('productId is required');
   }
 
-  let finalVendorId;
-  let finalBranchId;
-  let finalProductId = productId;
-  const finalVariantId = variantId || null;
+  if (!variantId) {
+    throw new ValidationError('variantId is required');
+  }
 
-  // If variant is provided, use variant's product, vendor, and branch
-  if (variantId) {
-    const variant = await ProductVariantModel.findOne({
-      where: { id: variantId },
-      attributes: [ 'id', 'product_id' ],
-      include: [
-        {
-          model: ProductModel,
-          as: 'product',
-          attributes: [ 'id', 'vendor_id', 'branch_id' ],
-        },
-      ],
-      transaction,
-    });
+  // Get variant and validate it belongs to the product
+  const variant = await ProductVariantModel.findOne({
+    where: { id: variantId, product_id: productId },
+    attributes: [ 'id', 'product_id' ],
+    include: [
+      {
+        model: ProductModel,
+        as: 'product',
+        attributes: [ 'id', 'vendor_id', 'branch_id' ],
+      },
+    ],
+    transaction,
+  });
 
-    if (!variant) {
-      throw new NotFoundError('Product variant not found');
-    }
+  if (!variant) {
+    throw new NotFoundError('Product variant not found or does not belong to the specified product');
+  }
 
-    finalProductId = variant.product_id;
-    finalVendorId = variant.product.vendor_id;
-    finalBranchId = variant.product.branch_id;
+  const finalProductId = variant.product_id;
+  const finalVendorId = variant.product.vendor_id;
+  const finalBranchId = variant.product.branch_id;
+  const finalVariantId = variantId;
 
-    // Validate provided productId matches variant's product (if provided)
-    if (productId && productId !== finalProductId) {
-      throw new ValidationError('Product ID does not match the variant\'s product');
-    }
-  } else {
-    // No variant, use product directly
-    const product = await ProductModel.findOne({
-      where: { id: productId },
-      attributes: [ 'id', 'vendor_id', 'branch_id' ],
-      transaction,
-    });
-
-    if (!product) {
-      throw new NotFoundError('Product not found');
-    }
-
-    finalVendorId = product.vendor_id;
-    finalBranchId = product.branch_id;
+  // Validate provided productId matches variant's product
+  if (productId !== finalProductId) {
+    throw new ValidationError('Product ID does not match the variant\'s product');
   }
 
   // Validate that provided vendorId and branchId match (if provided)
@@ -108,15 +92,9 @@ const saveCart = async (data) => withTransaction(sequelize, async (transaction) 
     created_by: createdBy,
     vendor_id: finalVendorId,
     branch_id: finalBranchId,
+    product_id: finalProductId,
+    variant_id: finalVariantId,
   };
-
-  if (finalVariantId) {
-    existingWhere.variant_id = finalVariantId;
-    existingWhere.product_id = null;
-  } else {
-    existingWhere.product_id = finalProductId;
-    existingWhere.variant_id = null;
-  }
 
   const isExists = await CartModel.findOne({
     where: existingWhere,
@@ -130,7 +108,7 @@ const saveCart = async (data) => withTransaction(sequelize, async (transaction) 
 
   const doc = {
     ...datas,
-    productId: finalVariantId ? null : finalProductId, // Set to null if variant is used
+    productId: finalProductId,
     variantId: finalVariantId,
     vendorId: finalVendorId,
     branchId: finalBranchId,

@@ -102,39 +102,23 @@ const saveProduct = Joi.object({
         }),
         status: Joi.string().valid('ACTIVE', 'INACTIVE').optional().default('ACTIVE'),
       }),
-    ),
-    Joi.string(), // Allow JSON string for multipart/form-data
-  ).optional().messages({
-    'array.base': 'Parameter: variants must be an array or JSON string',
-  }),
-  images: Joi.alternatives().try(
-    Joi.array().items(
-      Joi.object({
-        imageUrl: Joi.string().optional(), // For pre-uploaded URLs
-        isDefault: Joi.boolean().optional().default(false),
-        displayOrder: Joi.number().integer().min(0).optional()
-          .default(0),
-        variantId: Joi.number().integer().optional().allow(null), // For variant-specific images
+    )
+      .min(1)
+      .required()
+      .messages({
+        'array.min': 'At least one variant is required',
+        'any.required': 'Parameter: variants is required',
       }),
-    ),
-    Joi.string(), // Allow JSON string for multipart/form-data
-  ).optional().messages({
-    'array.base': 'Parameter: images must be an array or JSON string',
-  }),
-  imagesData: Joi.alternatives().try(
-    Joi.array().items(
-      Joi.object({
-        imageUrl: Joi.string().required(), // For pre-uploaded URLs
-        isDefault: Joi.boolean().optional().default(false),
-        displayOrder: Joi.number().integer().min(0).optional()
-          .default(0),
-        variantId: Joi.number().integer().optional().allow(null), // For variant-specific images
+    Joi.string()
+      .required()
+      .messages({
+        'any.required': 'Parameter: variants is required',
+        'string.base': 'Parameter: variants must be a JSON string',
       }),
-    ),
-    Joi.string(), // Allow JSON string for multipart/form-data
-  ).optional().messages({
-    'array.base': 'Parameter: imagesData must be an array or JSON string',
-  }),
+  )
+    .messages({
+      'alternatives.match': 'Parameter: variants must be an array or JSON string with at least one variant',
+    }),
 }).unknown(false);
 
 module.exports = saveProduct;

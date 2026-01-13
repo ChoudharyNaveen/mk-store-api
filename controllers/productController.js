@@ -6,42 +6,37 @@ const {
 const saveProduct = async (req, res) => {
   try {
     const data = req.validatedData;
-    const imageFile = req.files.file ? req.files.file[0] : null; // Legacy single image (backward compatibility)
     const imageFiles = req.files.images ? req.files.images : null; // Multiple images
 
-    // Parse variants and imagesData from JSON if provided as string (multipart/form-data)
+    // Parse variants from JSON if provided as string (multipart/form-data)
     let { variants } = data;
-    let imagesData = data.imagesData || data.images; // Support both field names
 
-    if (typeof variants === 'string') {
+    if (variants) {
       try {
         variants = JSON.parse(variants);
+        // Validate: at least one variant is required
+        if (!Array.isArray(variants) || variants.length === 0) {
+          return sendErrorResponse(res, 400, 'At least one variant is required', 'VALIDATION_ERROR');
+        }
       } catch (e) {
-        return sendErrorResponse(res, 400, 'Invalid variants format. Must be valid JSON array.', 'VALIDATION_ERROR');
+        return sendErrorResponse(res, 400, 'Invalid variants format. Must be valid JSON string.', 'VALIDATION_ERROR');
       }
+    } else {
+      return sendErrorResponse(res, 400, 'At least one variant is required', 'VALIDATION_ERROR');
     }
 
-    if (typeof imagesData === 'string') {
-      try {
-        imagesData = JSON.parse(imagesData);
-      } catch (e) {
-        return sendErrorResponse(res, 400, 'Invalid imagesData format. Must be valid JSON array.', 'VALIDATION_ERROR');
-      }
-    }
-
-    // Remove variants and images from data to avoid schema validation issues
+    // Remove variants from data to avoid schema validation issues
     const {
-      variants: _, imagesData: __, images: ___, ...productData
+      variants: _, ...productData
     } = data;
 
     const { errors: err, doc } = await ProductService.saveProduct({
       data: {
         ...productData,
         variants: variants || undefined,
-        imagesData: imagesData || undefined,
+        createdBy: req.user.id,
       },
-      imageFile, // Legacy support
-      imageFiles, // New: multiple image files from multipart/form-data
+      imageFiles, // Multiple image files from multipart/form-data
     });
 
     if (doc) {
@@ -61,46 +56,42 @@ const saveProduct = async (req, res) => {
 const updateProduct = async (req, res) => {
   try {
     const data = { ...req.validatedData, id: req.params.id };
-    const imageFile = req.files.file ? req.files.file[0] : null; // Legacy single image (backward compatibility)
     const imageFiles = req.files.images ? req.files.images : null; // Multiple images
 
-    // Parse variants and imagesData from JSON if provided as string (multipart/form-data)
-    let { variants } = data;
-    let imagesData = data.imagesData || data.images; // Support both field names
+    // Parse JSON strings from multipart/form-data
+    let {
+      variants, imagesData, variantIdsToDelete, imageIdsToDelete,
+    } = data;
 
-    if (typeof variants === 'string') {
+    if (variants) {
       try {
         variants = JSON.parse(variants);
       } catch (e) {
-        return sendErrorResponse(res, 400, 'Invalid variants format. Must be valid JSON array.', 'VALIDATION_ERROR');
+        return sendErrorResponse(res, 400, 'Invalid variants format. Must be valid JSON string.', 'VALIDATION_ERROR');
       }
     }
 
-    if (typeof imagesData === 'string') {
+    if (imagesData) {
       try {
         imagesData = JSON.parse(imagesData);
       } catch (e) {
-        return sendErrorResponse(res, 400, 'Invalid imagesData format. Must be valid JSON array.', 'VALIDATION_ERROR');
+        return sendErrorResponse(res, 400, 'Invalid imagesData format. Must be valid JSON string.', 'VALIDATION_ERROR');
       }
     }
 
-    // Parse variantIdsToDelete and imageIdsToDelete if provided as string
-    let { variantIdsToDelete } = data;
-    let { imageIdsToDelete } = data;
-
-    if (typeof variantIdsToDelete === 'string') {
+    if (variantIdsToDelete) {
       try {
         variantIdsToDelete = JSON.parse(variantIdsToDelete);
       } catch (e) {
-        return sendErrorResponse(res, 400, 'Invalid variantIdsToDelete format. Must be valid JSON array.', 'VALIDATION_ERROR');
+        return sendErrorResponse(res, 400, 'Invalid variantIdsToDelete format. Must be valid JSON string.', 'VALIDATION_ERROR');
       }
     }
 
-    if (typeof imageIdsToDelete === 'string') {
+    if (imageIdsToDelete) {
       try {
         imageIdsToDelete = JSON.parse(imageIdsToDelete);
       } catch (e) {
-        return sendErrorResponse(res, 400, 'Invalid imageIdsToDelete format. Must be valid JSON array.', 'VALIDATION_ERROR');
+        return sendErrorResponse(res, 400, 'Invalid imageIdsToDelete format. Must be valid JSON string.', 'VALIDATION_ERROR');
       }
     }
 
@@ -116,14 +107,15 @@ const updateProduct = async (req, res) => {
       doc,
     } = await ProductService.updateProduct({
       data: {
+        updatedBy: req.user.id,
+        createdBy: req.user.id,
         ...productData,
         variants: variants || undefined,
         imagesData: imagesData || undefined,
         variantIdsToDelete: variantIdsToDelete || undefined,
         imageIdsToDelete: imageIdsToDelete || undefined,
       },
-      imageFile, // Legacy support
-      imageFiles, // New: multiple image files from multipart/form-data
+      imageFiles, // Multiple image files from multipart/form-data
     });
 
     if (concurrencyError) {

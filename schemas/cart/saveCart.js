@@ -1,12 +1,14 @@
 const Joi = require('joi');
 
 const saveCart = Joi.object({
-  productId: Joi.number().integer().optional().allow(null)
+  productId: Joi.number().integer().required()
     .messages({
+      'any.required': 'Parameter: productId is required',
       'number.base': 'Parameter: productId must be a number',
     }),
-  variantId: Joi.number().integer().optional().allow(null)
+  variantId: Joi.number().integer().required()
     .messages({
+      'any.required': 'Parameter: variantId is required',
       'number.base': 'Parameter: variantId must be a number',
     }),
   quantity: Joi.number().integer().required().messages({
@@ -20,8 +22,6 @@ const saveCart = Joi.object({
     'number.base': 'Parameter: branchId must be a number',
   }),
   createdBy: Joi.number().integer().optional(),
-}).or('productId', 'variantId').messages({
-  'object.missing': 'Either productId or variantId must be provided',
 }).unknown(false);
 
 module.exports = saveCart;

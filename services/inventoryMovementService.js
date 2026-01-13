@@ -23,9 +23,10 @@ const {
 /**
  * Create inventory movement record (called internally)
  * @param {Object} data - Movement data
+ * @param {Object} transaction - Sequelize transaction (optional)
  * @returns {Promise<void>}
  */
-const createInventoryMovement = async (data) => {
+const createInventoryMovement = async (data, transaction = null) => {
   try {
     const {
       productId,
@@ -74,6 +75,8 @@ const createInventoryMovement = async (data) => {
       user_id: userId,
       notes,
       created_at: new Date(),
+    }, {
+      transaction,
     });
   } catch (error) {
     console.error('Error creating inventory movement:', error);
@@ -334,7 +337,7 @@ const adjustInventory = async ({ data }) => {
       referenceId: productId,
       userId,
       notes,
-    });
+    }, transaction);
 
     await transaction.commit();
 
