@@ -85,6 +85,7 @@ const options = {
       { name: 'Promocodes', description: 'Promocode management endpoints' },
       { name: 'Offers', description: 'Offer management endpoints' },
       { name: 'OTP', description: 'OTP verification endpoints' },
+      { name: 'Rider FCM', description: 'Rider FCM token management endpoints' },
       { name: 'Test', description: 'Test endpoints' },
     ],
   },

@@ -23,41 +23,45 @@ const {
 /**
  * Create a notification
  * @param {Object} data - Notification data
+ * @param {boolean} skipSocket - Skip socket notification emission (default: false)
  * @returns {Promise<Object>} Created notification
  */
-const createNotification = async (data) => {
+const createNotification = async (data, skipSocket = false) => {
   try {
     const notification = await NotificationModel.create(data);
 
-    // Emit real-time notification via Socket.IO
-    const notificationData = {
-      id: notification.id,
-      type: notification.type,
-      title: notification.title,
-      message: notification.message,
-      priority: notification.priority,
-      is_read: notification.is_read,
-      created_at: notification.createdAt || notification.created_at,
-      action_url: notification.action_url,
-      icon: notification.icon,
-      metadata: notification.metadata,
-      entity_type: notification.entity_type,
-      entity_id: notification.entity_id,
-    };
+    // Skip socket notifications if flag is set
+    if (!skipSocket) {
+      // Emit real-time notification via Socket.IO
+      const notificationData = {
+        id: notification.id,
+        type: notification.type,
+        title: notification.title,
+        message: notification.message,
+        priority: notification.priority,
+        is_read: notification.is_read,
+        created_at: notification.createdAt || notification.created_at,
+        action_url: notification.action_url,
+        icon: notification.icon,
+        metadata: notification.metadata,
+        entity_type: notification.entity_type,
+        entity_id: notification.entity_id,
+      };
 
-    // Emit based on recipient type
-    // VENDOR_ADMIN type notifications go to VENDOR_ADMIN users
-    if (data.recipient_id && data.recipient_type === 'USER') {
-      emitToUser(data.recipient_id, notificationData);
-    } else if (data.recipient_type === 'VENDOR_ADMIN' && data.vendor_id) {
-      // VENDOR_ADMIN notifications are sent to VENDOR_ADMIN users of that vendor
-      emitToVendor(data.vendor_id, notificationData);
-    } else if (data.branch_id) {
-      emitToBranch(data.branch_id, notificationData);
-    } else if (data.recipient_type) {
-      emitToRecipientType(data.recipient_type, notificationData);
-    } else {
-      emitToAll(notificationData);
+      // Emit based on recipient type
+      // VENDOR_ADMIN type notifications go to VENDOR_ADMIN users
+      if (data.recipient_id && data.recipient_type === 'USER') {
+        emitToUser(data.recipient_id, notificationData);
+      } else if (data.recipient_type === 'VENDOR_ADMIN' && data.vendor_id) {
+        // VENDOR_ADMIN notifications are sent to VENDOR_ADMIN users of that vendor
+        emitToVendor(data.vendor_id, notificationData);
+      } else if (data.branch_id) {
+        emitToBranch(data.branch_id, notificationData);
+      } else if (data.recipient_type) {
+        emitToRecipientType(data.recipient_type, notificationData);
+      } else {
+        emitToAll(notificationData);
+      }
     }
 
     return { doc: notification };
@@ -110,9 +114,10 @@ const createOrderPlacedNotification = async (orderData) => {
 /**
  * Create notification for order update
  * @param {Object} orderData - Order update data
+ * @param {boolean} skipSocket - Skip socket notifications if updated by vendor admin
  * @returns {Promise<Object>} Created notification
  */
-const createOrderUpdatedNotification = async (orderData) => {
+const createOrderUpdatedNotification = async (orderData, skipSocket = false) => {
   const {
     orderId,
     orderNumber,
@@ -125,8 +130,9 @@ const createOrderUpdatedNotification = async (orderData) => {
 
   const statusMessages = {
     PENDING: 'is pending',
-    CONFIRMED: 'has been confirmed',
-    SHIPPED: 'has been shipped',
+    ACCEPTED: 'has been accepted',
+    READYFORPICKUP: 'is ready for pickup',
+    PICKED: 'has been picked up',
     DELIVERED: 'has been delivered',
     CANCELLED: 'has been cancelled',
   };
@@ -160,7 +166,7 @@ const createOrderUpdatedNotification = async (orderData) => {
       recipient_id: null,
     };
 
-    await createNotification(vendorNotification);
+    await createNotification(vendorNotification, skipSocket);
   }
 
   // Notify vendor admin if order is delivered
@@ -189,10 +195,10 @@ const createOrderUpdatedNotification = async (orderData) => {
       },
     };
 
-    await createNotification(vendorAdminNotificationData);
+    await createNotification(vendorAdminNotificationData, skipSocket);
   }
 
-  return createNotification(notificationData);
+  return createNotification(notificationData, skipSocket);
 };
 
 /**
@@ -242,6 +248,49 @@ const createUserRegistrationNotification = async (userData) => {
   }
 
   return { doc: null };
+};
+
+/**
+ * Create notification for order ready for pickup
+ * @param {Object} orderData - Order ready for pickup data
+ * @returns {Promise<Object>} Created notification
+ */
+const createOrderReadyForPickupNotification = async (orderData) => {
+  const {
+    orderId,
+    orderNumber,
+    vendorId,
+    branchId,
+    branchName,
+    address,
+    finalAmount,
+  } = orderData;
+
+  const notificationData = {
+    type: 'ORDER_READY_FOR_PICKUP',
+    title: 'New Order Ready for Pickup',
+    message: `Order ${orderNumber} is ready for pickup at ${branchName || 'branch'}`,
+    recipient_type: 'RIDER',
+    vendor_id: vendorId,
+    branch_id: branchId,
+    entity_type: 'ORDER',
+    entity_id: orderId,
+    priority: 'HIGH',
+    action_url: `/orders/detail/${orderId}`,
+    icon: 'package',
+    metadata: {
+      order_id: orderId,
+      order_number: orderNumber,
+      branch_id: branchId,
+      branch_name: branchName,
+      address,
+      final_amount: finalAmount,
+      vendor_id: vendorId,
+    },
+  };
+
+  // Create notification for all riders (recipient_type: RIDER will be handled by emitToRecipientType)
+  return createNotification(notificationData);
 };
 
 /**
@@ -524,6 +573,7 @@ module.exports = {
   createNotification,
   createOrderPlacedNotification,
   createOrderUpdatedNotification,
+  createOrderReadyForPickupNotification,
   createUserRegistrationNotification,
   getNotifications,
   markAsRead,

@@ -23,6 +23,7 @@ const brand = require('./brand');
 const notification = require('./notification');
 const shipping = require('./shipping');
 const inventory = require('./inventory');
+const riderFcmToken = require('./riderFcmToken');
 
 user(router);
 category(router);
@@ -45,5 +46,6 @@ brand(router);
 notification(router);
 shipping(router);
 inventory(router);
+riderFcmToken(router);
 
 module.exports = router;

@@ -75,7 +75,7 @@ module.exports = (sequelize, DataTypes) => {
       },
       status: {
         type: DataTypes.STRING,
-        enum: [ 'PENDING', 'CONFIRMED', 'SHIPPED', 'DELIVERED', 'CANCELLED' ],
+        enum: [ 'PENDING', 'ACCEPTED', 'READYFORPICKUP', 'PICKED', 'DELIVERED', 'CANCELLED' ],
         defaultValue: 'PENDING',
         allowNull: false,
       },

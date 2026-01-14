@@ -16,6 +16,7 @@ const {
   orderDiscount: OrderDiscountModel,
   orderStatusHistory: OrderStatusHistoryModel,
   productImage: ProductImageModel,
+  user_roles_mappings: UserRolesMappingModel,
   sequelize,
   Sequelize: { Op },
 } = require('../database');
@@ -28,7 +29,8 @@ const {
   findAndCountAllWithTotal,
 } = require('../utils/helper');
 const { convertImageFieldsToCloudFront } = require('../utils/s3Helper');
-const { createOrderPlacedNotification, createOrderUpdatedNotification } = require('./notificationService');
+const { createOrderPlacedNotification, createOrderUpdatedNotification, createOrderReadyForPickupNotification } = require('./notificationService');
+const { sendFCMNotificationToRiders } = require('./fcmService');
 const ShippingService = require('./shippingService');
 const InventoryMovementService = require('./inventoryMovementService');
 const {
@@ -37,6 +39,10 @@ const {
   ConcurrencyError,
   handleServiceError,
 } = require('../utils/serviceErrors');
+
+// ============================================================================
+// Helper Methods for Order Operations
+// ============================================================================
 
 // Generate unique order number
 const generateOrderNumber = async (transaction) => {
@@ -71,30 +77,16 @@ const generateOrderNumber = async (transaction) => {
   return orderNumber;
 };
 
-const placeOrder = async (data) => withTransaction(sequelize, async (transaction) => {
+// ============================================================================
+// Helper Methods for Place Order
+// ============================================================================
+
+// Helper: Validate place order input
+const validatePlaceOrderInput = (data) => {
   const {
-    createdBy,
-    vendorId,
-    branchId,
-    addressId,
-    houseNo,
-    addressLine2,
-    streetDetails,
-    landmark,
-    city,
-    state,
-    country,
-    postalCode,
-    name,
-    mobileNumber,
-    offerCode,
-    promocodeId,
-    orderPriority,
-    estimatedDeliveryTime,
-    shippingCharges,
+    branchId, vendorId, offerCode, promocodeId,
   } = data;
 
-  // Verify branch exists
   if (!branchId) {
     throw new ValidationError('branchId is required');
   }
@@ -103,11 +95,13 @@ const placeOrder = async (data) => withTransaction(sequelize, async (transaction
     throw new ValidationError('vendorId is required');
   }
 
-  // Validate that only one discount type is provided
   if (offerCode && promocodeId) {
     throw new ValidationError('Cannot apply both offer code and promo code. Please choose one.');
   }
+};
 
+// Helper: Validate and fetch branch
+const validateAndFetchBranch = async (branchId, vendorId, transaction) => {
   const branch = await BranchModel.findOne({
     where: { id: branchId, vendor_id: vendorId },
     attributes: [ 'id', 'vendor_id' ],
@@ -118,14 +112,16 @@ const placeOrder = async (data) => withTransaction(sequelize, async (transaction
     throw new ValidationError('Branch not found or does not belong to the specified vendor');
   }
 
-  // Use provided vendorId
-  const branchVendorId = vendorId;
+  return branch;
+};
 
+// Helper: Fetch and validate cart items
+const fetchAndValidateCartItems = async (createdBy, vendorId, branchId, transaction) => {
   const cartItems = await CartModel.findAll({
     where: {
       created_by: createdBy,
       status: 'ACTIVE',
-      vendor_id: branchVendorId,
+      vendor_id: vendorId,
       branch_id: branchId,
     },
     attributes: [ 'id', 'product_id', 'variant_id', 'vendor_id', 'branch_id', 'quantity', 'created_by' ],
@@ -134,7 +130,7 @@ const placeOrder = async (data) => withTransaction(sequelize, async (transaction
         model: ProductVariantModel,
         as: 'variant',
         attributes: [ 'id', 'variant_name', 'product_id', 'selling_price', 'quantity', 'concurrency_stamp' ],
-        required: true, // Variant is required
+        required: true,
         include: [
           {
             model: ProductModel,
@@ -151,15 +147,13 @@ const placeOrder = async (data) => withTransaction(sequelize, async (transaction
     throw new ValidationError('No items in the cart');
   }
 
-  // Validate that all cart items have variants and productId matches variant's product_id
   const invalidItems = cartItems.filter((item) => {
     if (!item.variant_id || !item.variant) {
-      return true; // Missing variant
+      return true;
     }
 
-    // Validate productId matches variant's product_id (both are now required)
     if (item.product_id !== item.variant.product_id) {
-      return true; // Product ID mismatch
+      return true;
     }
 
     return false;
@@ -178,11 +172,14 @@ const placeOrder = async (data) => withTransaction(sequelize, async (transaction
     }
   }
 
-  // Calculate total amount and validate quantities
-  // Use variants from included cart items (already fetched, no need to query again)
+  return cartItems;
+};
+
+// Helper: Calculate order amount and validate quantities
+const calculateOrderAmount = (cartItems) => {
   let totalAmount = 0;
   const validationResults = cartItems.map((item) => {
-    const { quantity, variant } = item; // Use variant from included cart item
+    const { quantity, variant } = item;
 
     if (!variant) {
       return {
@@ -223,7 +220,6 @@ const placeOrder = async (data) => withTransaction(sequelize, async (transaction
     };
   });
 
-  // Early exit on first validation error
   const errorResult = validationResults.find((result) => result?.errors);
 
   if (errorResult) {
@@ -234,13 +230,17 @@ const placeOrder = async (data) => withTransaction(sequelize, async (transaction
 
   totalAmount += validationResults.reduce((sum, result) => sum + (result?.subtotal || 0), 0);
 
-  // ✅ VALIDATE ADDRESS BEFORE REDUCING PRODUCT QUANTITIES
-  // Handle address - either use existing addressId or create new address
-  let address;
+  return { totalAmount, orderItemsData };
+};
+
+// Helper: Handle address creation or validation
+const handleOrderAddress = async (data, createdBy, transaction) => {
+  const {
+    addressId, houseNo, addressLine2, streetDetails, landmark, city, state, country, postalCode, name, mobileNumber,
+  } = data;
 
   if (addressId) {
-    // Use existing address
-    address = await AddressModel.findOne({
+    const address = await AddressModel.findOne({
       where: { id: addressId, created_by: createdBy },
       attributes: [ 'id', 'created_by', 'latitude', 'longitude' ],
       transaction,
@@ -249,8 +249,11 @@ const placeOrder = async (data) => withTransaction(sequelize, async (transaction
     if (!address) {
       throw new ValidationError('Address not found or does not belong to you.');
     }
-  } else if (houseNo && streetDetails && city && state && postalCode && name && mobileNumber) {
-    // Create new address if address fields are provided
+
+    return address;
+  }
+
+  if (houseNo && streetDetails && city && state && postalCode && name && mobileNumber) {
     const addressConcurrencyStamp = uuidV4();
 
     const doc = {
@@ -270,120 +273,120 @@ const placeOrder = async (data) => withTransaction(sequelize, async (transaction
       createdBy,
     };
 
-    address = await AddressModel.create(convertCamelToSnake(doc), {
-      transaction,
-    });
-  } else {
-    throw new ValidationError('Address not found. Please provide address details(houseNo, streetDetails, city, state, postalCode, name, mobileNumber) or addressId.');
-  }
-
-  // Discount application variables
-  let discountApplied = false;
-  let discountType = null;
-  let discountId = null;
-  let discountPercentage = 0;
-  let discountAmount = 0;
-  const originalAmount = totalAmount;
-
-  // Offer application
-  if (offerCode) {
-    const offer = await OfferModel.findOne({
-      where: {
-        code: offerCode,
-        status: 'ACTIVE',
-      },
-      attributes: [ 'id', 'code', 'percentage', 'min_order_price', 'start_date', 'end_date' ],
+    const address = await AddressModel.create(convertCamelToSnake(doc), {
       transaction,
     });
 
-    const currentDate = new Date();
-
-    if (offer) {
-      if (
-        currentDate >= new Date(offer.start_date)
-          && currentDate <= new Date(offer.end_date)
-      ) {
-        if (totalAmount >= offer.min_order_price) {
-          discountPercentage = offer.percentage;
-          discountAmount = totalAmount * (offer.percentage / 100);
-          totalAmount -= discountAmount;
-          discountApplied = true;
-          discountType = 'OFFER';
-          discountId = offer.id;
-        } else {
-          throw new ValidationError(`Order amount must be atleast ₹${offer.min_order_price} to use this offer`);
-        }
-      } else {
-        throw new ValidationError('This offer is not valid at the moment.');
-      }
-    } else {
-      throw new ValidationError('Invalid offer code.');
-    }
+    return address;
   }
 
-  // Promo code application
-  if (promocodeId) {
-    const promocode = await PromocodeModel.findOne({
-      where: {
-        id: promocodeId,
-        status: 'ACTIVE',
-      },
-      attributes: [ 'id', 'code', 'percentage', 'start_date', 'end_date', 'branch_id', 'vendor_id' ],
-      transaction,
-    });
+  throw new ValidationError('Address not found. Please provide address details(houseNo, streetDetails, city, state, postalCode, name, mobileNumber) or addressId.');
+};
 
-    const currentDate = new Date();
+// Helper: Apply offer discount
+const applyOfferDiscount = async (offerCode, totalAmount, transaction) => {
+  const offer = await OfferModel.findOne({
+    where: {
+      code: offerCode,
+      status: 'ACTIVE',
+    },
+    attributes: [ 'id', 'code', 'percentage', 'min_order_price', 'start_date', 'end_date' ],
+    transaction,
+  });
 
-    if (promocode) {
-      // Validate date range
-      if (
-        currentDate >= new Date(promocode.start_date)
-          && currentDate <= new Date(promocode.end_date)
-      ) {
-        // Validate branch if promo code is branch-specific
-        if (promocode.branch_id && promocode.branch_id !== branchId) {
-          throw new ValidationError('This promo code is not valid for this branch.');
-        }
+  const currentDate = new Date();
 
-        discountPercentage = promocode.percentage;
-        discountAmount = totalAmount * (promocode.percentage / 100);
-        totalAmount -= discountAmount;
-        discountApplied = true;
-        discountType = 'PROMOCODE';
-        discountId = promocode.id;
-      } else {
-        throw new ValidationError('This promo code is not valid at the moment.');
-      }
-    } else {
-      throw new ValidationError('Invalid promo code.');
-    }
+  if (!offer) {
+    throw new ValidationError('Invalid offer code.');
   }
 
-  // Calculate shipping charges using shipping service (road-distance API with fallback)
-  let shippingChargesValue = 0;
-  let distance = null;
-  let distanceMethod = 'MANUAL';
-  let estimatedDeliveryETA = null;
+  if (currentDate < new Date(offer.start_date) || currentDate > new Date(offer.end_date)) {
+    throw new ValidationError('This offer is not valid at the moment.');
+  }
 
-  // Get delivery type from orderPriority (EXPRESS/URGENT = SAME_DAY, NORMAL = NEXT_DAY)
+  if (totalAmount < offer.min_order_price) {
+    throw new ValidationError(`Order amount must be atleast ₹${offer.min_order_price} to use this offer`);
+  }
+
+  const discountPercentage = offer.percentage;
+  const discountAmount = totalAmount * (offer.percentage / 100);
+
+  return {
+    discountApplied: true,
+    discountType: 'OFFER',
+    discountId: offer.id,
+    discountPercentage,
+    discountAmount,
+  };
+};
+
+// Helper: Apply promo code discount
+const applyPromocodeDiscount = async (promocodeId, branchId, totalAmount, transaction) => {
+  const promocode = await PromocodeModel.findOne({
+    where: {
+      id: promocodeId,
+      status: 'ACTIVE',
+    },
+    attributes: [ 'id', 'code', 'percentage', 'start_date', 'end_date', 'branch_id', 'vendor_id' ],
+    transaction,
+  });
+
+  const currentDate = new Date();
+
+  if (!promocode) {
+    throw new ValidationError('Invalid promo code.');
+  }
+
+  if (currentDate < new Date(promocode.start_date) || currentDate > new Date(promocode.end_date)) {
+    throw new ValidationError('This promo code is not valid at the moment.');
+  }
+
+  if (promocode.branch_id && promocode.branch_id !== branchId) {
+    throw new ValidationError('This promo code is not valid for this branch.');
+  }
+
+  const discountPercentage = promocode.percentage;
+  const discountAmount = totalAmount * (promocode.percentage / 100);
+
+  return {
+    discountApplied: true,
+    discountType: 'PROMOCODE',
+    discountId: promocode.id,
+    discountPercentage,
+    discountAmount,
+  };
+};
+
+// Helper: Calculate shipping charges
+// If shippingCharges is provided in request, use it; otherwise calculate using shipping service
+const calculateOrderShipping = async (branchId, addressId, orderPriority, providedShippingCharges, totalAmount, transaction) => {
+  // If shipping charges are explicitly provided, use them
+  if (providedShippingCharges !== undefined && providedShippingCharges !== null) {
+    return {
+      shippingCharges: providedShippingCharges,
+      distance: null,
+      distanceMethod: 'MANUAL',
+      estimatedDeliveryETA: null,
+    };
+  }
+
+  // Otherwise, calculate using shipping service
   const deliveryType = (orderPriority === 'EXPRESS' || orderPriority === 'URGENT') ? 'SAME_DAY' : 'NEXT_DAY';
 
-  // Get address coordinates if available
-  const addressWithCoords = await AddressModel.findOne({
-    where: { id: address.id },
-    attributes: [ 'id', 'latitude', 'longitude' ],
-    transaction,
-  });
-
-  // Get branch coordinates
-  const branchWithCoords = await BranchModel.findOne({
-    where: { id: branchId },
-    attributes: [ 'id', 'latitude', 'longitude' ],
-    transaction,
-  });
+  const [ addressWithCoords, branchWithCoords ] = await Promise.all([
+    AddressModel.findOne({
+      where: { id: addressId },
+      attributes: [ 'id', 'latitude', 'longitude' ],
+      transaction,
+    }),
+    BranchModel.findOne({
+      where: { id: branchId },
+      attributes: [ 'id', 'latitude', 'longitude' ],
+      transaction,
+    }),
+  ]);
 
   if (addressWithCoords?.latitude && addressWithCoords?.longitude && branchWithCoords?.latitude && branchWithCoords?.longitude) {
-    // Calculate shipping charges using shipping service
     try {
       const shippingResult = await ShippingService.calculateShippingCharges(
         branchId,
@@ -394,30 +397,158 @@ const placeOrder = async (data) => withTransaction(sequelize, async (transaction
       );
 
       if (shippingResult.doc && !shippingResult.errors) {
-        shippingChargesValue = shippingResult.doc.shippingCharges || 0;
-        distance = shippingResult.doc.distance || null;
-        distanceMethod = shippingResult.doc.method || 'MANUAL';
-        estimatedDeliveryETA = shippingResult.doc.eta || null;
-      } else {
-        // Fallback to provided shipping charges or 0
-        shippingChargesValue = shippingCharges || 0;
-        distanceMethod = 'MANUAL';
+        return {
+          shippingCharges: shippingResult.doc.shippingCharges || 0,
+          distance: shippingResult.doc.distance || null,
+          distanceMethod: shippingResult.doc.method || 'MANUAL',
+          estimatedDeliveryETA: shippingResult.doc.eta || null,
+        };
       }
     } catch (error) {
       console.error('Error calculating shipping charges:', error);
-
-      // Fallback to provided shipping charges or 0
-      shippingChargesValue = shippingCharges || 0;
-      distanceMethod = 'MANUAL';
     }
-  } else {
-    // If coordinates not available, use provided shippingCharges or default to 0
-    shippingChargesValue = shippingCharges || 0;
-    distanceMethod = 'MANUAL';
   }
 
-  // Calculate final amount: totalAmount - discountAmount + shippingCharges
-  const finalAmount = totalAmount - discountAmount + shippingChargesValue;
+  // Fallback to 0 if calculation fails
+  return {
+    shippingCharges: 0,
+    distance: null,
+    distanceMethod: 'MANUAL',
+    estimatedDeliveryETA: null,
+  };
+};
+
+// Helper: Create order items and reduce inventory
+const createOrderItemsAndReduceInventory = async (orderItemsData, orderId, orderNumber, vendorId, branchId, createdBy, transaction) => {
+  await Promise.all(orderItemsData.map(async (item) => {
+    const itemDoc = {
+      concurrencyStamp: uuidV4(),
+      orderId,
+      productId: item.product_id,
+      variantId: item.variant_id || null,
+      variantName: item.variant_name || null,
+      quantity: item.quantity,
+      priceAtPurchase: item.price_at_purchase,
+      createdBy,
+    };
+
+    await OrderItemModel.create(convertCamelToSnake(itemDoc), {
+      transaction,
+    });
+
+    const quantityRemaining = item.product_quantity - item.quantity;
+    const quantityChange = -item.quantity;
+
+    await ProductVariantModel.update(
+      {
+        quantity: quantityRemaining,
+        product_status: quantityRemaining > 0 ? 'INSTOCK' : 'OUT-OF-STOCK',
+        concurrency_stamp: uuidV4(),
+      },
+      {
+        where: { id: item.variant_id },
+        transaction,
+      },
+    );
+
+    await InventoryMovementService.createInventoryMovement({
+      productId: item.product_id,
+      variantId: item.variant_id,
+      vendorId,
+      branchId,
+      movementType: 'REMOVED',
+      quantityChange,
+      quantityBefore: item.product_quantity,
+      quantityAfter: quantityRemaining,
+      referenceType: 'ORDER',
+      referenceId: orderId,
+      userId: createdBy,
+      notes: `Order ${orderNumber}`,
+    }, transaction);
+  }));
+};
+
+// Helper: Clear user's cart
+const clearUserCart = async (createdBy, transaction) => {
+  await CartModel.destroy({
+    where: {
+      created_by: createdBy,
+      status: 'ACTIVE',
+    },
+    transaction,
+  });
+};
+
+const placeOrder = async (data) => withTransaction(sequelize, async (transaction) => {
+  const {
+    createdBy,
+    vendorId,
+    branchId,
+    offerCode,
+    promocodeId,
+    orderPriority,
+    estimatedDeliveryTime,
+    shippingCharges,
+  } = data;
+
+  // Validate input
+  validatePlaceOrderInput(data);
+
+  // Validate and fetch branch
+  await validateAndFetchBranch(branchId, vendorId, transaction);
+  const branchVendorId = vendorId;
+
+  // Fetch and validate cart items
+  const cartItems = await fetchAndValidateCartItems(createdBy, branchVendorId, branchId, transaction);
+
+  // Calculate order amount and validate quantities
+  const { totalAmount, orderItemsData } = calculateOrderAmount(cartItems);
+
+  // Handle address
+  const address = await handleOrderAddress(data, createdBy, transaction);
+
+  // Apply discounts
+  let discountApplied = false;
+  let discountType = null;
+  let discountId = null;
+  let discountPercentage = 0;
+  let discountAmount = 0;
+  const originalAmount = totalAmount;
+
+  let discountedTotal = totalAmount;
+
+  if (offerCode) {
+    const offerResult = await applyOfferDiscount(offerCode, totalAmount, transaction);
+
+    discountApplied = offerResult.discountApplied;
+    discountType = offerResult.discountType;
+    discountId = offerResult.discountId;
+    discountPercentage = offerResult.discountPercentage;
+    discountAmount = offerResult.discountAmount;
+    discountedTotal = totalAmount - discountAmount;
+  } else if (promocodeId) {
+    const promocodeResult = await applyPromocodeDiscount(promocodeId, branchId, totalAmount, transaction);
+
+    discountApplied = promocodeResult.discountApplied;
+    discountType = promocodeResult.discountType;
+    discountId = promocodeResult.discountId;
+    discountPercentage = promocodeResult.discountPercentage;
+    discountAmount = promocodeResult.discountAmount;
+    discountedTotal = totalAmount - discountAmount;
+  }
+
+  // Calculate shipping charges
+  const shippingResult = await calculateOrderShipping(
+    branchId,
+    address.id,
+    orderPriority,
+    shippingCharges,
+    discountedTotal,
+    transaction,
+  );
+
+  // Calculate final amount: discountedTotal + shippingCharges
+  const finalAmount = discountedTotal + shippingResult.shippingCharges;
 
   // Create order
   const orderConcurrencyStamp = uuidV4();
@@ -426,16 +557,16 @@ const placeOrder = async (data) => withTransaction(sequelize, async (transaction
   const orderDoc = {
     totalAmount,
     discountAmount,
-    shippingCharges: shippingChargesValue,
+    shippingCharges: shippingResult.shippingCharges,
     finalAmount,
     addressId: address.id,
     branchId,
     orderNumber,
     orderPriority: orderPriority || 'NORMAL',
     estimatedDeliveryTime: estimatedDeliveryTime || null,
-    distance,
-    distanceMethod,
-    estimatedDeliveryETA,
+    distance: shippingResult.distance,
+    distanceMethod: shippingResult.distanceMethod,
+    estimatedDeliveryETA: shippingResult.estimatedDeliveryETA,
     refundAmount: 0,
     refundStatus: 'NONE',
     status: 'PENDING',
@@ -488,67 +619,19 @@ const placeOrder = async (data) => withTransaction(sequelize, async (transaction
     transaction,
   });
 
-  // Create order items in parallel and reduce quantities
-  await Promise.all(orderItemsData.map(async (item) => {
-    const itemDoc = {
-      concurrencyStamp: uuidV4(),
-      orderId: newOrder.id,
-      productId: item.product_id,
-      variantId: item.variant_id || null,
-      variantName: item.variant_name || null,
-      quantity: item.quantity,
-      priceAtPurchase: item.price_at_purchase,
-      createdBy,
-    };
-
-    const orderItem = await OrderItemModel.create(convertCamelToSnake(itemDoc), {
-      transaction,
-    });
-
-    // Reduce variant quantity and create inventory movement
-    const quantityRemaining = item.product_quantity - item.quantity;
-    const quantityChange = -item.quantity; // Negative for REMOVED
-
-    // Update variant quantity
-    await ProductVariantModel.update(
-      {
-        quantity: quantityRemaining,
-        product_status: quantityRemaining > 0 ? 'INSTOCK' : 'OUT-OF-STOCK',
-        concurrency_stamp: uuidV4(),
-      },
-      {
-        where: { id: item.variant_id },
-        transaction,
-      },
-    );
-
-    // Create inventory movement for variant
-    await InventoryMovementService.createInventoryMovement({
-      productId: item.product_id,
-      variantId: item.variant_id,
-      vendorId: branchVendorId,
-      branchId,
-      movementType: 'REMOVED',
-      quantityChange,
-      quantityBefore: item.product_quantity,
-      quantityAfter: quantityRemaining,
-      referenceType: 'ORDER',
-      referenceId: newOrder.id,
-      userId: createdBy,
-      notes: `Order ${orderNumber}`,
-    }, transaction);
-
-    return orderItem;
-  }));
-
-  // deleting cart
-  await CartModel.destroy({
-    where: {
-      created_by: createdBy,
-      status: 'ACTIVE',
-    },
+  // Create order items and reduce inventory
+  await createOrderItemsAndReduceInventory(
+    orderItemsData,
+    newOrder.id,
+    orderNumber,
+    branchVendorId,
+    branchId,
+    createdBy,
     transaction,
-  });
+  );
+
+  // Clear user's cart
+  await clearUserCart(createdBy, transaction);
 
   // Create notification for new order (after transaction commit)
   transaction.afterCommit(async () => {
@@ -714,21 +797,11 @@ const getStatsOfOrdersCompleted = async () => {
   }
 };
 
-const updateOrder = async (data) => withTransaction(sequelize, async (transaction) => {
-  const { id, ...datas } = data;
-  const {
-    concurrencyStamp,
-    updatedBy,
-    status: newStatus,
-    notes,
-    discountAmount,
-    shippingCharges,
-    finalAmount,
-  } = datas;
-
-  const [ response, riderExist ] = await Promise.all([
+// Helper: Validate order update request
+const validateOrderUpdate = async (orderId, concurrencyStamp, updatedBy, transaction) => {
+  const [ order, user ] = await Promise.all([
     OrderModel.findOne({
-      where: { id },
+      where: { id: orderId },
       attributes: [
         'id',
         'order_number',
@@ -757,107 +830,314 @@ const updateOrder = async (data) => withTransaction(sequelize, async (transactio
     }),
   ]);
 
-  if (!response) {
+  if (!order) {
     throw new NotFoundError('Order not found');
   }
+
+  if (concurrencyStamp !== order.concurrency_stamp) {
+    throw new ConcurrencyError('invalid concurrency stamp');
+  }
+
+  return { order, user };
+};
+
+// Helper: Calculate final amount for order
+const calculateFinalAmount = (order, discountAmount, shippingCharges, finalAmount) => {
+  if (finalAmount !== undefined) {
+    return finalAmount;
+  }
+
+  if (discountAmount !== undefined || shippingCharges !== undefined) {
+    const currentTotal = order.total_amount;
+    const newDiscount = discountAmount !== undefined ? discountAmount : order.discount_amount;
+    const newShipping = shippingCharges !== undefined ? shippingCharges : order.shipping_charges;
+
+    // final_amount = total_amount - discount_amount + shipping_charges
+    return currentTotal - newDiscount + newShipping;
+  }
+
+  return null;
+};
+
+// Helper: Handle order status change
+const handleOrderStatusChange = async (orderId, oldStatus, newStatus, updatedBy, notes, transaction) => {
+  if (!newStatus || newStatus === oldStatus) {
+    return null;
+  }
+
+  const statusHistoryDoc = {
+    orderId,
+    status: newStatus,
+    previousStatus: oldStatus,
+    changedBy: updatedBy,
+    notes: notes || null,
+  };
+
+  await OrderStatusHistoryModel.create(convertCamelToSnake(statusHistoryDoc), {
+    transaction,
+  });
+
+  return null;
+};
+
+// Helper: Handle order cancellation - restore inventory
+const handleOrderCancellation = async (orderId, orderNumber, vendorId, branchId, updatedBy, transaction) => {
+  const orderItems = await OrderItemModel.findAll({
+    where: { order_id: orderId },
+    attributes: [ 'id', 'product_id', 'variant_id', 'variant_name', 'quantity' ],
+    transaction,
+  });
+
+  // Restore quantities for each order item
+  await Promise.all(orderItems.map(async (item) => {
+    if (item.variant_id) {
+      const variant = await ProductVariantModel.findOne({
+        where: { id: item.variant_id },
+        attributes: [ 'id', 'quantity', 'product_id' ],
+        transaction,
+      });
+
+      if (variant) {
+        const quantityBefore = variant.quantity;
+        const quantityAfter = quantityBefore + item.quantity;
+        const quantityChange = item.quantity; // Positive for REVERTED
+
+        await ProductVariantModel.update(
+          {
+            quantity: quantityAfter,
+            product_status: quantityAfter > 0 ? 'INSTOCK' : 'OUT-OF-STOCK',
+            concurrency_stamp: uuidV4(),
+          },
+          {
+            where: { id: item.variant_id },
+            transaction,
+          },
+        );
+
+        // Create inventory movement (REVERTED)
+        await InventoryMovementService.createInventoryMovement({
+          productId: variant.product_id,
+          variantId: item.variant_id,
+          vendorId: vendorId || null,
+          branchId: branchId || null,
+          movementType: 'REVERTED',
+          quantityChange,
+          quantityBefore,
+          quantityAfter,
+          referenceType: 'ORDER',
+          referenceId: orderId,
+          userId: updatedBy,
+          notes: `Order ${orderNumber || orderId} cancelled`,
+        }, transaction);
+      }
+    }
+  }));
+
+  return null;
+};
+
+// Helper: Send FCM notification when order is ready for pickup
+const sendReadyForPickupNotification = async (orderId, orderNumber, vendorId, branchId, branchName, address, finalAmount) => {
+  try {
+    const addressText = address
+      ? `${address.address_line1 || ''} ${address.address_line2 || ''} ${address.street || ''} ${address.city || ''} ${address.state || ''} ${address.pincode || ''}`.trim()
+      : 'Address not available';
+
+    const title = 'New Order Ready for Pickup';
+    const body = `Order ${orderNumber} is ready for pickup at ${branchName}`;
+
+    const notificationData = {
+      order_id: String(orderId),
+      order_number: orderNumber,
+      branch_id: String(branchId),
+      vendor_id: String(vendorId),
+      branch_name: branchName,
+      address: addressText,
+      final_amount: String(finalAmount || 0),
+      type: 'ORDER_READY_FOR_PICKUP',
+    };
+
+    const fcmResult = await sendFCMNotificationToRiders(
+      vendorId,
+      branchId,
+      title,
+      body,
+      notificationData,
+    );
+
+    // Create in-app notification for riders
+    await createOrderReadyForPickupNotification({
+      orderId,
+      orderNumber,
+      vendorId,
+      branchId,
+      branchName,
+      address: addressText,
+      finalAmount,
+    });
+
+    if (fcmResult.success) {
+      console.log(`FCM notification sent to ${fcmResult.successCount} riders for order ${orderNumber}`);
+    } else {
+      console.warn(`Failed to send FCM notification for order ${orderNumber}:`, fcmResult.error);
+    }
+  } catch (fcmError) {
+    console.error('Error sending FCM notification to riders:', fcmError);
+    // Don't fail the order update if FCM fails
+  }
+};
+
+// Helper: Handle post-update notifications
+const handleOrderUpdateNotifications = async (orderId, newStatus, oldStatus, updatedBy) => {
+  if (!newStatus || newStatus === oldStatus) {
+    return null;
+  }
+
+  try {
+    // Check if updatedBy user is a vendor admin
+    const updatingUser = await UserModel.findOne({
+      where: { id: updatedBy },
+      attributes: [ 'id' ],
+      include: [
+        {
+          model: UserRolesMappingModel,
+          as: 'roleMappings',
+          where: { status: 'ACTIVE' },
+          required: false,
+          include: [
+            {
+              model: RoleModel,
+              as: 'role',
+              attributes: [ 'id', 'name' ],
+            },
+          ],
+        },
+      ],
+    });
+
+    const isVendorAdmin = updatingUser?.roleMappings?.some(
+      (mapping) => mapping.role?.name === 'VENDOR_ADMIN',
+    );
+
+    // Skip socket notifications if updated by vendor admin
+    const skipSocket = isVendorAdmin || false;
+
+    const updatedOrder = await OrderModel.findOne({
+      where: { id: orderId },
+      attributes: [ 'id', 'order_number', 'branch_id', 'created_by', 'final_amount' ],
+      include: [
+        {
+          model: BranchModel,
+          as: 'branch',
+          attributes: [ 'vendor_id', 'name' ],
+        },
+        {
+          model: AddressModel,
+          as: 'address',
+          attributes: [ 'id', 'address_line1', 'address_line2', 'street', 'city', 'state', 'pincode' ],
+        },
+      ],
+    });
+
+    if (!updatedOrder) {
+      return null;
+    }
+
+    // Create standard order update notification (skip socket if vendor admin)
+    await createOrderUpdatedNotification({
+      orderId: updatedOrder.id,
+      orderNumber: updatedOrder.order_number,
+      vendorId: updatedOrder.branch?.vendor_id,
+      branchId: updatedOrder.branch_id,
+      status: newStatus,
+      userId: updatedOrder.created_by,
+      updatedBy,
+    }, skipSocket);
+
+    // Send FCM notification to riders when order is ready for pickup
+    if (newStatus === 'READYFORPICKUP' && updatedOrder.branch?.vendor_id) {
+      const branchName = updatedOrder.branch?.name || 'Branch';
+      const { address } = updatedOrder;
+
+      await sendReadyForPickupNotification(
+        updatedOrder.id,
+        updatedOrder.order_number,
+        updatedOrder.branch.vendor_id,
+        updatedOrder.branch_id,
+        branchName,
+        address,
+        updatedOrder.final_amount,
+      );
+    }
+
+    return null;
+  } catch (error) {
+    console.error('Error creating order update notification:', error);
+
+    return null;
+  }
+};
+
+const updateOrder = async (data) => withTransaction(sequelize, async (transaction) => {
+  const { id, ...datas } = data;
+  const {
+    concurrencyStamp,
+    updatedBy,
+    status: newStatus,
+    notes,
+    discountAmount,
+    shippingCharges,
+    finalAmount,
+  } = datas;
+
+  // Validate order update and fetch order/user data
+  const { order: response, user: riderExist } = await validateOrderUpdate(
+    id,
+    concurrencyStamp,
+    updatedBy,
+    transaction,
+  );
 
   const modifiedData = { ...data };
   const oldStatus = response.status;
 
+  // Assign rider if user is a rider
   if (riderExist?.role?.name === 'RIDER') {
     modifiedData.riderId = updatedBy;
   }
 
-  const { concurrency_stamp: stamp } = response;
+  // Calculate final amount
+  const calculatedFinalAmount = calculateFinalAmount(
+    response,
+    discountAmount,
+    shippingCharges,
+    finalAmount,
+  );
 
-  if (concurrencyStamp !== stamp) {
-    throw new ConcurrencyError('invalid concurrency stamp');
+  if (calculatedFinalAmount !== undefined) {
+    modifiedData.finalAmount = calculatedFinalAmount;
   }
 
-  // Recalculate final_amount if discount_amount or shipping_charges are updated
-  // Use provided finalAmount if explicitly set, otherwise calculate
-  if (finalAmount !== undefined) {
-    // Use explicitly provided finalAmount
-    modifiedData.finalAmount = finalAmount;
-  } else if (discountAmount !== undefined || shippingCharges !== undefined) {
-    // Recalculate if discount or shipping charges are updated
-    const currentTotal = response.total_amount;
-    const newDiscount = discountAmount !== undefined ? discountAmount : response.discount_amount;
-    const newShipping = shippingCharges !== undefined ? shippingCharges : response.shipping_charges;
+  // Handle status change
+  await handleOrderStatusChange(
+    id,
+    oldStatus,
+    newStatus,
+    updatedBy,
+    notes,
+    transaction,
+  );
 
-    // final_amount = total_amount - discount_amount + shipping_charges
-    modifiedData.finalAmount = currentTotal - newDiscount + newShipping;
-  }
-
-  // Track status change if status is being updated
-  if (newStatus && newStatus !== oldStatus) {
-    const statusHistoryDoc = {
-      orderId: id,
-      status: newStatus,
-      previousStatus: oldStatus,
-      changedBy: updatedBy,
-      notes: notes || null,
-    };
-
-    await OrderStatusHistoryModel.create(convertCamelToSnake(statusHistoryDoc), {
+  // Handle order cancellation - restore inventory
+  if (newStatus === 'CANCELLED' && oldStatus !== 'CANCELLED') {
+    await handleOrderCancellation(
+      id,
+      response.order_number,
+      response.vendor_id,
+      response.branch_id,
+      updatedBy,
       transaction,
-    });
-
-    // Handle order cancellation: restore quantities and create inventory movements
-    if (newStatus === 'CANCELLED' && oldStatus !== 'CANCELLED') {
-      // Get order items with variants
-      const orderItems = await OrderItemModel.findAll({
-        where: { order_id: id },
-        attributes: [ 'id', 'product_id', 'variant_id', 'variant_name', 'quantity' ],
-        transaction,
-      });
-
-      // Restore quantities for each order item
-      await Promise.all(orderItems.map(async (item) => {
-        if (item.variant_id) {
-          // Restore variant quantity
-          const variant = await ProductVariantModel.findOne({
-            where: { id: item.variant_id },
-            attributes: [ 'id', 'quantity', 'product_id' ],
-            transaction,
-          });
-
-          if (variant) {
-            const quantityBefore = variant.quantity;
-            const quantityAfter = quantityBefore + item.quantity;
-            const quantityChange = item.quantity; // Positive for REVERTED
-
-            await ProductVariantModel.update(
-              {
-                quantity: quantityAfter,
-                product_status: quantityAfter > 0 ? 'INSTOCK' : 'OUT-OF-STOCK',
-                concurrency_stamp: uuidV4(),
-              },
-              {
-                where: { id: item.variant_id },
-                transaction,
-              },
-            );
-
-            // Create inventory movement (REVERTED)
-            await InventoryMovementService.createInventoryMovement({
-              productId: variant.product_id,
-              variantId: item.variant_id,
-              vendorId: response.vendor_id || null,
-              branchId: response.branch_id || null,
-              movementType: 'REVERTED',
-              quantityChange,
-              quantityBefore,
-              quantityAfter,
-              referenceType: 'ORDER',
-              referenceId: id,
-              userId: updatedBy,
-              notes: `Order ${response.order_number || id} cancelled`,
-            }, transaction);
-          }
-        }
-      }));
-    }
+    );
   }
 
   const newConcurrencyStamp = uuidV4();
@@ -872,36 +1152,10 @@ const updateOrder = async (data) => withTransaction(sequelize, async (transactio
     transaction,
   });
 
-  // Create notification for order update (after transaction commit)
+  // Handle notifications after transaction commit
   if (newStatus && newStatus !== oldStatus) {
     transaction.afterCommit(async () => {
-      try {
-        const updatedOrder = await OrderModel.findOne({
-          where: { id },
-          attributes: [ 'id', 'order_number', 'branch_id', 'created_by' ],
-          include: [
-            {
-              model: BranchModel,
-              as: 'branch',
-              attributes: [ 'vendor_id' ],
-            },
-          ],
-        });
-
-        if (updatedOrder) {
-          await createOrderUpdatedNotification({
-            orderId: updatedOrder.id,
-            orderNumber: updatedOrder.order_number,
-            vendorId: updatedOrder.branch?.vendor_id,
-            branchId: updatedOrder.branch_id,
-            status: newStatus,
-            userId: updatedOrder.created_by,
-            updatedBy,
-          });
-        }
-      } catch (error) {
-        console.error('Error creating order update notification:', error);
-      }
+      await handleOrderUpdateNotifications(id, newStatus, oldStatus, updatedBy);
     });
   }
 
@@ -935,14 +1189,9 @@ const getTotalReturnsOfToday = async () => {
   }
 };
 
-const getOrderDetails = async (orderId, userId = null) => {
+const getOrderDetails = async (orderId) => {
   try {
     const whereClause = { id: orderId };
-
-    // If userId is provided, ensure the order belongs to that user
-    if (userId) {
-      whereClause.created_by = userId;
-    }
 
     const order = await OrderModel.findOne({
       where: whereClause,
@@ -1016,6 +1265,7 @@ const getOrderDetails = async (orderId, userId = null) => {
                 'id',
                 'variant_name',
                 'variant_type',
+                'variant_value',
                 'selling_price',
               ],
               required: false,

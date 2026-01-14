@@ -57,6 +57,12 @@ app.get('/', (req, res) => {
   res.status(200).send('MK Store Backend is running');
 });
 
+// Serve OpenAPI JSON spec for importing into API clients (Postman, etc.)
+app.get('/api-docs.json', (req, res) => {
+  res.setHeader('Content-Type', 'application/json');
+  res.send(swaggerSpec);
+});
+
 app.use(
   '/api-docs',
   swaggerUi.serve,

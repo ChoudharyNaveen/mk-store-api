@@ -48,3 +48,34 @@ The API documentation includes the following endpoint categories:
 - **Promocodes**: Promocode management
 - **Offers**: Offer management
 - **OTP**: OTP verification endpoints
+- **Rider FCM**: Rider FCM token management for push notifications
+
+## Firebase Cloud Messaging (FCM) Setup
+
+The application supports Firebase Cloud Messaging for sending push notifications to riders when orders are ready for pickup.
+
+### Quick Setup
+
+1. Create a Firebase project at [Firebase Console](https://console.firebase.google.com/)
+2. Generate a service account key (Project Settings > Service Accounts)
+3. Add the credentials to your environment file:
+
+```bash
+# Option 1: Service Account Key (Recommended)
+FIREBASE_SERVICE_ACCOUNT_KEY={"type":"service_account","project_id":"your-project-id",...}
+
+# Option 2: Project ID (For development)
+FIREBASE_PROJECT_ID=your-firebase-project-id
+```
+
+For detailed setup instructions, see [FIREBASE_SETUP.md](./FIREBASE_SETUP.md)
+
+### Environment Variables
+
+The application uses environment-specific `.env` files:
+- `.env.development` - For development
+- `.env.production` - For production
+
+Required Firebase environment variables:
+- `FIREBASE_SERVICE_ACCOUNT_KEY` - JSON string of service account credentials (recommended)
+- `FIREBASE_PROJECT_ID` - Firebase project ID (alternative for development)

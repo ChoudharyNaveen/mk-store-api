@@ -96,9 +96,8 @@ const getTotalReturnsOfToday = async (req, res) => {
 const getOrderDetails = async (req, res) => {
   try {
     const { orderId } = req.validatedData;
-    const { user } = req;
 
-    const { doc, error } = await OrderService.getOrderDetails(orderId, user?.id);
+    const { doc, error } = await OrderService.getOrderDetails(orderId);
 
     if (doc) {
       return res.status(200).json({ success: true, data: doc });
