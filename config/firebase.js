@@ -5,10 +5,11 @@ const config = require('./index');
 let messaging = null;
 
 try {
-  // Check if Firebase credentials are provided
-  if (process.env.FIREBASE_SERVICE_ACCOUNT_KEY) {
+  if (config.FIREBASE?.ENABLED === false) {
+    console.warn('Firebase is disabled via config. FCM notifications will be disabled.');
+  } else if (config.FIREBASE?.SERVICE_ACCOUNT_KEY) {
     // Parse service account key from environment variable (JSON string)
-    const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY);
+    const serviceAccount = JSON.parse(config.FIREBASE.SERVICE_ACCOUNT_KEY);
 
     admin.initializeApp({
       credential: admin.credential.cert(serviceAccount),
@@ -16,10 +17,10 @@ try {
 
     messaging = admin.messaging();
     console.log('Firebase Admin SDK initialized successfully');
-  } else if (process.env.FIREBASE_PROJECT_ID) {
+  } else if (config.FIREBASE?.PROJECT_ID) {
     // Alternative: Initialize with project ID (uses Application Default Credentials)
     admin.initializeApp({
-      projectId: process.env.FIREBASE_PROJECT_ID,
+      projectId: config.FIREBASE.PROJECT_ID,
     });
 
     messaging = admin.messaging();

@@ -71,6 +71,11 @@ module.exports = {
     USE_MOCK_SMS: process.env.USE_MOCK_SMS === 'true' || false,
     MOCK_OTP: process.env.MOCK_OTP || '654321',
   },
+  FIREBASE: {
+    ENABLED: process.env.FIREBASE_ENABLED !== 'false',
+    SERVICE_ACCOUNT_KEY: process.env.FIREBASE_SERVICE_ACCOUNT_KEY,
+    PROJECT_ID: process.env.FIREBASE_PROJECT_ID,
+  },
   ROAD_DISTANCE_API: {
     url: process.env.ROAD_DISTANCE_API_URL,
     apiKey: process.env.ROAD_DISTANCE_API_KEY,
