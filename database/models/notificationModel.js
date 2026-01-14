@@ -1,3 +1,10 @@
+const {
+  NOTIFICATION_PRIORITY,
+  NOTIFICATION_PRIORITY_ENUM,
+  NOTIFICATION_STATUS,
+  NOTIFICATION_STATUS_ENUM,
+} = require('../../utils/constants/notificationConstants');
+
 module.exports = (sequelize, DataTypes) => {
   const notification = sequelize.define(
     'notification',
@@ -79,16 +86,16 @@ module.exports = (sequelize, DataTypes) => {
       },
       priority: {
         type: DataTypes.STRING,
-        enum: [ 'LOW', 'MEDIUM', 'HIGH', 'URGENT' ],
-        defaultValue: 'MEDIUM',
+        enum: NOTIFICATION_PRIORITY_ENUM,
+        defaultValue: NOTIFICATION_PRIORITY.MEDIUM,
         allowNull: false,
         index: true,
         comment: 'Notification priority level',
       },
       status: {
         type: DataTypes.STRING,
-        enum: [ 'ACTIVE', 'ARCHIVED', 'DELETED' ],
-        defaultValue: 'ACTIVE',
+        enum: NOTIFICATION_STATUS_ENUM,
+        defaultValue: NOTIFICATION_STATUS.ACTIVE,
         allowNull: false,
         index: true,
         comment: 'Notification status',

@@ -38,6 +38,9 @@ const {
 const { ROLE } = require('../utils/constants/roleConstants');
 const { getProductStatusFromQuantity } = require('../utils/constants/productStatusConstants');
 const { INVENTORY_MOVEMENT_TYPE } = require('../utils/constants/inventoryMovementTypeConstants');
+const { NOTIFICATION_TYPE } = require('../utils/constants/notificationConstants');
+const { REFUND_STATUS } = require('../utils/constants/refundStatusConstants');
+const { PAYMENT_STATUS } = require('../utils/constants/paymentStatusConstants');
 const {
   createOrderPlacedNotification, createOrderUpdatedNotification, createOrderReadyForPickupNotification, createOrderAcceptedNotification, createOrderArrivedNotification,
 } = require('./notificationService');
@@ -57,20 +60,36 @@ const {
 // ============================================================================
 
 // Generate unique order number
+// Optimized: Uses index on (order_number, created_at) for faster LIKE queries
 const generateOrderNumber = async (transaction) => {
   const today = new Date();
   const dateStr = today.toISOString().slice(0, 10).replace(/-/g, ''); // YYYYMMDD format
   const prefix = `ORD-${dateStr}-`;
 
-  // Get the last order number for today
+  // Create date range for today (start and end of day)
+  const todayStart = new Date(today);
+
+  todayStart.setHours(0, 0, 0, 0);
+  const todayEnd = new Date(today);
+
+  todayEnd.setHours(23, 59, 59, 999);
+
+  // Optimized: Use date filter to leverage composite index (order_number, created_at)
+  // The index idx_orders_number_created will speed up this query significantly
   const lastOrder = await OrderModel.findOne({
     where: {
       order_number: {
         [Op.like]: `${prefix}%`,
       },
+      // Add date filter to use composite index more efficiently
+      created_at: {
+        [Op.gte]: todayStart,
+        [Op.lt]: todayEnd,
+      },
     },
     attributes: [ 'order_number' ],
     order: [ [ 'order_number', 'DESC' ] ],
+    limit: 1,
     transaction,
   });
 
@@ -431,51 +450,83 @@ const calculateOrderShipping = async (branchId, addressId, orderPriority, provid
 };
 
 // Helper: Create order items and reduce inventory
+// Optimized: Uses bulk operations for better performance
 const createOrderItemsAndReduceInventory = async (orderItemsData, orderId, orderNumber, vendorId, branchId, createdBy, transaction) => {
-  await Promise.all(orderItemsData.map(async (item) => {
-    const itemDoc = {
-      concurrencyStamp: uuidV4(),
-      orderId,
+  // Prepare bulk data for order items
+  const orderItemsBulk = orderItemsData.map((item) => ({
+    concurrency_stamp: uuidV4(),
+    order_id: orderId,
+    product_id: item.product_id,
+    variant_id: item.variant_id || null,
+    variant_name: item.variant_name || null,
+    quantity: item.quantity,
+    price_at_purchase: item.price_at_purchase,
+    created_by: createdBy,
+  }));
+
+  // Bulk insert order items (much faster than individual inserts)
+  await OrderItemModel.bulkCreate(orderItemsBulk, {
+    transaction,
+  });
+
+  // Prepare variant updates data
+  const variantUpdates = orderItemsData
+    .filter((item) => item.variant_id)
+    .map((item) => ({
+      id: item.variant_id,
+      quantityRemaining: item.product_quantity - item.quantity,
+      quantityBefore: item.product_quantity,
+      quantityChange: -item.quantity,
       productId: item.product_id,
-      variantId: item.variant_id || null,
-      variantName: item.variant_name || null,
-      quantity: item.quantity,
-      priceAtPurchase: item.price_at_purchase,
-      createdBy,
-    };
+    }));
 
-    await OrderItemModel.create(convertCamelToSnake(itemDoc), {
-      transaction,
-    });
-
-    const quantityRemaining = item.product_quantity - item.quantity;
-    const quantityChange = -item.quantity;
-
+  // Batch update variants in parallel (optimized from sequential updates)
+  await Promise.all(variantUpdates.map(async (update) => {
     await ProductVariantModel.update(
       {
-        quantity: quantityRemaining,
-        product_status: getProductStatusFromQuantity(quantityRemaining),
+        quantity: update.quantityRemaining,
+        product_status: getProductStatusFromQuantity(update.quantityRemaining),
         concurrency_stamp: uuidV4(),
       },
       {
-        where: { id: item.variant_id },
+        where: { id: update.id },
         transaction,
       },
     );
+  }));
 
+  // Prepare inventory movements for bulk creation
+  const inventoryMovementsData = variantUpdates.map((update) => ({
+    product_id: update.productId,
+    variant_id: update.id,
+    vendor_id: vendorId,
+    branch_id: branchId,
+    movement_type: INVENTORY_MOVEMENT_TYPE.REMOVED,
+    quantity_change: update.quantityChange,
+    quantity_before: update.quantityBefore,
+    quantity_after: update.quantityRemaining,
+    reference_type: 'ORDER',
+    reference_id: orderId,
+    user_id: createdBy,
+    notes: `Order ${orderNumber}`,
+    created_at: new Date(),
+  }));
+
+  // Create inventory movements in parallel (optimized from sequential)
+  await Promise.all(inventoryMovementsData.map(async (movement) => {
     await InventoryMovementService.createInventoryMovement({
-      productId: item.product_id,
-      variantId: item.variant_id,
-      vendorId,
-      branchId,
-      movementType: INVENTORY_MOVEMENT_TYPE.REMOVED,
-      quantityChange,
-      quantityBefore: item.product_quantity,
-      quantityAfter: quantityRemaining,
-      referenceType: 'ORDER',
-      referenceId: orderId,
-      userId: createdBy,
-      notes: `Order ${orderNumber}`,
+      productId: movement.product_id,
+      variantId: movement.variant_id,
+      vendorId: movement.vendor_id,
+      branchId: movement.branch_id,
+      movementType: movement.movement_type,
+      quantityChange: movement.quantity_change,
+      quantityBefore: movement.quantity_before,
+      quantityAfter: movement.quantity_after,
+      referenceType: movement.reference_type,
+      referenceId: movement.reference_id,
+      userId: movement.user_id,
+      notes: movement.notes,
     }, transaction);
   }));
 };
@@ -580,9 +631,9 @@ const placeOrder = async (data) => withTransaction(sequelize, async (transaction
     distanceMethod: shippingResult.distanceMethod,
     estimatedDeliveryETA: shippingResult.estimatedDeliveryETA,
     refundAmount: 0,
-    refundStatus: 'NONE',
-    status: 'PENDING',
-    paymentStatus: 'UNPAID',
+    refundStatus: REFUND_STATUS.NONE,
+    status: ORDER_STATUS.PENDING,
+    paymentStatus: PAYMENT_STATUS.UNPAID,
     concurrencyStamp: orderConcurrencyStamp,
     createdBy,
     vendorId,
@@ -622,7 +673,7 @@ const placeOrder = async (data) => withTransaction(sequelize, async (transaction
   // Create initial status history
   const statusHistoryDoc = {
     orderId: newOrder.id,
-    status: 'PENDING',
+    status: ORDER_STATUS.PENDING,
     previousStatus: null,
     changedBy: createdBy,
   };
@@ -792,8 +843,8 @@ const getStatsOfOrdersCompleted = async () => {
         [ fn('SUM', col('total_amount')), 'total' ],
       ],
       where: {
-        status: 'DELIVERED',
-        payment_status: 'PAID',
+        status: ORDER_STATUS.DELIVERED,
+        payment_status: PAYMENT_STATUS.PAID,
       },
       group: [ fn('MONTH', col('created_at')) ],
       raw: true,
@@ -996,6 +1047,7 @@ const handleOrderStatusChange = async (orderId, oldStatus, newStatus, updatedBy,
 };
 
 // Helper: Handle order cancellation/return - restore inventory
+// Optimized: Batch fetches variants and updates them in parallel
 const handleOrderCancellation = async (orderId, orderNumber, vendorId, branchId, updatedBy, transaction, isReturn = false) => {
   const orderItems = await OrderItemModel.findAll({
     where: { order_id: orderId },
@@ -1003,54 +1055,89 @@ const handleOrderCancellation = async (orderId, orderNumber, vendorId, branchId,
     transaction,
   });
 
-  // Restore quantities for each order item
-  await Promise.all(orderItems.map(async (item) => {
-    if (item.variant_id) {
-      const variant = await ProductVariantModel.findOne({
-        where: { id: item.variant_id },
-        attributes: [ 'id', 'quantity', 'product_id' ],
-        transaction,
+  // Filter items with variants
+  const itemsWithVariants = orderItems.filter((item) => item.variant_id);
+
+  if (itemsWithVariants.length === 0) {
+    return null;
+  }
+
+  // Batch fetch all variants in one query (optimized from individual queries)
+  const variantIds = itemsWithVariants.map((item) => item.variant_id);
+  const variants = await ProductVariantModel.findAll({
+    where: {
+      id: {
+        [Op.in]: variantIds,
+      },
+    },
+    attributes: [ 'id', 'quantity', 'product_id' ],
+    transaction,
+  });
+
+  // Create a map for quick variant lookup
+  const variantMap = new Map(variants.map((v) => [ v.id, v ]));
+
+  // Prepare variant updates and inventory movements
+  const variantUpdates = [];
+  const inventoryMovements = [];
+
+  itemsWithVariants.forEach((item) => {
+    const variant = variantMap.get(item.variant_id);
+
+    if (variant) {
+      const quantityBefore = variant.quantity;
+      const quantityAfter = quantityBefore + item.quantity;
+      const quantityChange = item.quantity; // Positive for REVERTED/RETURNED
+
+      variantUpdates.push({
+        id: item.variant_id,
+        quantityAfter,
+        quantityBefore,
+        quantityChange,
+        productId: variant.product_id,
       });
 
-      if (variant) {
-        const quantityBefore = variant.quantity;
-        const quantityAfter = quantityBefore + item.quantity;
-        const quantityChange = item.quantity; // Positive for REVERTED
+      // Create inventory movement (REVERTED for cancellation, RETURNED for returns)
+      const movementType = isReturn ? INVENTORY_MOVEMENT_TYPE.RETURNED : INVENTORY_MOVEMENT_TYPE.REVERTED;
+      const notes = isReturn
+        ? `Order ${orderNumber || orderId} returned`
+        : `Order ${orderNumber || orderId} cancelled`;
 
-        await ProductVariantModel.update(
-          {
-            quantity: quantityAfter,
-            product_status: getProductStatusFromQuantity(quantityAfter),
-            concurrency_stamp: uuidV4(),
-          },
-          {
-            where: { id: item.variant_id },
-            transaction,
-          },
-        );
-
-        // Create inventory movement (REVERTED for cancellation, RETURNED for returns)
-        const movementType = isReturn ? INVENTORY_MOVEMENT_TYPE.RETURNED : INVENTORY_MOVEMENT_TYPE.REVERTED;
-        const notes = isReturn
-          ? `Order ${orderNumber || orderId} returned`
-          : `Order ${orderNumber || orderId} cancelled`;
-
-        await InventoryMovementService.createInventoryMovement({
-          productId: variant.product_id,
-          variantId: item.variant_id,
-          vendorId: vendorId || null,
-          branchId: branchId || null,
-          movementType,
-          quantityChange,
-          quantityBefore,
-          quantityAfter,
-          referenceType: 'ORDER',
-          referenceId: orderId,
-          userId: updatedBy,
-          notes,
-        }, transaction);
-      }
+      inventoryMovements.push({
+        productId: variant.product_id,
+        variantId: item.variant_id,
+        vendorId: vendorId || null,
+        branchId: branchId || null,
+        movementType,
+        quantityChange,
+        quantityBefore,
+        quantityAfter,
+        referenceType: 'ORDER',
+        referenceId: orderId,
+        userId: updatedBy,
+        notes,
+      });
     }
+  });
+
+  // Batch update all variants in parallel (optimized from sequential updates)
+  await Promise.all(variantUpdates.map(async (update) => {
+    await ProductVariantModel.update(
+      {
+        quantity: update.quantityAfter,
+        product_status: getProductStatusFromQuantity(update.quantityAfter),
+        concurrency_stamp: uuidV4(),
+      },
+      {
+        where: { id: update.id },
+        transaction,
+      },
+    );
+  }));
+
+  // Create inventory movements in parallel (optimized from sequential)
+  await Promise.all(inventoryMovements.map(async (movement) => {
+    await InventoryMovementService.createInventoryMovement(movement, transaction);
   }));
 
   return null;
@@ -1113,7 +1200,7 @@ const sendReadyForPickupNotification = async (orderId, orderNumber, vendorId, br
       ...branchDetails,
       address: addressText,
       final_amount: String(finalAmount || 0),
-      type: 'ORDER_READY_FOR_PICKUP',
+      type: NOTIFICATION_TYPE.ORDER_READY_FOR_PICKUP,
     };
 
     const fcmResult = await sendFCMNotificationToRiders(
@@ -1497,8 +1584,8 @@ const getTotalReturnsOfToday = async () => {
     const result = await OrderModel.findAll({
       attributes: [ [ fn('SUM', col('total_amount')), 'total' ] ],
       where: {
-        status: 'DELIVERED',
-        payment_status: 'PAID',
+        status: ORDER_STATUS.DELIVERED,
+        payment_status: PAYMENT_STATUS.PAID,
         created_at: { [Op.between]: [ todayStart, todayEnd ] },
       },
       raw: true,

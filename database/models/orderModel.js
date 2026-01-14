@@ -1,4 +1,6 @@
 const { ORDER_STATUS, ORDER_STATUS_ENUM } = require('../../utils/constants/orderStatusConstants');
+const { REFUND_STATUS, REFUND_STATUS_ENUM } = require('../../utils/constants/refundStatusConstants');
+const { PAYMENT_STATUS, PAYMENT_STATUS_ENUM } = require('../../utils/constants/paymentStatusConstants');
 
 module.exports = (sequelize, DataTypes) => {
   const order = sequelize.define(
@@ -71,8 +73,8 @@ module.exports = (sequelize, DataTypes) => {
       },
       refund_status: {
         type: DataTypes.STRING,
-        enum: [ 'NONE', 'PENDING', 'PROCESSED', 'FAILED' ],
-        defaultValue: 'NONE',
+        enum: REFUND_STATUS_ENUM,
+        defaultValue: REFUND_STATUS.NONE,
         allowNull: false,
       },
       status: {
@@ -83,9 +85,9 @@ module.exports = (sequelize, DataTypes) => {
       },
       payment_status: {
         type: DataTypes.STRING,
-        enum: [ 'PAID', 'UNPAID', 'FAILED' ],
+        enum: PAYMENT_STATUS_ENUM,
         allowNull: false,
-        defaultValue: 'UNPAID',
+        defaultValue: PAYMENT_STATUS.UNPAID,
       },
       pickup_status: {
         type: DataTypes.STRING,

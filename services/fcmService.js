@@ -1,6 +1,7 @@
 const { sendFCMNotification, sendFCMNotificationToMultiple, validateFCMToken } = require('../config/firebase');
 const { handleServiceError } = require('../utils/serviceErrors');
-
+const RiderStatsService = require('./riderStatsService');
+const UserFcmTokenService = require('./userFcmTokenService');
 /**
  * Send FCM notification to a single device
  * @param {string} token - FCM token
@@ -62,8 +63,6 @@ const sendFCMNotificationToDevices = async (tokens, title, body, data = {}) => {
  */
 const sendFCMNotificationToUser = async (userId, title, body, data = {}) => {
   try {
-    const UserFcmTokenService = require('./userFcmTokenService');
-
     // Get active FCM token for the user
     const { doc: tokenData } = await UserFcmTokenService.getFCMTokenByUserId(userId);
 
@@ -96,8 +95,6 @@ const sendFCMNotificationToUsers = async (userIds, title, body, data = {}) => {
     if (!userIds || userIds.length === 0) {
       return { success: false, error: 'No user IDs provided', results: [] };
     }
-
-    const UserFcmTokenService = require('./userFcmTokenService');
 
     // Get FCM tokens for all users
     const tokenPromises = userIds.map((userId) => UserFcmTokenService.getFCMTokenByUserId(userId));
@@ -136,9 +133,6 @@ const sendFCMNotificationToUsers = async (userIds, title, body, data = {}) => {
  */
 const sendFCMNotificationToRiders = async (vendorId, branchId, title, body, data = {}) => {
   try {
-    const RiderStatsService = require('./riderStatsService');
-    const UserFcmTokenService = require('./userFcmTokenService');
-
     // Get all riders for the vendor
     const { doc: riders } = await RiderStatsService.getRidersByVendor(vendorId);
 

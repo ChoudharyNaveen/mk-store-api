@@ -20,6 +20,12 @@ const {
   handleServiceError,
 } = require('../utils/serviceErrors');
 const { ROLE } = require('../utils/constants/roleConstants');
+const {
+  NOTIFICATION_TYPE,
+  ENTITY_TYPE,
+  NOTIFICATION_PRIORITY,
+  NOTIFICATION_STATUS,
+} = require('../utils/constants/notificationConstants');
 
 // Helper: Format branch details for notification metadata
 const formatBranchDetails = (branch) => {
@@ -127,15 +133,15 @@ const createOrderPlacedNotification = async (orderData) => {
   const branchDetails = formatBranchDetails(branch);
 
   const notificationData = {
-    type: 'ORDER_PLACED',
+    type: NOTIFICATION_TYPE.ORDER_PLACED,
     title: 'New Order Placed',
     message: `New order ${orderNumber} has been placed with total amount ₹${totalAmount}`,
     recipient_type: ROLE.VENDOR_ADMIN,
     vendor_id: vendorId,
     branch_id: branchId,
-    entity_type: 'ORDER',
+    entity_type: ENTITY_TYPE.ORDER,
     entity_id: orderId,
-    priority: 'HIGH',
+    priority: NOTIFICATION_PRIORITY.HIGH,
     action_url: `/orders/detail/${orderId}`,
     icon: 'shopping-cart',
     metadata: {
@@ -191,14 +197,14 @@ const createOrderUpdatedNotification = async (orderData, options = {}) => {
   };
 
   const baseNotification = {
-    type: 'ORDER_UPDATED',
+    type: NOTIFICATION_TYPE.ORDER_UPDATED,
     title: 'Order Updated',
     message: `Order ${orderNumber} ${statusMessages[status] || 'has been updated'}`,
     vendor_id: vendorId,
     branch_id: branchId,
-    entity_type: 'ORDER',
+    entity_type: ENTITY_TYPE.ORDER,
     entity_id: orderId,
-    priority: status === 'CANCELLED' ? 'URGENT' : 'MEDIUM',
+    priority: status === 'CANCELLED' ? NOTIFICATION_PRIORITY.URGENT : NOTIFICATION_PRIORITY.MEDIUM,
     action_url: `/orders/detail/${orderId}`,
     icon: 'package',
     metadata: {
@@ -235,16 +241,16 @@ const createOrderUpdatedNotification = async (orderData, options = {}) => {
   // Notify vendor admin if order is delivered
   if (notifyVendorAdmin && status === 'DELIVERED' && vendorId) {
     const vendorAdminNotificationData = {
-      type: 'ORDER_DELIVERED',
+      type: NOTIFICATION_TYPE.ORDER_DELIVERED,
       title: 'Order Delivered',
       message: `Order ${orderNumber} has been successfully delivered`,
       recipient_type: ROLE.VENDOR_ADMIN,
       recipient_id: null,
       vendor_id: vendorId,
       branch_id: branchId,
-      entity_type: 'ORDER',
+      entity_type: ENTITY_TYPE.ORDER,
       entity_id: orderId,
-      priority: 'MEDIUM',
+      priority: NOTIFICATION_PRIORITY.MEDIUM,
       action_url: `/orders/detail/${orderId}`,
       icon: 'check-circle',
       metadata: {
@@ -283,16 +289,16 @@ const createUserRegistrationNotification = async (userData) => {
   // Only send notification to VENDOR_ADMIN for new user registrations
   if (vendorId) {
     const notificationData = {
-      type: 'USER_REGISTERED',
+      type: NOTIFICATION_TYPE.USER_REGISTERED,
       title: 'New User Registered',
       message: `New user ${userName || mobileNumber || userEmail}${roleName ? ` (${roleName})` : ''} has registered`,
       recipient_type: ROLE.VENDOR_ADMIN,
       recipient_id: null,
       vendor_id: vendorId,
       branch_id: branchId || null,
-      entity_type: 'USER',
+      entity_type: ENTITY_TYPE.USER,
       entity_id: userId,
-      priority: 'MEDIUM',
+      priority: NOTIFICATION_PRIORITY.MEDIUM,
       action_url: `/users/${userId}`,
       icon: 'user-plus',
       metadata: {
@@ -333,15 +339,15 @@ const createOrderReadyForPickupNotification = async (orderData) => {
   const branchDetails = formatBranchDetails(branch);
 
   const notificationData = {
-    type: 'ORDER_READY_FOR_PICKUP',
+    type: NOTIFICATION_TYPE.ORDER_READY_FOR_PICKUP,
     title: 'New Order Ready for Pickup',
     message: `Order ${orderNumber} is ready for pickup at ${branchName}`,
     recipient_type: ROLE.RIDER,
     vendor_id: vendorId,
     branch_id: branchId,
-    entity_type: 'ORDER',
+    entity_type: ENTITY_TYPE.ORDER,
     entity_id: orderId,
-    priority: 'HIGH',
+    priority: NOTIFICATION_PRIORITY.HIGH,
     action_url: `/orders/detail/${orderId}`,
     icon: 'package',
     metadata: {
@@ -378,16 +384,16 @@ const createOrderAcceptedNotification = async (orderData) => {
   const branchDetails = formatBranchDetails(branch);
 
   const notificationData = {
-    type: 'ORDER_ACCEPTED',
+    type: NOTIFICATION_TYPE.ORDER_ACCEPTED,
     title: 'Order Accepted',
     message: `Your order ${orderNumber} has been accepted and is being prepared`,
     recipient_type: ROLE.USER,
     recipient_id: userId,
     vendor_id: vendorId,
     branch_id: branchId,
-    entity_type: 'ORDER',
+    entity_type: ENTITY_TYPE.ORDER,
     entity_id: orderId,
-    priority: 'MEDIUM',
+    priority: NOTIFICATION_PRIORITY.MEDIUM,
     action_url: `/orders/detail/${orderId}`,
     icon: 'check-circle',
     metadata: {
@@ -421,16 +427,16 @@ const createOrderArrivedNotification = async (orderData) => {
   const branchDetails = formatBranchDetails(branch);
 
   const notificationData = {
-    type: 'ORDER_ARRIVED',
+    type: NOTIFICATION_TYPE.ORDER_ARRIVED,
     title: 'Order Arrived',
     message: `Your order ${orderNumber} has arrived and is ready for delivery`,
     recipient_type: ROLE.USER,
     recipient_id: userId,
     vendor_id: vendorId,
     branch_id: branchId,
-    entity_type: 'ORDER',
+    entity_type: ENTITY_TYPE.ORDER,
     entity_id: orderId,
-    priority: 'HIGH',
+    priority: NOTIFICATION_PRIORITY.HIGH,
     action_url: `/orders/detail/${orderId}`,
     icon: 'truck',
     metadata: {
@@ -485,7 +491,7 @@ const getNotifications = async (payload) => {
   }
 
   // Default filter for active notifications
-  allFilters.push({ key: 'status', eq: 'ACTIVE' });
+  allFilters.push({ key: 'status', eq: NOTIFICATION_STATUS.ACTIVE });
 
   const where = generateWhereCondition(allFilters);
   const order = sorting
@@ -596,7 +602,7 @@ const markAllAsRead = async (payload) => {
 
     const where = {
       is_read: false,
-      status: 'ACTIVE',
+      status: NOTIFICATION_STATUS.ACTIVE,
     };
 
     // Determine recipient type based on user role
@@ -657,7 +663,7 @@ const getUnreadCount = async (payload) => {
 
     const where = {
       is_read: false,
-      status: 'ACTIVE',
+      status: NOTIFICATION_STATUS.ACTIVE,
     };
 
     // Determine recipient type based on user role
@@ -712,7 +718,7 @@ const deleteNotification = async (notificationId) => {
       return { error: 'NOT_FOUND', message: 'Notification not found' };
     }
 
-    await notification.update({ status: 'DELETED' });
+    await notification.update({ status: NOTIFICATION_STATUS.DELETED });
 
     return { doc: { message: 'Notification deleted successfully' } };
   } catch (error) {
