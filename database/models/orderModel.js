@@ -1,3 +1,5 @@
+const { ORDER_STATUS, ORDER_STATUS_ENUM } = require('../../utils/constants/orderStatusConstants');
+
 module.exports = (sequelize, DataTypes) => {
   const order = sequelize.define(
     'order',
@@ -75,8 +77,8 @@ module.exports = (sequelize, DataTypes) => {
       },
       status: {
         type: DataTypes.STRING,
-        enum: [ 'PENDING', 'ACCEPTED', 'READYFORPICKUP', 'PICKED', 'DELIVERED', 'CANCELLED' ],
-        defaultValue: 'PENDING',
+        enum: ORDER_STATUS_ENUM,
+        defaultValue: ORDER_STATUS.PENDING,
         allowNull: false,
       },
       payment_status: {

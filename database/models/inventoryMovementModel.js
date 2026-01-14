@@ -30,7 +30,7 @@ module.exports = (sequelize, DataTypes) => {
       },
       movement_type: {
         type: DataTypes.STRING,
-        enum: [ 'ADDED', 'REMOVED', 'ADJUSTED', 'REVERTED' ],
+        enum: [ 'ADDED', 'REMOVED', 'ADJUSTED', 'REVERTED', 'RETURNED' ],
         allowNull: false,
         index: true,
       },

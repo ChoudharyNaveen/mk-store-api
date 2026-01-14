@@ -29,10 +29,22 @@ const {
   findAndCountAllWithTotal,
 } = require('../utils/helper');
 const { convertImageFieldsToCloudFront } = require('../utils/s3Helper');
-const { createOrderPlacedNotification, createOrderUpdatedNotification, createOrderReadyForPickupNotification } = require('./notificationService');
-const { sendFCMNotificationToRiders } = require('./fcmService');
+const {
+  ORDER_STATUS,
+  ORDER_STATUS_TRANSITIONS,
+  canTransitionToStatus,
+  isValidOrderStatus,
+} = require('../utils/constants/orderStatusConstants');
+const { ROLE } = require('../utils/constants/roleConstants');
+const { getProductStatusFromQuantity } = require('../utils/constants/productStatusConstants');
+const { INVENTORY_MOVEMENT_TYPE } = require('../utils/constants/inventoryMovementTypeConstants');
+const {
+  createOrderPlacedNotification, createOrderUpdatedNotification, createOrderReadyForPickupNotification, createOrderAcceptedNotification, createOrderArrivedNotification,
+} = require('./notificationService');
+const { sendFCMNotificationToRiders, sendFCMNotificationToUser } = require('./fcmService');
 const ShippingService = require('./shippingService');
 const InventoryMovementService = require('./inventoryMovementService');
+const RiderStatsService = require('./riderStatsService');
 const {
   ValidationError,
   NotFoundError,
@@ -442,7 +454,7 @@ const createOrderItemsAndReduceInventory = async (orderItemsData, orderId, order
     await ProductVariantModel.update(
       {
         quantity: quantityRemaining,
-        product_status: quantityRemaining > 0 ? 'INSTOCK' : 'OUT-OF-STOCK',
+        product_status: getProductStatusFromQuantity(quantityRemaining),
         concurrency_stamp: uuidV4(),
       },
       {
@@ -456,7 +468,7 @@ const createOrderItemsAndReduceInventory = async (orderItemsData, orderId, order
       variantId: item.variant_id,
       vendorId,
       branchId,
-      movementType: 'REMOVED',
+      movementType: INVENTORY_MOVEMENT_TYPE.REMOVED,
       quantityChange,
       quantityBefore: item.product_quantity,
       quantityAfter: quantityRemaining,
@@ -636,11 +648,31 @@ const placeOrder = async (data) => withTransaction(sequelize, async (transaction
   // Create notification for new order (after transaction commit)
   transaction.afterCommit(async () => {
     try {
+      // Fetch branch details for notification
+      const branchForNotification = await BranchModel.findOne({
+        where: { id: branchId },
+        attributes: [
+          'id',
+          'vendor_id',
+          'name',
+          'code',
+          'address_line1',
+          'address_line2',
+          'street',
+          'city',
+          'state',
+          'pincode',
+          'phone',
+          'email',
+        ],
+      });
+
       await createOrderPlacedNotification({
         orderId: newOrder.id,
         orderNumber: newOrder.order_number,
         vendorId: branchVendorId,
         branchId,
+        branch: branchForNotification,
         totalAmount: newOrder.final_amount,
         userId: createdBy,
         entityId: newOrder.id,
@@ -859,10 +891,93 @@ const calculateFinalAmount = (order, discountAmount, shippingCharges, finalAmoun
   return null;
 };
 
+// Helper: Update rider stats based on order status change
+const updateRiderStatsForOrder = async (orderId, oldStatus, newStatus, riderId, vendorId) => {
+  // Only update stats if there's a rider assigned
+  if (!riderId || !vendorId) {
+    return null;
+  }
+
+  try {
+    // When order is PICKED_UP (rider picks up the order) -> increment total_orders
+    if (newStatus === ORDER_STATUS.PICKED_UP && oldStatus !== ORDER_STATUS.PICKED_UP) {
+      await RiderStatsService.incrementTotalOrders(riderId, vendorId);
+    }
+
+    // When order is DELIVERED -> increment completed_orders and total_deliveries
+    if (newStatus === ORDER_STATUS.DELIVERED && oldStatus !== ORDER_STATUS.DELIVERED) {
+      // Increment total_deliveries
+      await RiderStatsService.incrementTotalDeliveries(riderId, vendorId);
+
+      // Also increment completed_orders (we need to update stats directly)
+      const currentStats = await RiderStatsService.getRiderStats(riderId, vendorId);
+
+      if (currentStats.doc) {
+        await RiderStatsService.updateRiderStats(riderId, vendorId, {
+          completed_orders: (currentStats.doc.completed_orders || 0) + 1,
+        });
+      } else {
+        // Create new stats entry with completed_orders = 1
+        await RiderStatsService.updateRiderStats(riderId, vendorId, {
+          total_orders: 0,
+          total_deliveries: 1,
+          completed_orders: 1,
+          cancelled_orders: 0,
+        });
+      }
+    }
+
+    // When order is CANCELLED -> increment cancelled_orders (only if rider was already assigned)
+    if (newStatus === ORDER_STATUS.CANCELLED && oldStatus !== ORDER_STATUS.CANCELLED) {
+      // Only increment if rider was already working on this order (was PICKED_UP or later)
+      const riderAssignedStatuses = [
+        ORDER_STATUS.PICKED_UP,
+        ORDER_STATUS.ARRIVED,
+        ORDER_STATUS.DELIVERED,
+      ];
+
+      if (riderAssignedStatuses.includes(oldStatus)) {
+        const currentStats = await RiderStatsService.getRiderStats(riderId, vendorId);
+
+        if (currentStats.doc) {
+          await RiderStatsService.updateRiderStats(riderId, vendorId, {
+            cancelled_orders: (currentStats.doc.cancelled_orders || 0) + 1,
+          });
+        } else {
+          // Create new stats entry with cancelled_orders = 1
+          await RiderStatsService.updateRiderStats(riderId, vendorId, {
+            total_orders: 0,
+            total_deliveries: 0,
+            completed_orders: 0,
+            cancelled_orders: 1,
+          });
+        }
+      }
+    }
+  } catch (error) {
+    console.error('Error updating rider stats:', error);
+    // Don't fail the order update if rider stats update fails
+  }
+
+  return null;
+};
+
 // Helper: Handle order status change
 const handleOrderStatusChange = async (orderId, oldStatus, newStatus, updatedBy, notes, transaction) => {
   if (!newStatus || newStatus === oldStatus) {
     return null;
+  }
+
+  // Validate that the status is a valid order status
+  if (!isValidOrderStatus(newStatus)) {
+    throw new ValidationError(`Invalid order status: ${newStatus}`);
+  }
+
+  // Validate that the transition from oldStatus to newStatus is allowed
+  if (oldStatus && !canTransitionToStatus(oldStatus, newStatus)) {
+    throw new ValidationError(
+      `Cannot transition order status from ${oldStatus} to ${newStatus}. Allowed transitions from ${oldStatus} are: ${ORDER_STATUS_TRANSITIONS[oldStatus]?.join(', ') || 'none'}`,
+    );
   }
 
   const statusHistoryDoc = {
@@ -880,8 +995,8 @@ const handleOrderStatusChange = async (orderId, oldStatus, newStatus, updatedBy,
   return null;
 };
 
-// Helper: Handle order cancellation - restore inventory
-const handleOrderCancellation = async (orderId, orderNumber, vendorId, branchId, updatedBy, transaction) => {
+// Helper: Handle order cancellation/return - restore inventory
+const handleOrderCancellation = async (orderId, orderNumber, vendorId, branchId, updatedBy, transaction, isReturn = false) => {
   const orderItems = await OrderItemModel.findAll({
     where: { order_id: orderId },
     attributes: [ 'id', 'product_id', 'variant_id', 'variant_name', 'quantity' ],
@@ -905,7 +1020,7 @@ const handleOrderCancellation = async (orderId, orderNumber, vendorId, branchId,
         await ProductVariantModel.update(
           {
             quantity: quantityAfter,
-            product_status: quantityAfter > 0 ? 'INSTOCK' : 'OUT-OF-STOCK',
+            product_status: getProductStatusFromQuantity(quantityAfter),
             concurrency_stamp: uuidV4(),
           },
           {
@@ -914,20 +1029,25 @@ const handleOrderCancellation = async (orderId, orderNumber, vendorId, branchId,
           },
         );
 
-        // Create inventory movement (REVERTED)
+        // Create inventory movement (REVERTED for cancellation, RETURNED for returns)
+        const movementType = isReturn ? INVENTORY_MOVEMENT_TYPE.RETURNED : INVENTORY_MOVEMENT_TYPE.REVERTED;
+        const notes = isReturn
+          ? `Order ${orderNumber || orderId} returned`
+          : `Order ${orderNumber || orderId} cancelled`;
+
         await InventoryMovementService.createInventoryMovement({
           productId: variant.product_id,
           variantId: item.variant_id,
           vendorId: vendorId || null,
           branchId: branchId || null,
-          movementType: 'REVERTED',
+          movementType,
           quantityChange,
           quantityBefore,
           quantityAfter,
           referenceType: 'ORDER',
           referenceId: orderId,
           userId: updatedBy,
-          notes: `Order ${orderNumber || orderId} cancelled`,
+          notes,
         }, transaction);
       }
     }
@@ -936,12 +1056,51 @@ const handleOrderCancellation = async (orderId, orderNumber, vendorId, branchId,
   return null;
 };
 
+// Helper: Format branch details for notification data
+const formatBranchDetails = (branch) => {
+  if (!branch) {
+    return {
+      branch_name: '',
+      branch_code: '',
+      branch_address: '',
+      branch_address_line1: '',
+      branch_address_line2: '',
+      branch_street: '',
+      branch_city: '',
+      branch_state: '',
+      branch_pincode: '',
+      branch_phone: '',
+      branch_email: '',
+    };
+  }
+
+  const branchName = branch.name || 'Branch';
+  const branchAddress = `${branch.address_line1 || ''} ${branch.address_line2 || ''} ${branch.street || ''} ${branch.city || ''} ${branch.state || ''} ${branch.pincode || ''}`.trim();
+
+  return {
+    branch_name: branchName,
+    branch_code: branch.code || '',
+    branch_address: branchAddress,
+    branch_address_line1: branch.address_line1 || '',
+    branch_address_line2: branch.address_line2 || '',
+    branch_street: branch.street || '',
+    branch_city: branch.city || '',
+    branch_state: branch.state || '',
+    branch_pincode: branch.pincode || '',
+    branch_phone: branch.phone || '',
+    branch_email: branch.email || '',
+  };
+};
+
 // Helper: Send FCM notification when order is ready for pickup
-const sendReadyForPickupNotification = async (orderId, orderNumber, vendorId, branchId, branchName, address, finalAmount) => {
+const sendReadyForPickupNotification = async (orderId, orderNumber, vendorId, branchId, branch, address, finalAmount) => {
   try {
     const addressText = address
       ? `${address.address_line1 || ''} ${address.address_line2 || ''} ${address.street || ''} ${address.city || ''} ${address.state || ''} ${address.pincode || ''}`.trim()
       : 'Address not available';
+
+    const branchName = branch?.name || 'Branch';
+    const branchDetails = formatBranchDetails(branch);
 
     const title = 'New Order Ready for Pickup';
     const body = `Order ${orderNumber} is ready for pickup at ${branchName}`;
@@ -951,7 +1110,7 @@ const sendReadyForPickupNotification = async (orderId, orderNumber, vendorId, br
       order_number: orderNumber,
       branch_id: String(branchId),
       vendor_id: String(vendorId),
-      branch_name: branchName,
+      ...branchDetails,
       address: addressText,
       final_amount: String(finalAmount || 0),
       type: 'ORDER_READY_FOR_PICKUP',
@@ -971,7 +1130,7 @@ const sendReadyForPickupNotification = async (orderId, orderNumber, vendorId, br
       orderNumber,
       vendorId,
       branchId,
-      branchName,
+      branch,
       address: addressText,
       finalAmount,
     });
@@ -990,6 +1149,11 @@ const sendReadyForPickupNotification = async (orderId, orderNumber, vendorId, br
 // Helper: Handle post-update notifications
 const handleOrderUpdateNotifications = async (orderId, newStatus, oldStatus, updatedBy) => {
   if (!newStatus || newStatus === oldStatus) {
+    return null;
+  }
+
+  // No notifications for RETURNED status
+  if (newStatus === ORDER_STATUS.RETURNED) {
     return null;
   }
 
@@ -1016,7 +1180,7 @@ const handleOrderUpdateNotifications = async (orderId, newStatus, oldStatus, upd
     });
 
     const isVendorAdmin = updatingUser?.roleMappings?.some(
-      (mapping) => mapping.role?.name === 'VENDOR_ADMIN',
+      (mapping) => mapping.role?.name === ROLE.VENDOR_ADMIN,
     );
 
     // Skip socket notifications if updated by vendor admin
@@ -1029,7 +1193,22 @@ const handleOrderUpdateNotifications = async (orderId, newStatus, oldStatus, upd
         {
           model: BranchModel,
           as: 'branch',
-          attributes: [ 'vendor_id', 'name' ],
+          attributes: [
+            'id',
+            'vendor_id',
+            'name',
+            'code',
+            'address_line1',
+            'address_line2',
+            'street',
+            'city',
+            'state',
+            'pincode',
+            'latitude',
+            'longitude',
+            'phone',
+            'email',
+          ],
         },
         {
           model: AddressModel,
@@ -1043,20 +1222,48 @@ const handleOrderUpdateNotifications = async (orderId, newStatus, oldStatus, upd
       return null;
     }
 
-    // Create standard order update notification (skip socket if vendor admin)
+    const isUserUpdater = updatedBy === updatedOrder.created_by;
+
+    // Determine notification targets based on status and who updated
+    let notifyUser = true;
+    let notifyVendorAdmin = true;
+
+    if (newStatus === ORDER_STATUS.PICKED_UP || newStatus === ORDER_STATUS.ARRIVED) {
+      notifyVendorAdmin = false;
+    } else if (newStatus === ORDER_STATUS.CANCELLED) {
+      if (isVendorAdmin) {
+        notifyVendorAdmin = false; // admin cancels -> notify user only
+        notifyUser = true;
+      } else if (isUserUpdater) {
+        notifyUser = false; // user cancels -> notify admin only
+        notifyVendorAdmin = true;
+      } else {
+        notifyUser = false;
+        notifyVendorAdmin = true;
+      }
+    } else if (newStatus === ORDER_STATUS.RETURN) {
+      notifyUser = false;
+      notifyVendorAdmin = true; // return request -> vendor admin only
+    }
+
+    // Create standard order update notification (respect notification targets)
     await createOrderUpdatedNotification({
       orderId: updatedOrder.id,
       orderNumber: updatedOrder.order_number,
       vendorId: updatedOrder.branch?.vendor_id,
       branchId: updatedOrder.branch_id,
+      branch: updatedOrder.branch,
       status: newStatus,
       userId: updatedOrder.created_by,
       updatedBy,
-    }, skipSocket);
+    }, {
+      skipSocket,
+      notifyUser,
+      notifyVendorAdmin,
+    });
 
     // Send FCM notification to riders when order is ready for pickup
-    if (newStatus === 'READYFORPICKUP' && updatedOrder.branch?.vendor_id) {
-      const branchName = updatedOrder.branch?.name || 'Branch';
+    if (newStatus === ORDER_STATUS.READY_FOR_PICKUP && updatedOrder.branch?.vendor_id) {
       const { address } = updatedOrder;
 
       await sendReadyForPickupNotification(
@@ -1064,10 +1271,100 @@ const handleOrderUpdateNotifications = async (orderId, newStatus, oldStatus, upd
         updatedOrder.order_number,
         updatedOrder.branch.vendor_id,
         updatedOrder.branch_id,
-        branchName,
+        updatedOrder.branch,
         address,
         updatedOrder.final_amount,
       );
+    }
+
+    // Send FCM notification to user when order is accepted
+    if (newStatus === ORDER_STATUS.ACCEPTED && updatedOrder.created_by) {
+      try {
+        const title = 'Order Accepted';
+        const body = `Your order ${updatedOrder.order_number} has been accepted and is being prepared`;
+
+        const branchDetails = formatBranchDetails(updatedOrder.branch);
+
+        const notificationData = {
+          order_id: String(updatedOrder.id),
+          order_number: updatedOrder.order_number,
+          status: ORDER_STATUS.ACCEPTED,
+          vendor_id: String(updatedOrder.branch?.vendor_id || ''),
+          branch_id: String(updatedOrder.branch_id || ''),
+          ...branchDetails,
+        };
+
+        const fcmResult = await sendFCMNotificationToUser(
+          updatedOrder.created_by,
+          title,
+          body,
+          notificationData,
+        );
+
+        // Create in-app notification
+        await createOrderAcceptedNotification({
+          orderId: updatedOrder.id,
+          orderNumber: updatedOrder.order_number,
+          vendorId: updatedOrder.branch?.vendor_id,
+          branchId: updatedOrder.branch_id,
+          branch: updatedOrder.branch,
+          userId: updatedOrder.created_by,
+        });
+
+        if (fcmResult.success) {
+          console.log(`FCM notification sent to user for order ${updatedOrder.order_number} (ACCEPTED)`);
+        } else {
+          console.warn(`Failed to send FCM notification for order ${updatedOrder.order_number}:`, fcmResult.error);
+        }
+      } catch (fcmError) {
+        console.error('Error sending FCM notification to user (ACCEPTED):', fcmError);
+        // Don't fail the order update if FCM fails
+      }
+    }
+
+    // Send FCM notification to user when order arrives
+    if (newStatus === ORDER_STATUS.ARRIVED && updatedOrder.created_by) {
+      try {
+        const title = 'Order Arrived';
+        const body = `Your order ${updatedOrder.order_number} has arrived and is ready for delivery`;
+
+        const branchDetails = formatBranchDetails(updatedOrder.branch);
+
+        const notificationData = {
+          order_id: String(updatedOrder.id),
+          order_number: updatedOrder.order_number,
+          status: ORDER_STATUS.ARRIVED,
+          vendor_id: String(updatedOrder.branch?.vendor_id || ''),
+          branch_id: String(updatedOrder.branch_id || ''),
+          ...branchDetails,
+        };
+
+        const fcmResult = await sendFCMNotificationToUser(
+          updatedOrder.created_by,
+          title,
+          body,
+          notificationData,
+        );
+
+        // Create in-app notification
+        await createOrderArrivedNotification({
+          orderId: updatedOrder.id,
+          orderNumber: updatedOrder.order_number,
+          vendorId: updatedOrder.branch?.vendor_id,
+          branchId: updatedOrder.branch_id,
+          branch: updatedOrder.branch,
+          userId: updatedOrder.created_by,
+        });
+
+        if (fcmResult.success) {
+          console.log(`FCM notification sent to user for order ${updatedOrder.order_number} (ARRIVED)`);
+        } else {
+          console.warn(`Failed to send FCM notification for order ${updatedOrder.order_number}:`, fcmResult.error);
+        }
+      } catch (fcmError) {
+        console.error('Error sending FCM notification to user (ARRIVED):', fcmError);
+        // Don't fail the order update if FCM fails
+      }
     }
 
     return null;
@@ -1102,7 +1399,7 @@ const updateOrder = async (data) => withTransaction(sequelize, async (transactio
   const oldStatus = response.status;
 
   // Assign rider if user is a rider
-  if (riderExist?.role?.name === 'RIDER') {
+  if (riderExist?.role?.name === ROLE.RIDER) {
     modifiedData.riderId = updatedBy;
   }
 
@@ -1128,8 +1425,20 @@ const updateOrder = async (data) => withTransaction(sequelize, async (transactio
     transaction,
   );
 
+  // Update rider stats based on status change
+  // Get rider_id from modifiedData (may be set if user is a rider) or from response
+  const riderId = modifiedData.riderId || response.rider_id;
+  const vendorId = response.vendor_id;
+
+  if (riderId && vendorId) {
+    // Update rider stats after transaction commit to avoid blocking
+    transaction.afterCommit(async () => {
+      await updateRiderStatsForOrder(id, oldStatus, newStatus, riderId, vendorId);
+    });
+  }
+
   // Handle order cancellation - restore inventory
-  if (newStatus === 'CANCELLED' && oldStatus !== 'CANCELLED') {
+  if (newStatus === ORDER_STATUS.CANCELLED && oldStatus !== ORDER_STATUS.CANCELLED) {
     await handleOrderCancellation(
       id,
       response.order_number,
@@ -1137,6 +1446,19 @@ const updateOrder = async (data) => withTransaction(sequelize, async (transactio
       response.branch_id,
       updatedBy,
       transaction,
+    );
+  }
+
+  // Handle order return - restore inventory when order is returned
+  if (newStatus === ORDER_STATUS.RETURNED && oldStatus !== ORDER_STATUS.RETURNED) {
+    await handleOrderCancellation(
+      id,
+      response.order_number,
+      response.vendor_id,
+      response.branch_id,
+      updatedBy,
+      transaction,
+      true, // isReturn = true
     );
   }
 

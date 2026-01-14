@@ -144,7 +144,7 @@ const saveBranchShippingConfig = async (req, res) => {
     });
 
     if (doc) {
-      return res.status(201).json({ success: true, message: 'Branch shipping config saved successfully', doc });
+      return res.status(201).json({ success: true, message: 'Vendor shipping config saved successfully', doc });
     }
 
     return sendErrorResponse(res, 400, extractErrorMessage(err), 'VALIDATION_ERROR');
@@ -155,9 +155,9 @@ const saveBranchShippingConfig = async (req, res) => {
 
 const getBranchShippingConfig = async (req, res) => {
   try {
-    const { branchId } = req.params;
+    const { vendorId } = req.params;
 
-    const { errors: err, doc } = await ShippingService.getBranchShippingConfig(branchId);
+    const { errors: err, doc } = await ShippingService.getBranchShippingConfig(vendorId);
 
     if (err) {
       return sendErrorResponse(res, 404, extractErrorMessage(err), 'NOT_FOUND');

@@ -1,8 +1,9 @@
 const Joi = require('joi');
+const { ORDER_STATUS_ENUM } = require('../../utils/constants/orderStatusConstants');
 
 const updateOrder = Joi.object({
   id: Joi.number().integer().required(),
-  status: Joi.string().valid('PENDING', 'CONFIRMED', 'SHIPPED', 'DELIVERED', 'CANCELLED').optional(),
+  status: Joi.string().valid(...ORDER_STATUS_ENUM).optional(),
   paymentStatus: Joi.string().valid('PAID', 'UNPAID', 'FAILED').optional(),
   orderPriority: Joi.string().valid('NORMAL', 'EXPRESS', 'URGENT').optional(),
   estimatedDeliveryTime: Joi.number().integer().min(0).optional(),

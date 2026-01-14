@@ -1,6 +1,6 @@
 module.exports = (sequelize, DataTypes) => {
-  const riderFcmToken = sequelize.define(
-    'rider_fcm_token',
+  const userFcmToken = sequelize.define(
+    'user_fcm_token',
     {
       id: {
         allowNull: false,
@@ -17,21 +17,6 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.STRING,
         allowNull: false,
         unique: true,
-        index: true,
-      },
-      total_orders: {
-        type: DataTypes.INTEGER,
-        allowNull: false,
-        defaultValue: 0,
-      },
-      vendor_id: {
-        type: DataTypes.INTEGER,
-        allowNull: false,
-        index: true,
-      },
-      branch_id: {
-        type: DataTypes.INTEGER,
-        allowNull: true,
         index: true,
       },
       status: {
@@ -71,35 +56,21 @@ module.exports = (sequelize, DataTypes) => {
       timestamps: true,
       indexes: [
         {
-          fields: [ 'vendor_id', 'branch_id', 'status' ],
-          name: 'idx_vendor_branch_status',
+          fields: [ 'user_id', 'status' ],
+          name: 'idx_user_status',
         },
       ],
     },
   );
 
-  riderFcmToken.associate = (models) => {
-    // Relationship with user
-    riderFcmToken.belongsTo(models.user, {
+  userFcmToken.associate = (models) => {
+    userFcmToken.belongsTo(models.user, {
       foreignKey: 'user_id',
       targetKey: 'id',
       as: 'user',
     });
-
-    // Relationship with vendor
-    riderFcmToken.belongsTo(models.vendor, {
-      foreignKey: 'vendor_id',
-      targetKey: 'id',
-      as: 'vendor',
-    });
-
-    // Relationship with branch
-    riderFcmToken.belongsTo(models.branch, {
-      foreignKey: 'branch_id',
-      targetKey: 'id',
-      as: 'branch',
-    });
   };
 
-  return riderFcmToken;
+  return userFcmToken;
 };
+

@@ -21,6 +21,7 @@ const {
   ConcurrencyError,
   handleServiceError,
 } = require('../utils/serviceErrors');
+const { ROLE } = require('../utils/constants/roleConstants');
 
 const saveVendor = async ({ data }) => {
   let transaction = null;
@@ -221,7 +222,7 @@ const getVendorWithUsers = async (vendorId) => {
     // Fetch roles in parallel
     const [ adminRole, riderRole ] = await Promise.all([
       RoleModel.findOne({
-        where: { name: 'VENDOR_ADMIN' },
+        where: { name: ROLE.VENDOR_ADMIN },
         attributes: [ 'id', 'name' ],
       }),
       RoleModel.findOne({

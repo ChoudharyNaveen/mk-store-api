@@ -1,8 +1,6 @@
 const {
-  rider_fcm_token: RiderFcmTokenModel,
+  user_fcm_token: UserFcmTokenModel,
   user: UserModel,
-  role: RoleModel,
-  user_roles_mappings: UserRolesMappingModel,
   sequelize,
   Sequelize: { Op },
 } = require('../database');
@@ -14,12 +12,10 @@ const {
 } = require('../utils/serviceErrors');
 
 /**
- * Register or update FCM token for a rider
+ * Register or update FCM token for a user
  * @param {Object} data - Token registration data
  * @param {number} data.userId - User ID
  * @param {string} data.fcmToken - FCM token
- * @param {number} data.vendorId - Vendor ID
- * @param {number} data.branchId - Branch ID (optional)
  * @param {Object} data.deviceInfo - Device information (optional)
  * @returns {Promise<Object>} Created or updated token
  */
@@ -28,7 +24,7 @@ const registerFCMToken = async (data) => {
 
   try {
     const {
-      userId, fcmToken, vendorId, branchId, deviceInfo = {},
+      userId, fcmToken, deviceInfo = {},
     } = data;
 
     // Validate FCM token format
@@ -36,37 +32,19 @@ const registerFCMToken = async (data) => {
       throw new ValidationError('Invalid FCM token format');
     }
 
-    // Verify user exists and is a rider
+    // Verify user exists
     const user = await UserModel.findOne({
       where: { id: userId },
-      include: [
-        {
-          model: UserRolesMappingModel,
-          as: 'roleMappings',
-          where: {
-            vendor_id: vendorId,
-            status: 'ACTIVE',
-          },
-          required: true,
-          include: [
-            {
-              model: RoleModel,
-              as: 'role',
-              where: { name: 'RIDER' },
-              attributes: [ 'id', 'name' ],
-            },
-          ],
-        },
-      ],
+      attributes: [ 'id' ],
       transaction,
     });
 
     if (!user) {
-      throw new NotFoundError('User not found or is not a rider for this vendor');
+      throw new NotFoundError('User not found');
     }
 
     // Check if token already exists for this user
-    const existingToken = await RiderFcmTokenModel.findOne({
+    const existingToken = await UserFcmTokenModel.findOne({
       where: {
         user_id: userId,
         fcm_token: fcmToken,
@@ -77,8 +55,6 @@ const registerFCMToken = async (data) => {
     if (existingToken) {
       // Update existing token
       await existingToken.update({
-        vendor_id: vendorId,
-        branch_id: branchId || null,
         status: 'ACTIVE',
         device_type: deviceInfo.deviceType || null,
         device_id: deviceInfo.deviceId || null,
@@ -91,7 +67,7 @@ const registerFCMToken = async (data) => {
     }
 
     // Check if user has other active tokens (for same device or different)
-    const otherTokens = await RiderFcmTokenModel.findAll({
+    const otherTokens = await UserFcmTokenModel.findAll({
       where: {
         user_id: userId,
         status: 'ACTIVE',
@@ -102,7 +78,7 @@ const registerFCMToken = async (data) => {
 
     // Deactivate old tokens if replacing
     if (otherTokens.length > 0) {
-      await RiderFcmTokenModel.update(
+      await UserFcmTokenModel.update(
         { status: 'INACTIVE' },
         {
           where: {
@@ -116,15 +92,12 @@ const registerFCMToken = async (data) => {
     }
 
     // Create new token
-    const newToken = await RiderFcmTokenModel.create({
+    const newToken = await UserFcmTokenModel.create({
       user_id: userId,
       fcm_token: fcmToken,
-      vendor_id: vendorId,
-      branch_id: branchId || null,
       status: 'ACTIVE',
       device_type: deviceInfo.deviceType || null,
       device_id: deviceInfo.deviceId || null,
-      total_orders: 0,
       last_used_at: new Date(),
     }, { transaction });
 
@@ -139,31 +112,21 @@ const registerFCMToken = async (data) => {
 };
 
 /**
- * Get all active FCM tokens for riders in a vendor/branch
- * @param {number} vendorId - Vendor ID
- * @param {number} branchId - Branch ID (optional)
+ * Get all active FCM tokens for a user
+ * @param {number} userId - User ID
  * @returns {Promise<Object>} Array of active tokens
  */
-const getRiderTokens = async (vendorId, branchId = null) => {
+const getUserTokens = async (userId) => {
   try {
-    const where = {
-      vendor_id: vendorId,
-      status: 'ACTIVE',
-    };
-
-    if (branchId) {
-      where.branch_id = branchId;
-    }
-
-    const tokens = await RiderFcmTokenModel.findAll({
-      where,
+    const tokens = await UserFcmTokenModel.findAll({
+      where: {
+        user_id: userId,
+        status: 'ACTIVE',
+      },
       attributes: [
         'id',
         'user_id',
         'fcm_token',
-        'total_orders',
-        'vendor_id',
-        'branch_id',
         'status',
         'device_type',
         'device_id',
@@ -183,18 +146,18 @@ const getRiderTokens = async (vendorId, branchId = null) => {
 
     return { doc: tokens };
   } catch (error) {
-    return handleServiceError(error, 'Failed to get rider tokens');
+    return handleServiceError(error, 'Failed to get user tokens');
   }
 };
 
 /**
- * Get FCM token for a specific rider
+ * Get FCM token for a specific user
  * @param {number} userId - User ID
  * @returns {Promise<Object>} Token information
  */
-const getRiderTokenByUserId = async (userId) => {
+const getFCMTokenByUserId = async (userId) => {
   try {
-    const token = await RiderFcmTokenModel.findOne({
+    const token = await UserFcmTokenModel.findOne({
       where: {
         user_id: userId,
         status: 'ACTIVE',
@@ -203,9 +166,6 @@ const getRiderTokenByUserId = async (userId) => {
         'id',
         'user_id',
         'fcm_token',
-        'total_orders',
-        'vendor_id',
-        'branch_id',
         'status',
         'device_type',
         'device_id',
@@ -228,7 +188,7 @@ const getRiderTokenByUserId = async (userId) => {
 
     return { doc: token };
   } catch (error) {
-    return handleServiceError(error, 'Failed to get rider token');
+    return handleServiceError(error, 'Failed to get FCM token');
   }
 };
 
@@ -244,7 +204,7 @@ const updateTokenStatus = async (tokenId, status) => {
       throw new ValidationError('Invalid status. Must be ACTIVE or INACTIVE');
     }
 
-    const token = await RiderFcmTokenModel.findOne({
+    const token = await UserFcmTokenModel.findOne({
       where: { id: tokenId },
     });
 
@@ -267,7 +227,7 @@ const updateTokenStatus = async (tokenId, status) => {
  */
 const deleteFCMToken = async (tokenId) => {
   try {
-    const token = await RiderFcmTokenModel.findOne({
+    const token = await UserFcmTokenModel.findOne({
       where: { id: tokenId },
     });
 
@@ -284,38 +244,10 @@ const deleteFCMToken = async (tokenId) => {
   }
 };
 
-/**
- * Increment total orders counter for a rider
- * @param {number} userId - User ID
- * @returns {Promise<Object>} Updated token
- */
-const incrementTotalOrders = async (userId) => {
-  try {
-    const token = await RiderFcmTokenModel.findOne({
-      where: {
-        user_id: userId,
-        status: 'ACTIVE',
-      },
-    });
-
-    if (!token) {
-      // Token might not exist, that's okay
-      return { doc: null };
-    }
-
-    await token.increment('total_orders');
-
-    return { doc: token };
-  } catch (error) {
-    return handleServiceError(error, 'Failed to increment total orders');
-  }
-};
-
 module.exports = {
   registerFCMToken,
-  getRiderTokens,
-  getRiderTokenByUserId,
+  getUserTokens,
+  getFCMTokenByUserId,
   updateTokenStatus,
   deleteFCMToken,
-  incrementTotalOrders,
 };

@@ -19,6 +19,13 @@ const {
   ValidationError,
   handleServiceError,
 } = require('../utils/serviceErrors');
+const { getProductStatusFromQuantity } = require('../utils/constants/productStatusConstants');
+const {
+  INVENTORY_MOVEMENT_TYPE,
+  isValidMovementType,
+  requiresPositiveQuantity,
+  requiresNegativeQuantity,
+} = require('../utils/constants/inventoryMovementTypeConstants');
 
 /**
  * Create inventory movement record (called internally)
@@ -44,18 +51,16 @@ const createInventoryMovement = async (data, transaction = null) => {
     } = data;
 
     // Validate movement type
-    const validMovementTypes = [ 'ADDED', 'REMOVED', 'ADJUSTED', 'REVERTED' ];
-
-    if (!validMovementTypes.includes(movementType)) {
+    if (!isValidMovementType(movementType)) {
       throw new ValidationError(`Invalid movement type: ${movementType}`);
     }
 
     // Validate quantity change matches movement type
-    if (movementType === 'ADDED' || movementType === 'REVERTED') {
+    if (requiresPositiveQuantity(movementType)) {
       if (quantityChange <= 0) {
         throw new ValidationError(`Quantity change must be positive for ${movementType} movements`);
       }
-    } else if (movementType === 'REMOVED') {
+    } else if (requiresNegativeQuantity(movementType)) {
       if (quantityChange >= 0) {
         throw new ValidationError('Quantity change must be negative for REMOVED movements');
       }
@@ -296,14 +301,14 @@ const adjustInventory = async ({ data }) => {
 
     const quantityBefore = currentQuantity;
     const quantityAfter = Math.max(0, currentQuantity + quantityChange); // Prevent negative quantities
-    const movementType = quantityChange > 0 ? 'ADDED' : 'ADJUSTED';
+    const movementType = quantityChange > 0 ? INVENTORY_MOVEMENT_TYPE.ADDED : INVENTORY_MOVEMENT_TYPE.ADJUSTED;
 
     // Update quantity
     if (variant) {
       await ProductVariantModel.update(
         {
           quantity: quantityAfter,
-          product_status: quantityAfter > 0 ? 'INSTOCK' : 'OUT-OF-STOCK',
+          product_status: getProductStatusFromQuantity(quantityAfter),
         },
         {
           where: { id: variantId },
@@ -314,7 +319,7 @@ const adjustInventory = async ({ data }) => {
       await ProductModel.update(
         {
           quantity: quantityAfter,
-          product_status: quantityAfter > 0 ? 'INSTOCK' : 'OUT-OF-STOCK',
+          product_status: getProductStatusFromQuantity(quantityAfter),
         },
         {
           where: { id: productId },

@@ -1,4 +1,5 @@
 const Joi = require('joi');
+const { INVENTORY_MOVEMENT_TYPE_ENUM } = require('../../utils/constants/inventoryMovementTypeConstants');
 
 const filterSchema = Joi.object({
   key: Joi.string().required(),
@@ -23,7 +24,7 @@ const getInventoryMovements = Joi.object({
   variantId: Joi.number().integer().optional().allow(null),
   vendorId: Joi.number().integer().optional(),
   branchId: Joi.number().integer().optional(),
-  movementType: Joi.string().valid('ADDED', 'REMOVED', 'ADJUSTED', 'REVERTED').optional(),
+  movementType: Joi.string().valid(...INVENTORY_MOVEMENT_TYPE_ENUM).optional(),
   dateFrom: Joi.date().optional().messages({
     'date.base': 'Parameter: dateFrom must be a valid date',
   }),

@@ -118,11 +118,6 @@ module.exports = (sequelize, DataTypes) => {
       sourceKey: 'id',
       as: 'orders',
     });
-    branch.hasOne(models.branchShippingConfig, {
-      foreignKey: 'branch_id',
-      sourceKey: 'id',
-      as: 'shippingConfig',
-    });
     branch.hasMany(models.roadDistanceCache, {
       foreignKey: 'branch_id',
       sourceKey: 'id',

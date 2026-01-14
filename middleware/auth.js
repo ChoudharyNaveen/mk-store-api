@@ -1,6 +1,7 @@
 const jwt = require('jsonwebtoken');
 const config = require('../config/index');
 const { sendErrorResponse } = require('../utils/helper');
+const { ROLE } = require('../utils/constants/roleConstants');
 
 const isAuthenticated = async (req, res, next) => {
   if (!req.headers.authorization) {
@@ -33,7 +34,7 @@ const isVendorAdmin = async (req, res, next) => {
     }
 
     // Check role from JWT token
-    if (!req.user.roleName || req.user.roleName !== 'VENDOR_ADMIN') {
+    if (!req.user.roleName || req.user.roleName !== ROLE.VENDOR_ADMIN) {
       return sendErrorResponse(res, 403, 'Access denied. Vendor admin role required.', 'FORBIDDEN');
     }
 

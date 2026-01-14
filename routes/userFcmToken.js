@@ -2,21 +2,21 @@ const {
   registerFCMToken,
   removeFCMToken,
   getFCMToken,
-} = require('../controllers/riderFcmTokenController');
+} = require('../controllers/userFcmTokenController');
 const { isAuthenticated } = require('../middleware/auth');
 const validate = require('../middleware/validation');
 const {
   registerFcmToken: registerFcmTokenSchema,
   removeFcmToken: removeFcmTokenSchema,
-} = require('../schemas/riderFcmToken');
+} = require('../schemas/userFcmToken');
 
 module.exports = (router) => {
   /**
    * @swagger
-   * /register-rider-fcm-token:
+   * /register-user-fcm-token:
    *   post:
-   *     summary: Register or update FCM token for rider
-   *     tags: [Rider FCM]
+   *     summary: Register or update FCM token for user
+   *     tags: [User FCM]
    *     security:
    *       - bearerAuth: []
    *     requestBody:
@@ -27,18 +27,10 @@ module.exports = (router) => {
    *             type: object
    *             required:
    *               - fcmToken
-   *               - vendorId
    *             properties:
    *               fcmToken:
    *                 type: string
    *                 example: "fcm_token_string_here"
-   *               vendorId:
-   *                 type: integer
-   *                 example: 1
-   *               branchId:
-   *                 type: integer
-   *                 nullable: true
-   *                 example: 1
    *               deviceType:
    *                 type: string
    *                 enum: [android, ios, web]
@@ -57,7 +49,7 @@ module.exports = (router) => {
    *         description: Unauthorized
    */
   router.post(
-    '/register-rider-fcm-token',
+    '/register-user-fcm-token',
     isAuthenticated,
     validate(registerFcmTokenSchema),
     registerFCMToken,
@@ -65,10 +57,10 @@ module.exports = (router) => {
 
   /**
    * @swagger
-   * /remove-rider-fcm-token:
+   * /remove-user-fcm-token:
    *   delete:
-   *     summary: Remove FCM token for rider
-   *     tags: [Rider FCM]
+   *     summary: Remove FCM token for user
+   *     tags: [User FCM]
    *     security:
    *       - bearerAuth: []
    *     requestBody:
@@ -95,7 +87,7 @@ module.exports = (router) => {
    *         description: Token not found
    */
   router.delete(
-    '/remove-rider-fcm-token',
+    '/remove-user-fcm-token',
     isAuthenticated,
     validate(removeFcmTokenSchema),
     removeFCMToken,
@@ -103,10 +95,10 @@ module.exports = (router) => {
 
   /**
    * @swagger
-   * /rider-fcm-token:
+   * /user-fcm-token:
    *   get:
-   *     summary: Get current rider's FCM token information
-   *     tags: [Rider FCM]
+   *     summary: Get current user's FCM token information
+   *     tags: [User FCM]
    *     security:
    *       - bearerAuth: []
    *     responses:
@@ -116,7 +108,7 @@ module.exports = (router) => {
    *         description: Unauthorized
    */
   router.get(
-    '/rider-fcm-token',
+    '/user-fcm-token',
     isAuthenticated,
     getFCMToken,
   );

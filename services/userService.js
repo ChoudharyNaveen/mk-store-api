@@ -31,6 +31,7 @@ const {
   ConcurrencyError,
   handleServiceError,
 } = require('../utils/serviceErrors');
+const { ROLE } = require('../utils/constants/roleConstants');
 
 // Create Super Admin
 const createSuperAdmin = async ({ data, imageFile }) => {
@@ -69,7 +70,7 @@ const createSuperAdmin = async ({ data, imageFile }) => {
 
     // Get or create SUPER_ADMIN role
     const superAdminRole = await RoleModel.findOne({
-      where: { name: 'SUPER_ADMIN' },
+      where: { name: ROLE.SUPER_ADMIN },
       attributes: [ 'id', 'name' ],
       transaction,
     });
@@ -240,7 +241,7 @@ const createVendorAdmin = async ({ data, imageFile }) => {
         transaction,
       }),
       RoleModel.findOne({
-        where: { name: 'VENDOR_ADMIN' },
+        where: { name: ROLE.VENDOR_ADMIN },
         attributes: [ 'id', 'name' ],
         transaction,
       }),
@@ -411,7 +412,7 @@ const convertUserToRider = async ({ userId }) => {
         transaction,
       }),
       RoleModel.findOne({
-        where: { name: 'RIDER' },
+        where: { name: ROLE.RIDER },
         attributes: [ 'id', 'name' ],
         transaction,
       }),
@@ -425,7 +426,7 @@ const convertUserToRider = async ({ userId }) => {
           model: RoleModel,
           as: 'role',
           attributes: [ 'id', 'name' ],
-          where: { name: 'RIDER' },
+          where: { name: ROLE.RIDER },
         } ],
         transaction,
       }),
@@ -444,7 +445,7 @@ const convertUserToRider = async ({ userId }) => {
     }
 
     if (!riderRole) {
-      throw new NotFoundError('RIDER role not found');
+      throw new NotFoundError(`${ROLE.RIDER} role not found`);
     }
 
     if (existingRiderMapping) {

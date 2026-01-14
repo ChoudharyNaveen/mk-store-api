@@ -3,6 +3,7 @@ const { v4: uuidV4 } = require('uuid');
 const {
   branchShippingConfig: BranchShippingConfigModel,
   branch: BranchModel,
+  vendor: VendorModel,
   sequelize,
   Sequelize: { Op },
 } = require('../database');
@@ -130,28 +131,10 @@ const findNearbyBranches = async (addressLat, addressLng, maxDistance = 10, vend
  */
 const calculateShippingCharges = async (branchId, addressLat, addressLng, orderAmount, deliveryType = 'NEXT_DAY') => {
   try {
-    // Get branch coordinates and shipping config
+    // Get branch coordinates and vendor_id
     const branch = await BranchModel.findOne({
       where: { id: branchId },
       attributes: [ 'id', 'latitude', 'longitude', 'vendor_id' ],
-      include: [
-        {
-          model: BranchShippingConfigModel,
-          as: 'shippingConfig',
-          attributes: [
-            'distance_threshold_km',
-            'within_threshold_base_charge',
-            'within_threshold_free_above',
-            'above_threshold_sameday_base_charge',
-            'above_threshold_sameday_discounted_charge',
-            'above_threshold_sameday_free_above',
-            'above_threshold_nextday_base_charge',
-            'above_threshold_nextday_free_above',
-            'status',
-          ],
-          required: false,
-        },
-      ],
     });
 
     if (!branch) {
@@ -166,8 +149,24 @@ const calculateShippingCharges = async (branchId, addressLat, addressLng, orderA
       throw new ValidationError('Address coordinates are required');
     }
 
+    // Get shipping config by vendor_id
+    const shippingConfigRecord = await BranchShippingConfigModel.findOne({
+      where: { vendor_id: branch.vendor_id, status: 'ACTIVE' },
+      attributes: [
+        'distance_threshold_km',
+        'within_threshold_base_charge',
+        'within_threshold_free_above',
+        'above_threshold_sameday_base_charge',
+        'above_threshold_sameday_discounted_charge',
+        'above_threshold_sameday_free_above',
+        'above_threshold_nextday_base_charge',
+        'above_threshold_nextday_free_above',
+        'status',
+      ],
+    });
+
     // Get shipping config or use defaults (all configurable)
-    const shippingConfig = branch.shippingConfig || {
+    const shippingConfig = shippingConfigRecord || {
       distance_threshold_km: 3.0,
       within_threshold_base_charge: 20.0,
       within_threshold_free_above: 199.0,
@@ -302,25 +301,25 @@ const saveBranchShippingConfig = async ({ data }) => {
 
   try {
     const {
-      createdBy, branchId, ...datas
+      createdBy, vendorId, ...datas
     } = data;
 
     transaction = await sequelize.transaction();
 
-    // Verify branch exists
-    const branch = await BranchModel.findOne({
-      where: { id: branchId },
+    // Verify vendor exists
+    const vendor = await VendorModel.findOne({
+      where: { id: vendorId },
       attributes: [ 'id' ],
       transaction,
     });
 
-    if (!branch) {
-      throw new NotFoundError('Branch not found');
+    if (!vendor) {
+      throw new NotFoundError('Vendor not found');
     }
 
     // Check if config already exists
     const existingConfig = await BranchShippingConfigModel.findOne({
-      where: { branch_id: branchId },
+      where: { vendor_id: vendorId },
       transaction,
     });
 
@@ -335,7 +334,7 @@ const saveBranchShippingConfig = async ({ data }) => {
           concurrencyStamp,
         }),
         {
-          where: { branch_id: branchId },
+          where: { vendor_id: vendorId },
           transaction,
         },
       );
@@ -344,7 +343,7 @@ const saveBranchShippingConfig = async ({ data }) => {
       await BranchShippingConfigModel.create(
         convertCamelToSnake({
           ...datas,
-          branchId,
+          vendorId,
           concurrencyStamp,
           createdBy,
         }),
@@ -355,7 +354,7 @@ const saveBranchShippingConfig = async ({ data }) => {
     }
 
     const updated = await BranchShippingConfigModel.findOne({
-      where: { branch_id: branchId },
+      where: { vendor_id: vendorId },
       transaction,
     });
 
@@ -369,24 +368,24 @@ const saveBranchShippingConfig = async ({ data }) => {
       await transaction.rollback();
     }
 
-    return handleServiceError(error, 'Failed to save branch shipping config');
+    return handleServiceError(error, 'Failed to save vendor shipping config');
   }
 };
 
 /**
- * Get branch shipping configuration
- * @param {number} branchId - Branch ID
+ * Get vendor shipping configuration
+ * @param {number} vendorId - Vendor ID
  * @returns {Promise<{doc: object}>}
  */
-const getBranchShippingConfig = async (branchId) => {
+const getBranchShippingConfig = async (vendorId) => {
   try {
     const shippingConfig = await BranchShippingConfigModel.findOne({
-      where: { branch_id: branchId, status: 'ACTIVE' },
+      where: { vendor_id: vendorId, status: 'ACTIVE' },
       include: [
         {
-          model: BranchModel,
-          as: 'branch',
-          attributes: [ 'id', 'name', 'vendor_id' ],
+          model: VendorModel,
+          as: 'vendor',
+          attributes: [ 'id', 'name' ],
         },
       ],
     });
@@ -395,7 +394,7 @@ const getBranchShippingConfig = async (branchId) => {
       // Return default config if not found (all configurable)
       return {
         doc: {
-          branch_id: branchId,
+          vendor_id: vendorId,
           distance_threshold_km: 3.0,
           within_threshold_base_charge: 20.0,
           within_threshold_free_above: 199.0,

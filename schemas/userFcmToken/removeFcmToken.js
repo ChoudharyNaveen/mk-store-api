@@ -7,11 +7,13 @@ const removeFcmToken = Joi.object({
       'number.integer': 'Token ID must be an integer',
       'number.positive': 'Token ID must be positive',
     }),
-  fcmToken: Joi.string().optional().messages({
-    'string.base': 'FCM token must be a string',
-  }),
-}).or('tokenId', 'fcmToken').messages({
-  'object.missing': 'Either tokenId or fcmToken must be provided',
-});
+  fcmToken: Joi.string().min(50).optional()
+    .messages({
+      'string.min': 'FCM token must be at least 50 characters',
+    }),
+}).or('tokenId', 'fcmToken')
+  .messages({
+    'object.missing': 'Either tokenId or fcmToken is required',
+  });
 
 module.exports = removeFcmToken;

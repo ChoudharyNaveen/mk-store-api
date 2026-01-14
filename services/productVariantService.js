@@ -16,6 +16,8 @@ const {
 } = require('../utils/helper');
 const { convertImageFieldsToCloudFront } = require('../utils/s3Helper');
 const InventoryMovementService = require('./inventoryMovementService');
+const { getProductStatusFromQuantity } = require('../utils/constants/productStatusConstants');
+const { INVENTORY_MOVEMENT_TYPE } = require('../utils/constants/inventoryMovementTypeConstants');
 const {
   NotFoundError,
   ValidationError,
@@ -84,7 +86,7 @@ const saveProductVariant = async ({ data }) => {
       concurrencyStamp,
       createdBy,
       quantity: datas.quantity || 0,
-      productStatus: datas.quantity > 0 ? 'INSTOCK' : 'OUT-OF-STOCK',
+      productStatus: getProductStatusFromQuantity(datas.quantity),
     };
 
     const variant = await ProductVariantModel.create(convertCamelToSnake(doc), {
@@ -98,7 +100,7 @@ const saveProductVariant = async ({ data }) => {
         variantId: variant.id,
         vendorId: product.vendor_id,
         branchId: product.branch_id,
-        movementType: 'ADDED',
+        movementType: INVENTORY_MOVEMENT_TYPE.ADDED,
         quantityChange: variant.quantity,
         quantityBefore: 0,
         quantityAfter: variant.quantity,
@@ -194,7 +196,7 @@ const updateProductVariant = async ({ data }) => {
     const newQuantity = datas.quantity !== undefined ? datas.quantity : oldQuantity;
 
     if (datas.quantity !== undefined) {
-      datas.productStatus = newQuantity > 0 ? 'INSTOCK' : 'OUT-OF-STOCK';
+      datas.productStatus = getProductStatusFromQuantity(newQuantity);
     }
 
     const newConcurrencyStamp = uuidV4();
@@ -234,7 +236,7 @@ const updateProductVariant = async ({ data }) => {
         variantId: id,
         vendorId: updated?.product?.vendor_id || null,
         branchId: updated?.product?.branch_id || null,
-        movementType: 'ADJUSTED',
+        movementType: INVENTORY_MOVEMENT_TYPE.ADJUSTED,
         quantityChange,
         quantityBefore: oldQuantity,
         quantityAfter,

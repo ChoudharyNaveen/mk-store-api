@@ -15,6 +15,7 @@ const {
 const config = require('../config');
 const { sendSMS } = require('../config/aws');
 const { createUserRegistrationNotification } = require('./notificationService');
+const { ROLE } = require('../utils/constants/roleConstants');
 const {
   NotFoundError,
   ValidationError,
@@ -47,7 +48,7 @@ const sendOtpSMSForUser = async (mobileNumber, vendorId) => {
         transaction,
       }),
       RoleModel.findOne({
-        where: { name: 'USER' },
+        where: { name: ROLE.USER },
         attributes: [ 'id', 'name' ],
         transaction,
       }),

@@ -1,4 +1,4 @@
-const RiderFcmTokenService = require('../services/riderFcmTokenService');
+const UserFcmTokenService = require('../services/userFcmTokenService');
 const { handleServerError, sendErrorResponse } = require('../utils/errorHandlers');
 
 const extractErrorMessage = (error) => {
@@ -23,11 +23,9 @@ const registerFCMToken = async (req, res) => {
       return sendErrorResponse(res, 401, 'User not authenticated', 'AUTHENTICATION_FAILED');
     }
 
-    const { errors: err, doc } = await RiderFcmTokenService.registerFCMToken({
+    const { errors: err, doc } = await UserFcmTokenService.registerFCMToken({
       userId,
       fcmToken: data.fcmToken,
-      vendorId: data.vendorId,
-      branchId: data.branchId || null,
       deviceInfo: {
         deviceType: data.deviceType || null,
         deviceId: data.deviceId || null,
@@ -62,7 +60,7 @@ const removeFCMToken = async (req, res) => {
     let { tokenId } = data;
 
     if (!tokenId && data.fcmToken) {
-      const { doc: token } = await RiderFcmTokenService.getRiderTokenByUserId(userId);
+      const { doc: token } = await UserFcmTokenService.getFCMTokenByUserId(userId);
 
       if (token && token.fcm_token === data.fcmToken) {
         tokenId = token.id;
@@ -75,7 +73,7 @@ const removeFCMToken = async (req, res) => {
       return sendErrorResponse(res, 400, 'Token ID or FCM token is required', 'VALIDATION_ERROR');
     }
 
-    const { errors: err, doc } = await RiderFcmTokenService.deleteFCMToken(tokenId);
+    const { errors: err, doc } = await UserFcmTokenService.deleteFCMToken(tokenId);
 
     if (err) {
       return sendErrorResponse(res, 400, extractErrorMessage(err), 'VALIDATION_ERROR');
@@ -100,7 +98,7 @@ const getFCMToken = async (req, res) => {
       return sendErrorResponse(res, 401, 'User not authenticated', 'AUTHENTICATION_FAILED');
     }
 
-    const { errors: err, doc } = await RiderFcmTokenService.getRiderTokenByUserId(userId);
+    const { errors: err, doc } = await UserFcmTokenService.getFCMTokenByUserId(userId);
 
     if (err) {
       return sendErrorResponse(res, 400, extractErrorMessage(err), 'VALIDATION_ERROR');

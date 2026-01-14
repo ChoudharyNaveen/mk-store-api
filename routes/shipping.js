@@ -242,7 +242,7 @@ module.exports = (router) => {
    * @swagger
    * /save-branch-shipping-config:
    *   post:
-   *     summary: Save or update branch shipping configuration (VENDOR_ADMIN only)
+   *     summary: Save or update vendor shipping configuration (VENDOR_ADMIN only)
    *     tags: [Shipping]
    *     security:
    *       - bearerAuth: []
@@ -253,9 +253,9 @@ module.exports = (router) => {
    *           schema:
    *             type: object
    *             required:
-   *               - branchId
+   *               - vendorId
    *             properties:
-   *               branchId:
+   *               vendorId:
    *                 type: integer
    *                 example: 1
    *               distanceThresholdKm:
@@ -292,7 +292,7 @@ module.exports = (router) => {
    *                 description: Order amount above which next-day shipping is free above threshold distance
    *     responses:
    *       201:
-   *         description: Branch shipping config saved successfully
+   *         description: Vendor shipping config saved successfully
    *       400:
    *         description: Validation error
    */
@@ -306,26 +306,26 @@ module.exports = (router) => {
 
   /**
    * @swagger
-   * /get-branch-shipping-config/{branchId}:
+   * /get-branch-shipping-config/{vendorId}:
    *   get:
-   *     summary: Get branch shipping configuration
+   *     summary: Get vendor shipping configuration
    *     tags: [Shipping]
    *     security:
    *       - bearerAuth: []
    *     parameters:
    *       - in: path
-   *         name: branchId
+   *         name: vendorId
    *         required: true
    *         schema:
    *           type: integer
    *     responses:
    *       200:
-   *         description: Branch shipping config retrieved successfully
+   *         description: Vendor shipping config retrieved successfully
    *       404:
    *         description: Config not found (returns defaults)
    */
   router.get(
-    '/get-branch-shipping-config/:branchId',
+    '/get-branch-shipping-config/:vendorId',
     isAuthenticated,
     getBranchShippingConfig,
   );

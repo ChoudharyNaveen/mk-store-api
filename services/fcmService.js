@@ -53,9 +53,82 @@ const sendFCMNotificationToDevices = async (tokens, title, body, data = {}) => {
 };
 
 /**
- * Send FCM notification to all active riders for a vendor/branch
+ * Send FCM notification to a specific user
+ * @param {number} userId - User ID
+ * @param {string} title - Notification title
+ * @param {string} body - Notification body
+ * @param {Object} data - Additional data payload
+ * @returns {Promise<Object>} Result of the notification send
+ */
+const sendFCMNotificationToUser = async (userId, title, body, data = {}) => {
+  try {
+    const UserFcmTokenService = require('./userFcmTokenService');
+
+    // Get active FCM token for the user
+    const { doc: tokenData } = await UserFcmTokenService.getFCMTokenByUserId(userId);
+
+    if (!tokenData || !tokenData.fcm_token) {
+      return {
+        success: false,
+        error: 'No active FCM token found for user',
+      };
+    }
+
+    // Send notification to the user's token
+    const result = await sendFCMNotificationToDevice(tokenData.fcm_token, title, body, data);
+
+    return result;
+  } catch (error) {
+    return handleServiceError(error, 'Failed to send FCM notification to user');
+  }
+};
+
+/**
+ * Send FCM notification to multiple users
+ * @param {Array<number>} userIds - Array of User IDs
+ * @param {string} title - Notification title
+ * @param {string} body - Notification body
+ * @param {Object} data - Additional data payload
+ * @returns {Promise<Object>} Results of the notification sends
+ */
+const sendFCMNotificationToUsers = async (userIds, title, body, data = {}) => {
+  try {
+    if (!userIds || userIds.length === 0) {
+      return { success: false, error: 'No user IDs provided', results: [] };
+    }
+
+    const UserFcmTokenService = require('./userFcmTokenService');
+
+    // Get FCM tokens for all users
+    const tokenPromises = userIds.map((userId) => UserFcmTokenService.getFCMTokenByUserId(userId));
+    const tokenResults = await Promise.all(tokenPromises);
+
+    // Extract valid FCM tokens
+    const fcmTokens = tokenResults
+      .map((result) => result.doc?.fcm_token)
+      .filter(Boolean);
+
+    if (fcmTokens.length === 0) {
+      return {
+        success: false,
+        error: 'No active FCM tokens found for users',
+        results: [],
+      };
+    }
+
+    // Send notifications to all tokens
+    const result = await sendFCMNotificationToDevices(fcmTokens, title, body, data);
+
+    return result;
+  } catch (error) {
+    return handleServiceError(error, 'Failed to send FCM notifications to users');
+  }
+};
+
+/**
+ * Send FCM notification to all active riders for a vendor
  * @param {number} vendorId - Vendor ID
- * @param {number} branchId - Branch ID (optional)
+ * @param {number} branchId - Branch ID (optional, for metadata only)
  * @param {string} title - Notification title
  * @param {string} body - Notification body
  * @param {Object} data - Additional data payload
@@ -63,26 +136,44 @@ const sendFCMNotificationToDevices = async (tokens, title, body, data = {}) => {
  */
 const sendFCMNotificationToRiders = async (vendorId, branchId, title, body, data = {}) => {
   try {
-    const RiderFcmTokenService = require('./riderFcmTokenService');
+    const RiderStatsService = require('./riderStatsService');
+    const UserFcmTokenService = require('./userFcmTokenService');
 
-    // Get all active rider FCM tokens for the vendor/branch
-    const { doc: tokens } = await RiderFcmTokenService.getRiderTokens(vendorId, branchId);
+    // Get all riders for the vendor
+    const { doc: riders } = await RiderStatsService.getRidersByVendor(vendorId);
 
-    if (!tokens || tokens.length === 0) {
+    if (!riders || riders.length === 0) {
       return {
         success: false,
-        error: 'No active rider tokens found',
+        error: 'No riders found for vendor/branch',
         results: [],
       };
     }
 
-    // Extract FCM tokens
-    const fcmTokens = tokens.map((token) => token.fcm_token).filter(Boolean);
+    // Get user IDs from riders
+    const userIds = riders.map((rider) => rider.user_id).filter(Boolean);
+
+    if (userIds.length === 0) {
+      return {
+        success: false,
+        error: 'No valid user IDs found',
+        results: [],
+      };
+    }
+
+    // Get FCM tokens for all rider users
+    const tokenPromises = userIds.map((userId) => UserFcmTokenService.getFCMTokenByUserId(userId));
+    const tokenResults = await Promise.all(tokenPromises);
+
+    // Extract valid FCM tokens
+    const fcmTokens = tokenResults
+      .map((result) => result.doc?.fcm_token)
+      .filter(Boolean);
 
     if (fcmTokens.length === 0) {
       return {
         success: false,
-        error: 'No valid FCM tokens found',
+        error: 'No active FCM tokens found for riders',
         results: [],
       };
     }
@@ -99,6 +190,8 @@ const sendFCMNotificationToRiders = async (vendorId, branchId, title, body, data
 module.exports = {
   sendFCMNotificationToDevice,
   sendFCMNotificationToDevices,
+  sendFCMNotificationToUser,
+  sendFCMNotificationToUsers,
   sendFCMNotificationToRiders,
   validateFCMToken,
 };

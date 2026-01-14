@@ -1,8 +1,8 @@
 const Joi = require('joi');
 
 const saveBranchShippingConfig = Joi.object({
-  branchId: Joi.number().integer().required().messages({
-    'any.required': 'Parameter: branchId is required',
+  vendorId: Joi.number().integer().required().messages({
+    'any.required': 'Parameter: vendorId is required',
   }),
   distanceThresholdKm: Joi.number().min(0).optional().default(3.0)
     .messages({

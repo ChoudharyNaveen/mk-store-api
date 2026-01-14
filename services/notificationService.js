@@ -19,6 +19,43 @@ const {
 const {
   handleServiceError,
 } = require('../utils/serviceErrors');
+const { ROLE } = require('../utils/constants/roleConstants');
+
+// Helper: Format branch details for notification metadata
+const formatBranchDetails = (branch) => {
+  if (!branch) {
+    return {
+      branch_name: '',
+      branch_code: '',
+      branch_address: '',
+      branch_address_line1: '',
+      branch_address_line2: '',
+      branch_street: '',
+      branch_city: '',
+      branch_state: '',
+      branch_pincode: '',
+      branch_phone: '',
+      branch_email: '',
+    };
+  }
+
+  const branchName = branch.name || 'Branch';
+  const branchAddress = `${branch.address_line1 || ''} ${branch.address_line2 || ''} ${branch.street || ''} ${branch.city || ''} ${branch.state || ''} ${branch.pincode || ''}`.trim();
+
+  return {
+    branch_name: branchName,
+    branch_code: branch.code || '',
+    branch_address: branchAddress,
+    branch_address_line1: branch.address_line1 || '',
+    branch_address_line2: branch.address_line2 || '',
+    branch_street: branch.street || '',
+    branch_city: branch.city || '',
+    branch_state: branch.state || '',
+    branch_pincode: branch.pincode || '',
+    branch_phone: branch.phone || '',
+    branch_email: branch.email || '',
+  };
+};
 
 /**
  * Create a notification
@@ -50,9 +87,9 @@ const createNotification = async (data, skipSocket = false) => {
 
       // Emit based on recipient type
       // VENDOR_ADMIN type notifications go to VENDOR_ADMIN users
-      if (data.recipient_id && data.recipient_type === 'USER') {
+      if (data.recipient_id && data.recipient_type === ROLE.USER) {
         emitToUser(data.recipient_id, notificationData);
-      } else if (data.recipient_type === 'VENDOR_ADMIN' && data.vendor_id) {
+      } else if (data.recipient_type === ROLE.VENDOR_ADMIN && data.vendor_id) {
         // VENDOR_ADMIN notifications are sent to VENDOR_ADMIN users of that vendor
         emitToVendor(data.vendor_id, notificationData);
       } else if (data.branch_id) {
@@ -81,16 +118,19 @@ const createOrderPlacedNotification = async (orderData) => {
     orderNumber,
     vendorId,
     branchId,
+    branch,
     totalAmount,
     userId,
     entityId,
   } = orderData;
 
+  const branchDetails = formatBranchDetails(branch);
+
   const notificationData = {
     type: 'ORDER_PLACED',
     title: 'New Order Placed',
     message: `New order ${orderNumber} has been placed with total amount ₹${totalAmount}`,
-    recipient_type: 'VENDOR_ADMIN',
+    recipient_type: ROLE.VENDOR_ADMIN,
     vendor_id: vendorId,
     branch_id: branchId,
     entity_type: 'ORDER',
@@ -104,6 +144,7 @@ const createOrderPlacedNotification = async (orderData) => {
       total_amount: totalAmount,
       user_id: userId,
       entity_id: entityId,
+      ...branchDetails,
     },
   };
 
@@ -117,32 +158,42 @@ const createOrderPlacedNotification = async (orderData) => {
  * @param {boolean} skipSocket - Skip socket notifications if updated by vendor admin
  * @returns {Promise<Object>} Created notification
  */
-const createOrderUpdatedNotification = async (orderData, skipSocket = false) => {
+const createOrderUpdatedNotification = async (orderData, options = {}) => {
   const {
     orderId,
     orderNumber,
     vendorId,
     branchId,
+    branch,
     status,
     userId,
     updatedBy,
   } = orderData;
+  const {
+    skipSocket = false,
+    notifyUser = true,
+    notifyVendorAdmin = true,
+  } = options;
+
+  const branchDetails = formatBranchDetails(branch);
 
   const statusMessages = {
     PENDING: 'is pending',
     ACCEPTED: 'has been accepted',
-    READYFORPICKUP: 'is ready for pickup',
-    PICKED: 'has been picked up',
+    READY_FOR_PICKUP: 'is ready for pickup',
+    PICKED_UP: 'has been picked up',
+    ARRIVED: 'has arrived',
+    RETURN: 'has been requested for return',
     DELIVERED: 'has been delivered',
     CANCELLED: 'has been cancelled',
+    RETURNED: 'has been returned',
+    FAILED: 'has failed',
   };
 
-  const notificationData = {
+  const baseNotification = {
     type: 'ORDER_UPDATED',
     title: 'Order Updated',
     message: `Order ${orderNumber} ${statusMessages[status] || 'has been updated'}`,
-    recipient_type: 'USER',
-    recipient_id: userId,
     vendor_id: vendorId,
     branch_id: branchId,
     entity_type: 'ORDER',
@@ -155,14 +206,26 @@ const createOrderUpdatedNotification = async (orderData, skipSocket = false) => 
       order_number: orderNumber,
       status,
       updated_by: updatedBy,
+      ...branchDetails,
     },
   };
 
-  // Also notify vendor (VENDOR_ADMIN will receive this)
-  if (vendorId) {
+  // Notify user
+  if (notifyUser && userId) {
+    const notificationData = {
+      ...baseNotification,
+      recipient_type: ROLE.USER,
+      recipient_id: userId,
+    };
+
+    await createNotification(notificationData, skipSocket);
+  }
+
+  // Notify vendor admin
+  if (notifyVendorAdmin && vendorId) {
     const vendorNotification = {
-      ...notificationData,
-      recipient_type: 'VENDOR_ADMIN',
+      ...baseNotification,
+      recipient_type: ROLE.VENDOR_ADMIN,
       recipient_id: null,
     };
 
@@ -170,12 +233,12 @@ const createOrderUpdatedNotification = async (orderData, skipSocket = false) => 
   }
 
   // Notify vendor admin if order is delivered
-  if (status === 'DELIVERED' && vendorId) {
+  if (notifyVendorAdmin && status === 'DELIVERED' && vendorId) {
     const vendorAdminNotificationData = {
       type: 'ORDER_DELIVERED',
       title: 'Order Delivered',
       message: `Order ${orderNumber} has been successfully delivered`,
-      recipient_type: 'VENDOR_ADMIN',
+      recipient_type: ROLE.VENDOR_ADMIN,
       recipient_id: null,
       vendor_id: vendorId,
       branch_id: branchId,
@@ -198,7 +261,7 @@ const createOrderUpdatedNotification = async (orderData, skipSocket = false) => 
     await createNotification(vendorAdminNotificationData, skipSocket);
   }
 
-  return createNotification(notificationData, skipSocket);
+  return { doc: null };
 };
 
 /**
@@ -223,7 +286,7 @@ const createUserRegistrationNotification = async (userData) => {
       type: 'USER_REGISTERED',
       title: 'New User Registered',
       message: `New user ${userName || mobileNumber || userEmail}${roleName ? ` (${roleName})` : ''} has registered`,
-      recipient_type: 'VENDOR_ADMIN',
+      recipient_type: ROLE.VENDOR_ADMIN,
       recipient_id: null,
       vendor_id: vendorId,
       branch_id: branchId || null,
@@ -261,16 +324,19 @@ const createOrderReadyForPickupNotification = async (orderData) => {
     orderNumber,
     vendorId,
     branchId,
-    branchName,
+    branch,
     address,
     finalAmount,
   } = orderData;
 
+  const branchName = branch?.name || 'Branch';
+  const branchDetails = formatBranchDetails(branch);
+
   const notificationData = {
     type: 'ORDER_READY_FOR_PICKUP',
     title: 'New Order Ready for Pickup',
-    message: `Order ${orderNumber} is ready for pickup at ${branchName || 'branch'}`,
-    recipient_type: 'RIDER',
+    message: `Order ${orderNumber} is ready for pickup at ${branchName}`,
+    recipient_type: ROLE.RIDER,
     vendor_id: vendorId,
     branch_id: branchId,
     entity_type: 'ORDER',
@@ -282,7 +348,8 @@ const createOrderReadyForPickupNotification = async (orderData) => {
       order_id: orderId,
       order_number: orderNumber,
       branch_id: branchId,
-      branch_name: branchName,
+      ...branchDetails,
+      branch_email: branch?.email || '',
       address,
       final_amount: finalAmount,
       vendor_id: vendorId,
@@ -290,6 +357,92 @@ const createOrderReadyForPickupNotification = async (orderData) => {
   };
 
   // Create notification for all riders (recipient_type: RIDER will be handled by emitToRecipientType)
+  return createNotification(notificationData);
+};
+
+/**
+ * Create notification for order accepted
+ * @param {Object} orderData - Order accepted data
+ * @returns {Promise<Object>} Created notification
+ */
+const createOrderAcceptedNotification = async (orderData) => {
+  const {
+    orderId,
+    orderNumber,
+    vendorId,
+    branchId,
+    branch,
+    userId,
+  } = orderData;
+
+  const branchDetails = formatBranchDetails(branch);
+
+  const notificationData = {
+    type: 'ORDER_ACCEPTED',
+    title: 'Order Accepted',
+    message: `Your order ${orderNumber} has been accepted and is being prepared`,
+    recipient_type: ROLE.USER,
+    recipient_id: userId,
+    vendor_id: vendorId,
+    branch_id: branchId,
+    entity_type: 'ORDER',
+    entity_id: orderId,
+    priority: 'MEDIUM',
+    action_url: `/orders/detail/${orderId}`,
+    icon: 'check-circle',
+    metadata: {
+      order_id: orderId,
+      order_number: orderNumber,
+      status: 'ACCEPTED',
+      vendor_id: vendorId,
+      branch_id: branchId,
+      ...branchDetails,
+    },
+  };
+
+  return createNotification(notificationData);
+};
+
+/**
+ * Create notification for order arrived
+ * @param {Object} orderData - Order arrived data
+ * @returns {Promise<Object>} Created notification
+ */
+const createOrderArrivedNotification = async (orderData) => {
+  const {
+    orderId,
+    orderNumber,
+    vendorId,
+    branchId,
+    branch,
+    userId,
+  } = orderData;
+
+  const branchDetails = formatBranchDetails(branch);
+
+  const notificationData = {
+    type: 'ORDER_ARRIVED',
+    title: 'Order Arrived',
+    message: `Your order ${orderNumber} has arrived and is ready for delivery`,
+    recipient_type: ROLE.USER,
+    recipient_id: userId,
+    vendor_id: vendorId,
+    branch_id: branchId,
+    entity_type: 'ORDER',
+    entity_id: orderId,
+    priority: 'HIGH',
+    action_url: `/orders/detail/${orderId}`,
+    icon: 'truck',
+    metadata: {
+      order_id: orderId,
+      order_number: orderNumber,
+      status: 'ARRIVED',
+      vendor_id: vendorId,
+      branch_id: branchId,
+      ...branchDetails,
+    },
+  };
+
   return createNotification(notificationData);
 };
 
@@ -449,8 +602,8 @@ const markAllAsRead = async (payload) => {
     // Determine recipient type based on user role
     let recipientType = 'USER';
 
-    if (userRole === 'VENDOR_ADMIN' || userRole === 'VENDOR_USER') {
-      recipientType = 'VENDOR_ADMIN';
+    if (userRole === ROLE.VENDOR_ADMIN || userRole === ROLE.VENDOR_USER) {
+      recipientType = ROLE.VENDOR_ADMIN;
     } else if (userRole === 'SUPER_ADMIN' || userRole === 'ADMIN') {
       recipientType = 'ADMIN';
     }
@@ -469,7 +622,7 @@ const markAllAsRead = async (payload) => {
 
     // USER and VENDOR_ADMIN should not be linked with branch_ids
     // Only add branch_id filter if userRole is not USER or VENDOR_ADMIN
-    if (branchId && userRole !== 'USER' && userRole !== 'VENDOR_ADMIN') {
+    if (branchId && userRole !== ROLE.USER && userRole !== ROLE.VENDOR_ADMIN) {
       where.branch_id = branchId;
     }
 
@@ -510,8 +663,8 @@ const getUnreadCount = async (payload) => {
     // Determine recipient type based on user role
     let recipientType = 'USER';
 
-    if (userRole === 'VENDOR_ADMIN' || userRole === 'VENDOR_USER') {
-      recipientType = 'VENDOR_ADMIN';
+    if (userRole === ROLE.VENDOR_ADMIN || userRole === ROLE.VENDOR_USER) {
+      recipientType = ROLE.VENDOR_ADMIN;
     } else if (userRole === 'SUPER_ADMIN' || userRole === 'ADMIN') {
       recipientType = 'ADMIN';
     }
@@ -530,7 +683,7 @@ const getUnreadCount = async (payload) => {
 
     // USER and VENDOR_ADMIN should not be linked with branch_ids
     // Only add branch_id filter if userRole is not USER or VENDOR_ADMIN
-    if (branchId && userRole !== 'USER' && userRole !== 'VENDOR_ADMIN') {
+    if (branchId && userRole !== ROLE.USER && userRole !== ROLE.VENDOR_ADMIN) {
       where.branch_id = branchId;
     }
 
@@ -574,6 +727,8 @@ module.exports = {
   createOrderPlacedNotification,
   createOrderUpdatedNotification,
   createOrderReadyForPickupNotification,
+  createOrderAcceptedNotification,
+  createOrderArrivedNotification,
   createUserRegistrationNotification,
   getNotifications,
   markAsRead,
