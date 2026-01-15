@@ -904,9 +904,18 @@ const validateOrderUpdate = async (orderId, concurrencyStamp, updatedBy, transac
       attributes: [ 'id' ],
       include: [
         {
-          model: RoleModel,
-          as: 'role',
-          attributes: [ 'id', 'name' ],
+          model: UserRolesMappingModel,
+          as: 'roleMappings',
+          where: { status: 'ACTIVE' },
+          required: false,
+          attributes: [ 'id', 'user_id', 'role_id', 'vendor_id', 'status' ],
+          include: [
+            {
+              model: RoleModel,
+              as: 'role',
+              attributes: [ 'id', 'name' ],
+            },
+          ],
         },
       ],
       transaction,
@@ -926,11 +935,11 @@ const validateOrderUpdate = async (orderId, concurrencyStamp, updatedBy, transac
 
 // Helper: Calculate final amount for order
 const calculateFinalAmount = (order, discountAmount, shippingCharges, finalAmount) => {
-  if (finalAmount !== undefined) {
+  if (finalAmount) {
     return finalAmount;
   }
 
-  if (discountAmount !== undefined || shippingCharges !== undefined) {
+  if (discountAmount || shippingCharges) {
     const currentTotal = order.total_amount;
     const newDiscount = discountAmount !== undefined ? discountAmount : order.discount_amount;
     const newShipping = shippingCharges !== undefined ? shippingCharges : order.shipping_charges;
@@ -1328,6 +1337,10 @@ const handleOrderUpdateNotifications = async (orderId, newStatus, oldStatus, upd
         notifyUser = false;
         notifyVendorAdmin = true;
       }
+    } else if (newStatus === ORDER_STATUS.REJECTED) {
+      // REJECTED is always from vendor/admin -> notify user only
+      notifyVendorAdmin = false;
+      notifyUser = true;
     } else if (newStatus === ORDER_STATUS.RETURN) {
       notifyUser = false;
       notifyVendorAdmin = true; // return request -> vendor admin only
@@ -1486,7 +1499,11 @@ const updateOrder = async (data) => withTransaction(sequelize, async (transactio
   const oldStatus = response.status;
 
   // Assign rider if user is a rider
-  if (riderExist?.role?.name === ROLE.RIDER) {
+  const isRider = riderExist?.roleMappings?.some(
+    (mapping) => mapping.role?.name === ROLE.RIDER,
+  );
+
+  if (isRider) {
     modifiedData.riderId = updatedBy;
   }
 
@@ -1498,7 +1515,7 @@ const updateOrder = async (data) => withTransaction(sequelize, async (transactio
     finalAmount,
   );
 
-  if (calculatedFinalAmount !== undefined) {
+  if (calculatedFinalAmount) {
     modifiedData.finalAmount = calculatedFinalAmount;
   }
 
@@ -1526,6 +1543,18 @@ const updateOrder = async (data) => withTransaction(sequelize, async (transactio
 
   // Handle order cancellation - restore inventory
   if (newStatus === ORDER_STATUS.CANCELLED && oldStatus !== ORDER_STATUS.CANCELLED) {
+    await handleOrderCancellation(
+      id,
+      response.order_number,
+      response.vendor_id,
+      response.branch_id,
+      updatedBy,
+      transaction,
+    );
+  }
+
+  // Handle order rejection - restore inventory (same as cancellation)
+  if (newStatus === ORDER_STATUS.REJECTED && oldStatus !== ORDER_STATUS.REJECTED) {
     await handleOrderCancellation(
       id,
       response.order_number,
@@ -1620,6 +1649,7 @@ const getOrderDetails = async (orderId) => {
         'payment_status',
         'created_at',
         'updated_at',
+        'concurrency_stamp',
       ],
       include: [
         {
@@ -1847,6 +1877,7 @@ const getOrderDetails = async (orderId) => {
     const response = {
       order_id: orderData.id,
       order_number: orderData.order_number,
+      concurrency_stamp: orderData.concurrency_stamp,
       order_items: orderItems,
       summary: {
         subtotal,
