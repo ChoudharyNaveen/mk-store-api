@@ -42,7 +42,7 @@ const getOrderItem = async (payload) => {
           include: [ {
             model: AddressModel,
             as: 'address',
-            attributes: [ 'id', 'house_no', 'street_details', 'landmark', 'name', 'mobile_number' ],
+            attributes: [ 'id', 'address_line_1', 'street', 'landmark', 'name', 'mobile_number', 'phone', 'email' ],
           } ],
         },
         {

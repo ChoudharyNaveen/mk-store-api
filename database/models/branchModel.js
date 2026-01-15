@@ -23,11 +23,11 @@ module.exports = (sequelize, DataTypes) => {
         unique: true,
         index: true,
       },
-      address_line1: {
+      address_line_1: {
         type: DataTypes.STRING,
         allowNull: true,
       },
-      address_line2: {
+      address_line_2: {
         type: DataTypes.STRING,
         allowNull: true,
       },

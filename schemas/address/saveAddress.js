@@ -1,34 +1,29 @@
 const Joi = require('joi');
 
 const saveAddress = Joi.object({
-  house_no: Joi.string().required().messages({
-    'any.required': 'Parameter: house_no is required',
-    'string.empty': 'Parameter: house_no is required',
+  addressLine1: Joi.string().optional().allow('').messages({
+    'string.empty': 'Parameter: addressLine1 cannot be empty',
   }),
-  address_line_2: Joi.string().optional().allow('').messages({
-    'string.empty': 'Parameter: address_line_2 cannot be empty',
+  addressLine2: Joi.string().optional().allow('').messages({
+    'string.empty': 'Parameter: addressLine2 cannot be empty',
   }),
-  streetDetails: Joi.string().required().messages({
-    'any.required': 'Parameter: streetDetails is required',
-    'string.empty': 'Parameter: streetDetails is required',
+  street: Joi.string().optional().allow('').messages({
+    'string.empty': 'Parameter: street cannot be empty',
   }),
   landmark: Joi.string().optional().allow('').messages({
     'string.empty': 'Parameter: landmark cannot be empty',
   }),
-  city: Joi.string().required().messages({
-    'any.required': 'Parameter: city is required',
-    'string.empty': 'Parameter: city is required',
+  city: Joi.string().optional().allow('').messages({
+    'string.empty': 'Parameter: city cannot be empty',
   }),
-  state: Joi.string().required().messages({
-    'any.required': 'Parameter: state is required',
-    'string.empty': 'Parameter: state is required',
+  state: Joi.string().optional().allow('').messages({
+    'string.empty': 'Parameter: state cannot be empty',
   }),
   country: Joi.string().optional().default('India').messages({
     'string.empty': 'Parameter: country cannot be empty',
   }),
-  postal_code: Joi.string().required().messages({
-    'any.required': 'Parameter: postal_code is required',
-    'string.empty': 'Parameter: postal_code is required',
+  pincode: Joi.string().optional().allow('').messages({
+    'string.empty': 'Parameter: pincode cannot be empty',
   }),
   latitude: Joi.number().min(-90).max(90).optional()
     .allow(null)
@@ -49,6 +44,13 @@ const saveAddress = Joi.object({
   mobileNumber: Joi.string().required().messages({
     'any.required': 'Parameter: mobileNumber is required',
     'string.empty': 'Parameter: mobileNumber is required',
+  }),
+  phone: Joi.string().optional().allow('').messages({
+    'string.empty': 'Parameter: phone cannot be empty',
+  }),
+  email: Joi.string().email().optional().allow('').messages({
+    'string.email': 'Parameter: email must be a valid email address',
+    'string.empty': 'Parameter: email cannot be empty',
   }),
   status: Joi.string().valid('ACTIVE', 'INACTIVE').optional(),
   createdBy: Joi.number().integer().optional(),

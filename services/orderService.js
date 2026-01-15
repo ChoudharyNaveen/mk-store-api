@@ -267,7 +267,7 @@ const calculateOrderAmount = (cartItems) => {
 // Helper: Handle address creation or validation
 const handleOrderAddress = async (data, createdBy, transaction) => {
   const {
-    addressId, houseNo, addressLine2, streetDetails, landmark, city, state, country, postalCode, name, mobileNumber,
+    addressId, addressLine1, addressLine2, street, landmark, city, state, country, pincode, name, mobileNumber, phone, email,
   } = data;
 
   if (addressId) {
@@ -284,23 +284,25 @@ const handleOrderAddress = async (data, createdBy, transaction) => {
     return address;
   }
 
-  if (houseNo && streetDetails && city && state && postalCode && name && mobileNumber) {
+  if (name && mobileNumber) {
     const addressConcurrencyStamp = uuidV4();
 
     const doc = {
       concurrencyStamp: addressConcurrencyStamp,
-      houseNo,
+      address_line_1: addressLine1 || null,
       latitude: data.latitude || null,
       longitude: data.longitude || null,
-      addressLine2: addressLine2 || null,
-      streetDetails,
+      address_line_2: addressLine2 || null,
+      street: street || null,
       landmark: landmark || null,
-      city,
-      state,
+      city: city || null,
+      state: state || null,
       country: country || 'India',
-      postalCode,
+      pincode: pincode || null,
       name,
       mobileNumber,
+      phone: phone || null,
+      email: email || null,
       createdBy,
     };
 
@@ -311,7 +313,7 @@ const handleOrderAddress = async (data, createdBy, transaction) => {
     return address;
   }
 
-  throw new ValidationError('Address not found. Please provide address details(houseNo, streetDetails, city, state, postalCode, name, mobileNumber) or addressId.');
+  throw new ValidationError('Address not found. Please provide address details(name, mobileNumber) or addressId.');
 };
 
 // Helper: Apply offer discount
@@ -707,8 +709,8 @@ const placeOrder = async (data) => withTransaction(sequelize, async (transaction
           'vendor_id',
           'name',
           'code',
-          'address_line1',
-          'address_line2',
+          'address_line_1',
+          'address_line_2',
           'street',
           'city',
           'state',
@@ -1159,8 +1161,8 @@ const formatBranchDetails = (branch) => {
       branch_name: '',
       branch_code: '',
       branch_address: '',
-      branch_address_line1: '',
-      branch_address_line2: '',
+      branch_address_line_1: '',
+      branch_address_line_2: '',
       branch_street: '',
       branch_city: '',
       branch_state: '',
@@ -1171,14 +1173,14 @@ const formatBranchDetails = (branch) => {
   }
 
   const branchName = branch.name || 'Branch';
-  const branchAddress = `${branch.address_line1 || ''} ${branch.address_line2 || ''} ${branch.street || ''} ${branch.city || ''} ${branch.state || ''} ${branch.pincode || ''}`.trim();
+  const branchAddress = `${branch.address_line_1 || ''} ${branch.address_line_2 || ''} ${branch.street || ''} ${branch.city || ''} ${branch.state || ''} ${branch.pincode || ''}`.trim();
 
   return {
     branch_name: branchName,
     branch_code: branch.code || '',
     branch_address: branchAddress,
-    branch_address_line1: branch.address_line1 || '',
-    branch_address_line2: branch.address_line2 || '',
+    branch_address_line_1: branch.address_line_1 || '',
+    branch_address_line_2: branch.address_line_2 || '',
     branch_street: branch.street || '',
     branch_city: branch.city || '',
     branch_state: branch.state || '',
@@ -1192,7 +1194,7 @@ const formatBranchDetails = (branch) => {
 const sendReadyForPickupNotification = async (orderId, orderNumber, vendorId, branchId, branch, address, finalAmount) => {
   try {
     const addressText = address
-      ? `${address.address_line1 || ''} ${address.address_line2 || ''} ${address.street || ''} ${address.city || ''} ${address.state || ''} ${address.pincode || ''}`.trim()
+      ? `${address.address_line_1 || ''} ${address.address_line_2 || ''} ${address.street || ''} ${address.landmark || ''} ${address.city || ''} ${address.state || ''} ${address.pincode || ''}`.trim()
       : 'Address not available';
 
     const branchName = branch?.name || 'Branch';
@@ -1245,15 +1247,20 @@ const sendReadyForPickupNotification = async (orderId, orderNumber, vendorId, br
 // Helper: Handle post-update notifications
 const handleOrderUpdateNotifications = async (orderId, newStatus, oldStatus, updatedBy) => {
   if (!newStatus || newStatus === oldStatus) {
+    console.log(`[handleOrderUpdateNotifications] Skipping: no status change (orderId: ${orderId}, newStatus: ${newStatus}, oldStatus: ${oldStatus})`);
+
     return null;
   }
 
   // No notifications for RETURNED status
   if (newStatus === ORDER_STATUS.RETURNED) {
+    console.log(`[handleOrderUpdateNotifications] Skipping: RETURNED status (orderId: ${orderId})`);
+
     return null;
   }
 
   try {
+    console.log(`[handleOrderUpdateNotifications] Processing notifications for orderId: ${orderId}, newStatus: ${newStatus}, updatedBy: ${updatedBy}`);
     // Check if updatedBy user is a vendor admin
     const updatingUser = await UserModel.findOne({
       where: { id: updatedBy },
@@ -1294,8 +1301,8 @@ const handleOrderUpdateNotifications = async (orderId, newStatus, oldStatus, upd
             'vendor_id',
             'name',
             'code',
-            'address_line1',
-            'address_line2',
+            'address_line_1',
+            'address_line_2',
             'street',
             'city',
             'state',
@@ -1305,18 +1312,24 @@ const handleOrderUpdateNotifications = async (orderId, newStatus, oldStatus, upd
             'phone',
             'email',
           ],
+          required: false,
         },
         {
           model: AddressModel,
           as: 'address',
-          attributes: [ 'id', 'address_line1', 'address_line2', 'street', 'city', 'state', 'pincode' ],
+          attributes: [ 'id', 'address_line_1', 'address_line_2', 'street', 'landmark', 'city', 'state', 'pincode', 'phone', 'email' ],
+          required: false,
         },
       ],
     });
 
     if (!updatedOrder) {
+      console.warn(`[handleOrderUpdateNotifications] Order ${orderId} not found - may have been deleted or query failed`);
+
       return null;
     }
+
+    console.log(`[handleOrderUpdateNotifications] Order found: ${updatedOrder.id}, orderNumber: ${updatedOrder.order_number}`);
 
     const isUserUpdater = updatedBy === updatedOrder.created_by;
 
@@ -1662,18 +1675,20 @@ const getOrderDetails = async (orderId) => {
           as: 'address',
           attributes: [
             'id',
-            'house_no',
+            'address_line_1',
             'address_line_2',
-            'street_details',
+            'street',
             'landmark',
             'city',
             'state',
             'country',
-            'postal_code',
+            'pincode',
             'latitude',
             'longitude',
             'name',
             'mobile_number',
+            'phone',
+            'email',
           ],
         },
         {
@@ -1852,15 +1867,17 @@ const getOrderDetails = async (orderId) => {
     // Format delivery address
     const deliveryAddress = orderData.address ? {
       recipient_name: orderData.address.name,
-      address_line_1: orderData.address.house_no,
+      address_line_1: orderData.address.address_line_1 || '',
       address_line_2: orderData.address.address_line_2 || '',
-      street_details: orderData.address.street_details,
+      street_details: orderData.address.street || '',
       landmark: orderData.address.landmark || '',
-      city: orderData.address.city,
-      state: orderData.address.state,
-      country: orderData.address.country,
-      postal_code: orderData.address.postal_code,
+      city: orderData.address.city || '',
+      state: orderData.address.state || '',
+      country: orderData.address.country || 'India',
+      postal_code: orderData.address.pincode || '',
       mobile_number: orderData.address.mobile_number,
+      phone: orderData.address.phone || '',
+      email: orderData.address.email || '',
     } : null;
 
     // Calculate estimated delivery date

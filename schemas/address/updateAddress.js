@@ -2,14 +2,14 @@ const Joi = require('joi');
 
 const updateAddress = Joi.object({
   id: Joi.number().integer().required(),
-  house_no: Joi.string().optional(),
-  address_line_2: Joi.string().optional().allow(''),
-  streetDetails: Joi.string().optional(),
+  addressLine1: Joi.string().optional(),
+  addressLine2: Joi.string().optional().allow(''),
+  street: Joi.string().optional(),
   landmark: Joi.string().optional().allow(''),
   city: Joi.string().optional(),
   state: Joi.string().optional(),
   country: Joi.string().optional(),
-  postal_code: Joi.string().optional(),
+  pincode: Joi.string().optional(),
   latitude: Joi.number().min(-90).max(90).optional()
     .allow(null)
     .messages({
@@ -24,6 +24,10 @@ const updateAddress = Joi.object({
     }),
   name: Joi.string().optional(),
   mobileNumber: Joi.string().optional(),
+  phone: Joi.string().optional().allow(''),
+  email: Joi.string().email().optional().allow('').messages({
+    'string.email': 'Parameter: email must be a valid email address',
+  }),
   status: Joi.string().valid('ACTIVE', 'INACTIVE').optional(),
   updatedBy: Joi.number().integer().required(),
   concurrencyStamp: Joi.string().required(),

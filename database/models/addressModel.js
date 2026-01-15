@@ -8,17 +8,17 @@ module.exports = (sequelize, DataTypes) => {
         primaryKey: true,
         type: DataTypes.INTEGER,
       },
-      house_no: {
+      address_line_1: {
         type: DataTypes.STRING,
-        allowNull: false,
+        allowNull: true,
       },
       address_line_2: {
         type: DataTypes.STRING,
         allowNull: true,
       },
-      street_details: {
+      street: {
         type: DataTypes.STRING,
-        allowNull: false,
+        allowNull: true,
       },
       landmark: {
         type: DataTypes.STRING,
@@ -26,20 +26,22 @@ module.exports = (sequelize, DataTypes) => {
       },
       city: {
         type: DataTypes.STRING,
-        allowNull: false,
+        allowNull: true,
       },
       state: {
         type: DataTypes.STRING,
-        allowNull: false,
+        allowNull: true,
+        index: true,
       },
       country: {
         type: DataTypes.STRING,
-        allowNull: false,
+        allowNull: true,
         defaultValue: 'India',
       },
-      postal_code: {
+      pincode: {
         type: DataTypes.STRING,
-        allowNull: false,
+        allowNull: true,
+        index: true,
       },
       latitude: {
         type: DataTypes.DECIMAL(10, 8),
@@ -56,6 +58,14 @@ module.exports = (sequelize, DataTypes) => {
       mobile_number: {
         type: DataTypes.STRING,
         allowNull: false,
+      },
+      phone: {
+        type: DataTypes.STRING,
+        allowNull: true,
+      },
+      email: {
+        type: DataTypes.STRING,
+        allowNull: true,
       },
       status: {
         type: DataTypes.STRING,

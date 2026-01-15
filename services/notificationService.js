@@ -34,8 +34,8 @@ const formatBranchDetails = (branch) => {
       branch_name: '',
       branch_code: '',
       branch_address: '',
-      branch_address_line1: '',
-      branch_address_line2: '',
+      branch_address_line_1: '',
+      branch_address_line_2: '',
       branch_street: '',
       branch_city: '',
       branch_state: '',
@@ -46,14 +46,14 @@ const formatBranchDetails = (branch) => {
   }
 
   const branchName = branch.name || 'Branch';
-  const branchAddress = `${branch.address_line1 || ''} ${branch.address_line2 || ''} ${branch.street || ''} ${branch.city || ''} ${branch.state || ''} ${branch.pincode || ''}`.trim();
+  const branchAddress = `${branch.address_line_1 || ''} ${branch.address_line_2 || ''} ${branch.street || ''} ${branch.city || ''} ${branch.state || ''} ${branch.pincode || ''}`.trim();
 
   return {
     branch_name: branchName,
     branch_code: branch.code || '',
     branch_address: branchAddress,
-    branch_address_line1: branch.address_line1 || '',
-    branch_address_line2: branch.address_line2 || '',
+    branch_address_line_1: branch.address_line_1 || '',
+    branch_address_line_2: branch.address_line_2 || '',
     branch_street: branch.street || '',
     branch_city: branch.city || '',
     branch_state: branch.state || '',

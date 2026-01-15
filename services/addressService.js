@@ -85,9 +85,9 @@ const getAddress = async (payload) => {
     AddressModel,
     {
       where: { ...where },
-      attributes: [ 'id', 'house_no', 'address_line_2', 'street_details',
-        'landmark', 'city', 'state', 'country', 'postal_code', 'latitude', 'longitude', 'name',
-        'mobile_number', 'created_by', 'created_at', 'updated_at', 'concurrency_stamp' ],
+      attributes: [ 'id', 'address_line_1', 'address_line_2', 'street',
+        'landmark', 'city', 'state', 'country', 'pincode', 'latitude', 'longitude', 'name',
+        'mobile_number', 'phone', 'email', 'status', 'created_by', 'created_at', 'updated_at', 'concurrency_stamp' ],
       include: [
         {
           model: UserModel,

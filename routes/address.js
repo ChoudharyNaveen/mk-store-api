@@ -27,48 +27,79 @@ module.exports = (router) => {
    *           schema:
    *             type: object
    *             required:
-   *               - house_no
-   *               - streetDetails
-   *               - city
-   *               - state
-   *               - postal_code
    *               - name
    *               - mobileNumber
    *             properties:
-   *               house_no:
+   *               addressLine1:
    *                 type: string
    *                 example: "123"
-   *               address_line_2:
+   *                 description: Address line 1 (optional)
+   *               addressLine2:
    *                 type: string
    *                 example: "Apartment 4B"
-   *               streetDetails:
+   *                 description: Address line 2 (optional)
+   *               street:
    *                 type: string
    *                 example: "Main Street"
+   *                 description: Street name (optional)
    *               landmark:
    *                 type: string
    *                 example: "Near City Park"
+   *                 description: Landmark (optional)
    *               city:
    *                 type: string
    *                 example: "Mumbai"
+   *                 description: City name (optional)
    *               state:
    *                 type: string
    *                 example: "Maharashtra"
+   *                 description: State name (optional)
    *               country:
    *                 type: string
    *                 example: "India"
-   *               postal_code:
+   *                 default: "India"
+   *                 description: Country name (optional, defaults to India)
+   *               pincode:
    *                 type: string
    *                 example: "400001"
+   *                 description: Postal/PIN code (optional)
+   *               latitude:
+   *                 type: number
+   *                 format: decimal
+   *                 minimum: -90
+   *                 maximum: 90
+   *                 example: 19.0760
+   *                 description: Latitude coordinate (optional)
+   *               longitude:
+   *                 type: number
+   *                 format: decimal
+   *                 minimum: -180
+   *                 maximum: 180
+   *                 example: 72.8777
+   *                 description: Longitude coordinate (optional)
    *               name:
    *                 type: string
    *                 example: "John Doe"
+   *                 description: Recipient name (required)
    *               mobileNumber:
    *                 type: string
    *                 example: "+1234567890"
+   *                 description: Mobile number (required)
+   *               phone:
+   *                 type: string
+   *                 example: "+1234567890"
+   *                 description: Phone number (optional)
+   *               email:
+   *                 type: string
+   *                 format: email
+   *                 example: "john.doe@example.com"
+   *                 description: Email address (optional)
    *               status:
    *                 type: string
    *                 enum: [ACTIVE, INACTIVE]
+   *                 default: ACTIVE
    *                 example: ACTIVE
+   *                 description: Address status (optional)
    *     responses:
    *       200:
    *         description: Address saved successfully
@@ -89,9 +120,35 @@ module.exports = (router) => {
    *                     id:
    *                       type: integer
    *                       example: 1
-   *                     house_no:
+   *                     addressLine1:
    *                       type: string
-   *                     streetDetails:
+   *                     addressLine2:
+   *                       type: string
+   *                     street:
+   *                       type: string
+   *                     landmark:
+   *                       type: string
+   *                     city:
+   *                       type: string
+   *                     state:
+   *                       type: string
+   *                     country:
+   *                       type: string
+   *                     pincode:
+   *                       type: string
+   *                     latitude:
+   *                       type: number
+   *                     longitude:
+   *                       type: number
+   *                     name:
+   *                       type: string
+   *                     mobileNumber:
+   *                       type: string
+   *                     phone:
+   *                       type: string
+   *                     email:
+   *                       type: string
+   *                     status:
    *                       type: string
    *       400:
    *         description: Validation error
@@ -186,26 +243,52 @@ module.exports = (router) => {
    *                       id:
    *                         type: integer
    *                         example: 1
-   *                       house_no:
+   *                       addressLine1:
    *                         type: string
-   *                       address_line_2:
+   *                         example: "123"
+   *                       addressLine2:
    *                         type: string
-   *                       streetDetails:
+   *                         example: "Apartment 4B"
+   *                       street:
    *                         type: string
+   *                         example: "Main Street"
    *                       landmark:
    *                         type: string
+   *                         example: "Near City Park"
    *                       city:
    *                         type: string
+   *                         example: "Mumbai"
    *                       state:
    *                         type: string
+   *                         example: "Maharashtra"
    *                       country:
    *                         type: string
-   *                       postal_code:
+   *                         example: "India"
+   *                       pincode:
    *                         type: string
+   *                         example: "400001"
+   *                       latitude:
+   *                         type: number
+   *                         example: 19.0760
+   *                       longitude:
+   *                         type: number
+   *                         example: 72.8777
    *                       name:
    *                         type: string
+   *                         example: "John Doe"
    *                       mobileNumber:
    *                         type: string
+   *                         example: "+1234567890"
+   *                       phone:
+   *                         type: string
+   *                         example: "+1234567890"
+   *                       email:
+   *                         type: string
+   *                         example: "john.doe@example.com"
+   *                       status:
+   *                         type: string
+   *                         enum: [ACTIVE, INACTIVE]
+   *                         example: ACTIVE
    *                 count:
    *                   type: integer
    */
@@ -232,30 +315,87 @@ module.exports = (router) => {
    *         application/json:
    *           schema:
    *             type: object
+   *             required:
+   *               - updatedBy
+   *               - concurrencyStamp
    *             properties:
-   *               house_no:
+   *               addressLine1:
    *                 type: string
-   *               address_line_2:
+   *                 example: "123"
+   *                 description: Address line 1 (optional)
+   *               addressLine2:
    *                 type: string
-   *               streetDetails:
+   *                 example: "Apartment 4B"
+   *                 description: Address line 2 (optional)
+   *               street:
    *                 type: string
+   *                 example: "Main Street"
+   *                 description: Street name (optional)
    *               landmark:
    *                 type: string
+   *                 example: "Near City Park"
+   *                 description: Landmark (optional)
    *               city:
    *                 type: string
+   *                 example: "Mumbai"
+   *                 description: City name (optional)
    *               state:
    *                 type: string
+   *                 example: "Maharashtra"
+   *                 description: State name (optional)
    *               country:
    *                 type: string
-   *               postal_code:
+   *                 example: "India"
+   *                 description: Country name (optional)
+   *               pincode:
    *                 type: string
+   *                 example: "400001"
+   *                 description: Postal/PIN code (optional)
+   *               latitude:
+   *                 type: number
+   *                 format: decimal
+   *                 minimum: -90
+   *                 maximum: 90
+   *                 example: 19.0760
+   *                 description: Latitude coordinate (optional)
+   *               longitude:
+   *                 type: number
+   *                 format: decimal
+   *                 minimum: -180
+   *                 maximum: 180
+   *                 example: 72.8777
+   *                 description: Longitude coordinate (optional)
    *               name:
    *                 type: string
+   *                 example: "John Doe"
+   *                 description: Recipient name (optional)
    *               mobileNumber:
    *                 type: string
+   *                 example: "+1234567890"
+   *                 description: Mobile number (optional)
+   *               phone:
+   *                 type: string
+   *                 example: "+1234567890"
+   *                 description: Phone number (optional)
+   *               email:
+   *                 type: string
+   *                 format: email
+   *                 example: "john.doe@example.com"
+   *                 description: Email address (optional)
    *               status:
    *                 type: string
    *                 enum: [ACTIVE, INACTIVE]
+   *                 example: ACTIVE
+   *                 description: Address status (optional)
+   *               updatedBy:
+   *                 type: integer
+   *                 example: 1
+   *                 description: User ID who is updating the address (required)
+   *               concurrencyStamp:
+   *                 type: string
+   *                 format: uuid
+   *                 example: "123e4567-e89b-12d3-a456-426614174000"
+   *                 description: Concurrency stamp from previous response (required)
    *     responses:
    *       200:
    *         description: Address updated successfully
