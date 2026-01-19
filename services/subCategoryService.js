@@ -1,8 +1,12 @@
 const { v4: uuidV4 } = require('uuid');
+const { Op } = require('sequelize');
 const {
   subCategory: SubCategoryModel,
   category: CategoryModel,
   product: ProductModel,
+  productVariant: ProductVariantModel,
+  orderItem: OrderItemModel,
+  order: OrderModel,
   brand: BrandModel,
   branch: BranchModel,
   vendor: VendorModel,
@@ -25,6 +29,7 @@ const {
   ConcurrencyError,
   handleServiceError,
 } = require('../utils/serviceErrors');
+const { ORDER_STATUS } = require('../utils/constants/orderStatusConstants');
 
 const saveSubCategory = async ({ data, imageFile }) => {
   let transaction = null;
@@ -419,10 +424,152 @@ const getSubCategoryDetails = async (subCategoryId) => {
   }
 };
 
+const getSubCategoryStats = async (payload) => {
+  try {
+    const { subCategoryId, startDate, endDate } = payload;
+
+    // Verify sub-category exists and get all stats in parallel
+    const [subCategory, productStats, revenueResult, stockStats] = await Promise.all([
+      // 1. Verify sub-category exists
+      SubCategoryModel.findOne({
+        where: { id: subCategoryId },
+        attributes: [ 'id', 'title' ],
+      }),
+
+      // 2. Get product counts grouped by status (single query instead of 3)
+      (async () => {
+        const productStatsQuery = `
+          SELECT 
+            COUNT(product.id) as total,
+            SUM(CASE WHEN product.status = 'ACTIVE' THEN 1 ELSE 0 END) as active,
+            SUM(CASE WHEN product.status = 'INACTIVE' THEN 1 ELSE 0 END) as inactive
+          FROM product
+          WHERE product.sub_category_id = ?
+        `;
+
+        const result = await sequelize.query(productStatsQuery, {
+          replacements: [subCategoryId],
+          type: sequelize.QueryTypes.SELECT,
+        });
+
+        return result[0] || { total: 0, active: 0, inactive: 0 };
+      })(),
+
+      // 3. Calculate total revenue using SQL aggregation (much faster than fetching all records)
+      (async () => {
+        const replacements = [subCategoryId, ORDER_STATUS.DELIVERED];
+        let dateConditions = '';
+
+        if (startDate || endDate) {
+          if (startDate && endDate) {
+            const endDateTime = new Date(endDate);
+            endDateTime.setHours(23, 59, 59, 999);
+            dateConditions = 'AND orderitem.created_at >= ? AND orderitem.created_at <= ?';
+            replacements.push(new Date(startDate), endDateTime);
+          } else if (startDate) {
+            dateConditions = 'AND orderitem.created_at >= ?';
+            replacements.push(new Date(startDate));
+          } else if (endDate) {
+            const endDateTime = new Date(endDate);
+            endDateTime.setHours(23, 59, 59, 999);
+            dateConditions = 'AND orderitem.created_at <= ?';
+            replacements.push(endDateTime);
+          }
+        }
+
+        const revenueQuery = `
+          SELECT COALESCE(SUM(orderitem.quantity * orderitem.price_at_purchase), 0) as total_revenue
+          FROM orderitem
+          INNER JOIN product ON orderitem.product_id = product.id
+          INNER JOIN \`order\` ON orderitem.order_id = \`order\`.id
+          WHERE product.sub_category_id = ?
+            AND \`order\`.status = ?
+            ${dateConditions}
+        `;
+
+        const result = await sequelize.query(revenueQuery, {
+          replacements,
+          type: sequelize.QueryTypes.SELECT,
+        });
+
+        return result[0]?.total_revenue || 0;
+      })(),
+
+      // 4. Get stock status distribution using SQL aggregation (single query instead of fetching all)
+      (async () => {
+        const LOW_STOCK_THRESHOLD = 10;
+
+        const stockQuery = `
+          SELECT 
+            SUM(CASE 
+              WHEN product_variant.product_status = 'OUT-OF-STOCK' OR product_variant.quantity = 0 
+              THEN 1 ELSE 0 
+            END) as out_of_stock,
+            SUM(CASE 
+              WHEN product_variant.product_status = 'INSTOCK' 
+                AND product_variant.quantity > 0 
+                AND product_variant.quantity <= ?
+              THEN 1 ELSE 0 
+            END) as low_stock,
+            SUM(CASE 
+              WHEN product_variant.product_status = 'INSTOCK' 
+                AND product_variant.quantity > ?
+              THEN 1 ELSE 0 
+            END) as in_stock
+          FROM product_variant
+          INNER JOIN product ON product_variant.product_id = product.id
+          WHERE product_variant.status = 'ACTIVE'
+            AND product.sub_category_id = ?
+            AND product.status = 'ACTIVE'
+        `;
+
+        const result = await sequelize.query(stockQuery, {
+          replacements: [LOW_STOCK_THRESHOLD, LOW_STOCK_THRESHOLD, subCategoryId],
+          type: sequelize.QueryTypes.SELECT,
+        });
+
+        return result[0] || { in_stock: 0, low_stock: 0, out_of_stock: 0 };
+      })(),
+    ]);
+
+    if (!subCategory) {
+      return handleServiceError(new NotFoundError('SubCategory not found'));
+    }
+
+    const productStatsData = productStats || { total: 0, active: 0, inactive: 0 };
+
+    return {
+      doc: {
+        sub_category_id: subCategoryId,
+        sub_category_title: subCategory.title,
+        total_products: parseInt(productStatsData.total) || 0,
+        active_products: parseInt(productStatsData.active) || 0,
+        total_revenue: parseFloat(revenueResult) || 0,
+        out_of_stock: parseInt(stockStats.out_of_stock) || 0,
+        // Chart data
+        charts: {
+          product_status_distribution: {
+            active: parseInt(productStatsData.active) || 0,
+            inactive: parseInt(productStatsData.inactive) || 0,
+          },
+          stock_status_distribution: {
+            in_stock: parseInt(stockStats.in_stock) || 0,
+            low_stock: parseInt(stockStats.low_stock) || 0,
+            out_of_stock: parseInt(stockStats.out_of_stock) || 0,
+          },
+        },
+      },
+    };
+  } catch (error) {
+    return handleServiceError(error, 'Failed to fetch subcategory statistics');
+  }
+};
+
 module.exports = {
   saveSubCategory,
   updateSubCategory,
   getSubCategory,
   getSubCategoriesByCategoryId,
   getSubCategoryDetails,
+  getSubCategoryStats,
 };

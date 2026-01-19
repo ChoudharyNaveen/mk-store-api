@@ -5,6 +5,7 @@ const {
   getSubCategoriesByCategoryId,
   updateSubCategory,
   getSubCategoryDetails,
+  getSubCategoryStats,
 } = require('../controllers/subCategoryController');
 const { isAuthenticated, isVendorAdmin } = require('../middleware/auth');
 const validate = require('../middleware/validation');
@@ -12,6 +13,7 @@ const {
   saveSubCategory: saveSubCategorySchema,
   getSubCategory: getSubCategorySchema,
   getSubCategoriesByCategoryId: getSubCategoriesByCategoryIdSchema,
+  getSubCategoryStats: getSubCategoryStatsSchema,
   updateSubCategory: updateSubCategorySchema,
 } = require('../schemas');
 
@@ -462,6 +464,112 @@ module.exports = (router) => {
    *         description: SubCategory not found
    */
   router.get('/get-sub-category-details/:subCategoryId', isAuthenticated, getSubCategoryDetails);
+
+  /**
+   * @swagger
+   * /get-sub-category-stats:
+   *   post:
+   *     summary: Get sub-category statistics and reports
+   *     tags: [SubCategories]
+   *     security:
+   *       - bearerAuth: []
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             required:
+   *               - subCategoryId
+   *             properties:
+   *               subCategoryId:
+   *                 type: integer
+   *                 example: 1
+   *                 description: SubCategory ID (required)
+   *               startDate:
+   *                 type: string
+   *                 format: date
+   *                 example: "2025-12-01"
+   *                 description: Start date for revenue calculation (optional, ISO format)
+   *               endDate:
+   *                 type: string
+   *                 format: date
+   *                 example: "2026-01-31"
+   *                 description: End date for revenue calculation (optional, ISO format)
+   *     responses:
+   *       200:
+   *         description: Sub-category statistics retrieved successfully
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 success:
+   *                   type: boolean
+   *                   example: true
+   *                 doc:
+   *                   type: object
+   *                   properties:
+   *                     sub_category_id:
+   *                       type: integer
+   *                       example: 1
+   *                     sub_category_title:
+   *                       type: string
+   *                       example: "Smartphones"
+   *                     total_products:
+   *                       type: integer
+   *                       example: 45
+   *                       description: Total number of products in this sub-category
+   *                     active_products:
+   *                       type: integer
+   *                       example: 38
+   *                       description: Number of active products in this sub-category
+   *                     total_revenue:
+   *                       type: number
+   *                       example: 8500000
+   *                       description: Total revenue from delivered orders (in paise/cents)
+   *                     out_of_stock:
+   *                       type: integer
+   *                       example: 7
+   *                       description: Number of out-of-stock product variants
+   *                     charts:
+   *                       type: object
+   *                       description: Chart data for visual analytics
+   *                       properties:
+   *                         product_status_distribution:
+   *                           type: object
+   *                           description: Product Status Distribution (Pie Chart data)
+   *                           properties:
+   *                             active:
+   *                               type: integer
+   *                               example: 38
+   *                               description: Number of active products
+   *                             inactive:
+   *                               type: integer
+   *                               example: 7
+   *                               description: Number of inactive products
+   *                         stock_status_distribution:
+   *                           type: object
+   *                           description: Stock Status Distribution (Bar Chart data)
+   *                           properties:
+   *                             in_stock:
+   *                               type: integer
+   *                               example: 32
+   *                               description: Number of products/variants in stock
+   *                             low_stock:
+   *                               type: integer
+   *                               example: 6
+   *                               description: Number of products/variants with low stock (quantity <= 10)
+   *                             out_of_stock:
+   *                               type: integer
+   *                               example: 7
+   *                               description: Number of products/variants out of stock
+   *       400:
+   *         description: Validation error
+   *       404:
+   *         description: SubCategory not found
+   */
+  router.post('/get-sub-category-stats', isAuthenticated, validate(getSubCategoryStatsSchema), getSubCategoryStats);
 
   router.patch(
     '/update-sub-category/:id',

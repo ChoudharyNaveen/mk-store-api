@@ -102,10 +102,27 @@ const getSubCategoryDetails = async (req, res) => {
   }
 };
 
+const getSubCategoryStats = async (req, res) => {
+  try {
+    const data = req.validatedData;
+
+    const { doc, error } = await SubCategoryService.getSubCategoryStats(data);
+
+    if (doc) {
+      return res.status(200).json({ success: true, doc });
+    }
+
+    return sendErrorResponse(res, 404, extractErrorMessage(error), 'NOT_FOUND');
+  } catch (error) {
+    return handleServerError(error, req, res);
+  }
+};
+
 module.exports = {
   saveSubCategory,
   updateSubCategory,
   getSubCategory,
   getSubCategoriesByCategoryId,
   getSubCategoryDetails,
+  getSubCategoryStats,
 };
