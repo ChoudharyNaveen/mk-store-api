@@ -3,6 +3,7 @@ const {
   order: OrderModel,
   product: ProductModel,
   productVariant: ProductVariantModel,
+  productImage: ProductImageModel,
   user: UserModel,
   address: AddressModel,
 } = require('../database');
@@ -31,38 +32,31 @@ const getOrderItem = async (payload) => {
       attributes: [ 'id', 'order_id', 'product_id', 'variant_id', 'variant_name', 'quantity', 'price_at_purchase', 'created_by', 'created_at', 'updated_at', 'concurrency_stamp' ],
       include: [
         {
-          model: UserModel,
-          as: 'user',
-          attributes: [ 'id', 'name', 'email', 'mobile_number' ],
-        },
-        {
           model: OrderModel,
           as: 'order',
-          attributes: [ 'id', 'total_amount', 'status', 'payment_status', 'address_id' ],
-          include: [ {
-            model: AddressModel,
-            as: 'address',
-            attributes: [ 'id', 'address_line_1', 'street', 'landmark', 'name', 'mobile_number', 'phone', 'email' ],
-          } ],
+          attributes: [ 'id', 'total_amount', 'status', 'payment_status', 'order_number' ],
         },
         {
           model: ProductModel,
           as: 'product',
-          attributes: [ 'id', 'title', 'selling_price', 'image' ],
+          attributes: [ 'id', 'title' ],
           required: false,
+          include: [
+            {
+              model: ProductImageModel,
+              as: 'images',
+              where: { status: 'ACTIVE', is_default: 1 },
+              required: false,
+              attributes: [ 'id', 'image_url', 'is_default', 'display_order' ],
+              limit: 1,
+            },
+          ],
         },
         {
           model: ProductVariantModel,
           as: 'variant',
           attributes: [ 'id', 'variant_name', 'variant_type', 'selling_price' ],
           required: false,
-          include: [
-            {
-              model: ProductModel,
-              as: 'product',
-              attributes: [ 'id', 'title', 'image' ],
-            },
-          ],
         },
       ],
       order,

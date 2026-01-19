@@ -7,6 +7,7 @@ const {
   getProductsGroupedByCategory,
   getProductDetails,
   deleteProduct,
+  getProductStats,
 } = require('../controllers/productController');
 const { isAuthenticated, isVendorAdmin } = require('../middleware/auth');
 const validate = require('../middleware/validation');
@@ -16,6 +17,7 @@ const {
   updateProduct: updateProductSchema,
   getProductsGroupedByCategory: getProductsGroupedByCategorySchema,
   deleteProduct: deleteProductSchema,
+  getProductStats: getProductStatsSchema,
 } = require('../schemas');
 
 const upload = multer();
@@ -511,6 +513,68 @@ module.exports = (router) => {
    *         description: Product not found
    */
   router.get('/get-product-details/:productId', isAuthenticated, getProductDetails);
+
+  /**
+   * @swagger
+   * /get-product-stats:
+   *   post:
+   *     summary: Get product statistics
+   *     tags: [Products]
+   *     security:
+   *       - bearerAuth: []
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             required:
+   *               - productId
+   *             properties:
+   *               productId:
+   *                 type: integer
+   *                 example: 1
+   *                 description: Product ID
+   *     responses:
+   *       200:
+   *         description: Product statistics retrieved successfully
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 success:
+   *                   type: boolean
+   *                   example: true
+   *                 doc:
+   *                   type: object
+   *                   properties:
+   *                     product_id:
+   *                       type: integer
+   *                       example: 1
+   *                     product_title:
+   *                       type: string
+   *                       example: "Wireless Headphones"
+   *                     total_orders:
+   *                       type: integer
+   *                       example: 156
+   *                       description: Total number of orders for this product
+   *                     units_sold:
+   *                       type: integer
+   *                       example: 234
+   *                       description: Total units sold
+   *                     revenue_generated:
+   *                       type: number
+   *                       example: 23400000
+   *                       description: Total revenue generated in base currency
+   *                     current_stock:
+   *                       type: integer
+   *                       example: 0
+   *                       description: Current stock available (sum of all variant quantities)
+   *       404:
+   *         description: Product not found
+   */
+  router.post('/get-product-stats', isAuthenticated, validate(getProductStatsSchema), getProductStats);
 
   router.delete('/delete-product', isAuthenticated, validate(deleteProductSchema), deleteProduct);
 };

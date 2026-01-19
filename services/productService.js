@@ -8,9 +8,9 @@ const {
   brand: BrandModel,
   cart: CartModel,
   orderItem: OrderItemModel,
+  order: OrderModel,
   wishlist: WishlistModel,
   branch: BranchModel,
-  vendor: VendorModel,
   productVariant: ProductVariantModel,
   productImage: ProductImageModel,
   sequelize,
@@ -30,6 +30,7 @@ const { convertImageFieldsToCloudFront } = require('../utils/s3Helper');
 const InventoryMovementService = require('./inventoryMovementService');
 const { getProductStatusFromQuantity } = require('../utils/constants/productStatusConstants');
 const { INVENTORY_MOVEMENT_TYPE } = require('../utils/constants/inventoryMovementTypeConstants');
+const { ORDER_STATUS } = require('../utils/constants/orderStatusConstants');
 const {
   NotFoundError,
   ValidationError,
@@ -1142,28 +1143,18 @@ const getProductDetails = async (productId) => {
         {
           model: CategoryModel,
           as: 'category',
-          attributes: [ 'id', 'title', 'description', 'image', 'status' ],
+          attributes: [ 'id', 'title' ],
         },
         {
           model: SubCategoryModel,
           as: 'subCategory',
-          attributes: [ 'id', 'title', 'description', 'image', 'status' ],
+          attributes: [ 'id', 'title' ],
         },
         {
           model: BrandModel,
           as: 'brand',
-          attributes: [ 'id', 'name', 'logo', 'description', 'status' ],
+          attributes: [ 'id', 'name', 'logo' ],
           required: false,
-        },
-        {
-          model: BranchModel,
-          as: 'branch',
-          attributes: [ 'id', 'name', 'address', 'contact_number' ],
-        },
-        {
-          model: VendorModel,
-          as: 'vendor',
-          attributes: [ 'id', 'name', 'code' ],
         },
         {
           model: ProductVariantModel,
@@ -1207,104 +1198,179 @@ const getProductDetails = async (productId) => {
     }
 
     // Get statistics
-    const [ cartCount, wishlistCount, orderCount ] = await Promise.all([
-      CartModel.count({
-        where: { product_id: productId, status: 'ACTIVE' },
-      }),
-      WishlistModel.count({
-        where: { product_id: productId },
-      }),
-      OrderItemModel.count({
-        where: { product_id: productId },
-      }),
-    ]);
+    // const [ cartCount, wishlistCount, orderCount ] = await Promise.all([
+    //   CartModel.count({
+    //     where: { product_id: productId, status: 'ACTIVE' },
+    //   }),
+    //   WishlistModel.count({
+    //     where: { product_id: productId },
+    //   }),
+    //   OrderItemModel.count({
+    //     where: { product_id: productId },
+    //   }),
+    // ]);
 
-    // Get related products (same category, limit 6)
-    const relatedProducts = await ProductModel.findAll({
-      where: {
-        category_id: product.category_id,
-        id: { [Op.ne]: productId },
-        status: 'ACTIVE',
-      },
-      attributes: [
-        'id',
-        'title',
-        'status',
-      ],
-      include: [
-        {
-          model: BrandModel,
-          as: 'brand',
-          attributes: [ 'id', 'name', 'logo' ],
-          required: false,
-        },
-        {
-          model: ProductVariantModel,
-          as: 'variants',
-          where: { status: 'ACTIVE' },
-          required: false,
-          attributes: [ 'id', 'selling_price', 'variant_name' ],
-          limit: 1,
-          order: [ [ 'created_at', 'ASC' ] ],
-        },
-        {
-          model: ProductImageModel,
-          as: 'images',
-          where: { status: 'ACTIVE', is_default: 1 },
-          required: false,
-          attributes: [ 'id', 'image_url' ],
-          limit: 1,
-        },
-      ],
-      limit: 6,
-      order: [ [ 'created_at', 'DESC' ] ],
-    });
+    // // Get related products (same category, limit 6)
+    // const relatedProducts = await ProductModel.findAll({
+    //   where: {
+    //     category_id: product.category_id,
+    //     id: { [Op.ne]: productId },
+    //     status: 'ACTIVE',
+    //   },
+    //   attributes: [
+    //     'id',
+    //     'title',
+    //     'status',
+    //   ],
+    //   include: [
+    //     {
+    //       model: BrandModel,
+    //       as: 'brand',
+    //       attributes: [ 'id', 'name', 'logo' ],
+    //       required: false,
+    //     },
+    //     {
+    //       model: ProductVariantModel,
+    //       as: 'variants',
+    //       where: { status: 'ACTIVE' },
+    //       required: false,
+    //       attributes: [ 'id', 'selling_price', 'variant_name' ],
+    //       limit: 1,
+    //       order: [ [ 'created_at', 'ASC' ] ],
+    //     },
+    //     {
+    //       model: ProductImageModel,
+    //       as: 'images',
+    //       where: { status: 'ACTIVE', is_default: 1 },
+    //       required: false,
+    //       attributes: [ 'id', 'image_url' ],
+    //       limit: 1,
+    //     },
+    //   ],
+    //   limit: 6,
+    //   order: [ [ 'created_at', 'DESC' ] ],
+    // });
 
-    const productData = product.dataValues;
-    const statistics = {
-      cart_count: cartCount,
-      wishlist_count: wishlistCount,
-      order_count: orderCount,
-      total_sold: orderCount, // Can be enhanced with actual quantity sold
-    };
+    // const productData = product.dataValues;
+    // const statistics = {
+    //   cart_count: cartCount,
+    //   wishlist_count: wishlistCount,
+    //   order_count: orderCount,
+    //   total_sold: orderCount, // Can be enhanced with actual quantity sold
+    // };
 
     // Convert image URLs to CloudFront URLs
     // Include 'image_url' to convert product image URLs in the images array
+    // const convertedProduct = convertImageFieldsToCloudFront(
+    //   [ productData ],
+    //   [ 'image', 'logo', 'image_url' ],
+    // )[0];
+
+    // // Transform related products to include variant price and image
+    // const convertedRelated = relatedProducts.map((p) => {
+    //   const relatedProductData = p.dataValues;
+    //   const variant = relatedProductData.variants && relatedProductData.variants[0];
+    //   const image = relatedProductData.images && relatedProductData.images[0];
+
+    //   return {
+    //     id: relatedProductData.id,
+    //     title: relatedProductData.title,
+    //     status: relatedProductData.status,
+    //     selling_price: variant ? variant.selling_price : null,
+    //     image: image ? image.image_url : null,
+    //     brand: relatedProductData.brand,
+    //   };
+    // });
+
+    // const convertedRelatedImages = convertImageFieldsToCloudFront(
+    //   convertedRelated,
+    //   [ 'image', 'logo', 'image_url' ],
+    // );
+
     const convertedProduct = convertImageFieldsToCloudFront(
-      [ productData ],
-      [ 'image', 'logo', 'image_url' ],
-    )[0];
-
-    // Transform related products to include variant price and image
-    const convertedRelated = relatedProducts.map((p) => {
-      const relatedProductData = p.dataValues;
-      const variant = relatedProductData.variants && relatedProductData.variants[0];
-      const image = relatedProductData.images && relatedProductData.images[0];
-
-      return {
-        id: relatedProductData.id,
-        title: relatedProductData.title,
-        status: relatedProductData.status,
-        selling_price: variant ? variant.selling_price : null,
-        image: image ? image.image_url : null,
-        brand: relatedProductData.brand,
-      };
-    });
-
-    const convertedRelatedImages = convertImageFieldsToCloudFront(
-      convertedRelated,
+      JSON.parse(JSON.stringify(product.dataValues)),
       [ 'image', 'logo', 'image_url' ],
     );
 
     return {
       doc: {
         ...convertedProduct,
-        statistics,
-        related_products: convertedRelatedImages,
       },
     };
   } catch (error) {
     return handleServiceError(error, 'Failed to fetch product details');
+  }
+};
+
+const getProductStats = async (productId) => {
+  try {
+    // Verify product exists
+    const product = await ProductModel.findOne({
+      where: { id: productId },
+      attributes: [ 'id', 'title' ],
+    });
+
+    if (!product) {
+      return handleServiceError(new NotFoundError('Product not found'));
+    }
+
+    // Get all active variants for the product to calculate current stock
+    const variants = await ProductVariantModel.findAll({
+      where: {
+        product_id: productId,
+        status: 'ACTIVE',
+      },
+      attributes: [ 'id', 'quantity' ],
+    });
+
+    // Calculate current stock (sum of all variant quantities, or product quantity if no variants)
+    const currentStock = variants.reduce((sum, variant) => sum + (variant.quantity || 0), 0);
+
+    // Get order items for this product with order information
+    // Filter by delivered orders only (completed orders)
+    const orderItems = await OrderItemModel.findAll({
+      where: {
+        product_id: productId,
+      },
+      attributes: [
+        'id',
+        'order_id',
+        'quantity',
+        'price_at_purchase',
+      ],
+      include: [
+        {
+          model: OrderModel,
+          as: 'order',
+          attributes: [ 'id', 'status' ],
+          where: {
+            status: ORDER_STATUS.DELIVERED,
+          },
+          required: true,
+        },
+      ],
+    });
+
+    // Calculate statistics
+    const totalOrders = new Set(orderItems.map((item) => item.order_id)).size;
+    const unitsSold = orderItems.reduce((sum, item) => sum + (item.quantity || 0), 0);
+    const revenueGenerated = orderItems.reduce(
+      (sum, item) => sum + ((item.quantity || 0) * (item.price_at_purchase || 0)),
+      0,
+    );
+
+    return {
+      doc: {
+        product_id: productId,
+        product_title: product.title,
+        total_orders: totalOrders,
+        units_sold: unitsSold,
+        revenue_generated: revenueGenerated,
+        current_stock: currentStock,
+      },
+    };
+  } catch (error) {
+    return handleServiceError(error, 'Failed to fetch product statistics');
   }
 };
 
@@ -1315,4 +1381,5 @@ module.exports = {
   getProductsGroupedByCategory,
   getProductDetails,
   deleteProduct,
+  getProductStats,
 };
