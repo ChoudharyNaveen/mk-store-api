@@ -121,7 +121,7 @@ const updateProductVariant = async ({ data }) => {
 
     const response = await ProductVariantModel.findOne({
       where: { id },
-      attributes: [ 'id', 'product_id', 'concurrency_stamp', 'quantity', 'variant_name' ],
+      attributes: [ 'id', 'product_id', 'concurrency_stamp', 'quantity', 'variant_name', 'items_per_unit', 'units' ],
       include: [
         {
           model: ProductModel,
@@ -136,7 +136,9 @@ const updateProductVariant = async ({ data }) => {
       throw new NotFoundError('Product variant not found');
     }
 
-    const { concurrency_stamp: stamp, product_id: productId, quantity: oldQuantity } = response;
+    const {
+      concurrency_stamp: stamp, product_id: productId, quantity: oldQuantity, items_per_unit: itemsPerUnit, units,
+    } = response;
 
     if (concurrencyStamp !== stamp) {
       throw new ConcurrencyError('invalid concurrency stamp');
@@ -159,12 +161,21 @@ const updateProductVariant = async ({ data }) => {
       }
     }
 
-
     // Update product_status based on quantity
     const newQuantity = datas.quantity !== undefined ? datas.quantity : oldQuantity;
 
     if (datas.quantity !== undefined) {
       datas.productStatus = getProductStatusFromQuantity(newQuantity);
+    }
+
+    // Calculate and update units if quantity changed and items_per_unit is present
+    if (datas.quantity !== undefined && itemsPerUnit && itemsPerUnit > 0) {
+      const quantityChange = datas.quantity - oldQuantity;
+      const unitsChange = quantityChange / itemsPerUnit;
+      const currentUnits = parseFloat(units) || 0;
+      const newUnits = Math.max(0, currentUnits + unitsChange);
+
+      datas.units = newUnits.toString();
     }
 
     const newConcurrencyStamp = uuidV4();

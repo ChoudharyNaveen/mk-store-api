@@ -255,7 +255,7 @@ const adjustInventory = async ({ data }) => {
     if (variantId) {
       variant = await ProductVariantModel.findOne({
         where: { id: variantId, product_id: productId },
-        attributes: [ 'id', 'quantity', 'vendor_id', 'branch_id' ],
+        attributes: [ 'id', 'quantity', 'vendor_id', 'branch_id', 'items_per_unit', 'units' ],
         transaction,
       });
 
@@ -305,11 +305,22 @@ const adjustInventory = async ({ data }) => {
 
     // Update quantity
     if (variant) {
+      const updateData = {
+        quantity: quantityAfter,
+        product_status: getProductStatusFromQuantity(quantityAfter),
+      };
+
+      // Calculate and update units if items_per_unit is present
+      if (variant.items_per_unit && variant.items_per_unit > 0) {
+        const unitsChange = quantityChange / variant.items_per_unit;
+        const currentUnits = parseFloat(variant.units) || 0;
+        const newUnits = Math.max(0, currentUnits + unitsChange);
+
+        updateData.units = newUnits.toString();
+      }
+
       await ProductVariantModel.update(
-        {
-          quantity: quantityAfter,
-          product_status: getProductStatusFromQuantity(quantityAfter),
-        },
+        updateData,
         {
           where: { id: variantId },
           transaction,

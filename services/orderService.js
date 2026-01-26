@@ -502,14 +502,42 @@ const createOrderItemsAndReduceInventory = async (orderItemsData, orderId, order
       productId: item.product_id,
     }));
 
+  // Fetch variants with items_per_unit and units for units calculation
+  const variantIds = variantUpdates.map((update) => update.id);
+  const variants = await ProductVariantModel.findAll({
+    where: {
+      id: {
+        [Op.in]: variantIds,
+      },
+    },
+    attributes: [ 'id', 'items_per_unit', 'units' ],
+    transaction,
+  });
+
+  // Create a map for quick variant lookup
+  const variantMap = new Map(variants.map((v) => [ v.id, v ]));
+
   // Batch update variants in parallel (optimized from sequential updates)
   await Promise.all(variantUpdates.map(async (update) => {
+    const variant = variantMap.get(update.id);
+    const updateData = {
+      quantity: update.quantityRemaining,
+      product_status: getProductStatusFromQuantity(update.quantityRemaining),
+      concurrency_stamp: uuidV4(),
+    };
+
+    // Calculate and update units if items_per_unit is present
+    if (variant && variant.items_per_unit && variant.items_per_unit > 0) {
+      const quantityChange = Math.abs(update.quantityChange); // Make positive for calculation
+      const unitsToReduce = quantityChange / variant.items_per_unit;
+      const currentUnits = parseFloat(variant.units) || 0;
+      const newUnits = Math.max(0, currentUnits - unitsToReduce);
+
+      updateData.units = newUnits.toString();
+    }
+
     await ProductVariantModel.update(
-      {
-        quantity: update.quantityRemaining,
-        product_status: getProductStatusFromQuantity(update.quantityRemaining),
-        concurrency_stamp: uuidV4(),
-      },
+      updateData,
       {
         where: { id: update.id },
         transaction,
@@ -1111,7 +1139,7 @@ const handleOrderCancellation = async (orderId, orderNumber, vendorId, branchId,
         [Op.in]: variantIds,
       },
     },
-    attributes: [ 'id', 'quantity', 'product_id' ],
+    attributes: [ 'id', 'quantity', 'product_id', 'items_per_unit', 'units' ],
     transaction,
   });
 
@@ -1136,6 +1164,8 @@ const handleOrderCancellation = async (orderId, orderNumber, vendorId, branchId,
         quantityBefore,
         quantityChange,
         productId: variant.product_id,
+        itemsPerUnit: variant.items_per_unit,
+        currentUnits: variant.units,
       });
 
       // Create inventory movement (REVERTED for cancellation, RETURNED for returns)
@@ -1163,12 +1193,23 @@ const handleOrderCancellation = async (orderId, orderNumber, vendorId, branchId,
 
   // Batch update all variants in parallel (optimized from sequential updates)
   await Promise.all(variantUpdates.map(async (update) => {
+    const updateData = {
+      quantity: update.quantityAfter,
+      product_status: getProductStatusFromQuantity(update.quantityAfter),
+      concurrency_stamp: uuidV4(),
+    };
+
+    // Calculate and update units if items_per_unit is present
+    if (update.itemsPerUnit && update.itemsPerUnit > 0) {
+      const unitsToAdd = update.quantityChange / update.itemsPerUnit;
+      const currentUnits = parseFloat(update.currentUnits) || 0;
+      const newUnits = currentUnits + unitsToAdd;
+
+      updateData.units = newUnits.toString();
+    }
+
     await ProductVariantModel.update(
-      {
-        quantity: update.quantityAfter,
-        product_status: getProductStatusFromQuantity(update.quantityAfter),
-        concurrency_stamp: uuidV4(),
-      },
+      updateData,
       {
         where: { id: update.id },
         transaction,
