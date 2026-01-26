@@ -702,12 +702,6 @@ const getUsers = async (payload) => {
       ? generateOrderCondition(sorting)
       : [ [ 'created_at', 'DESC' ] ];
 
-    // Build user where clause with filters and status
-    const userWhere = {
-      status: 'ACTIVE',
-      ...where,
-    };
-
     // Build mapping where clause to filter by vendor and role
     const mappingWhere = {
       vendor_id: vendorId,
@@ -722,8 +716,8 @@ const getUsers = async (payload) => {
     const response = await findAndCountAllWithTotal(
       UserModel,
       {
-        where: userWhere,
-        attributes: [ 'id', 'name', 'mobile_number', 'email', 'status', 'profile_status', 'image', 'created_at', 'updated_at' ],
+        where,
+        attributes: [ 'id', 'name', 'mobile_number', 'email', 'status', 'profile_status', 'image', 'created_at', 'updated_at', 'concurrency_stamp' ],
         include: [
           {
             model: UserRolesMappingModel,

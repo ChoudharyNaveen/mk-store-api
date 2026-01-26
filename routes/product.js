@@ -39,7 +39,6 @@ module.exports = (router) => {
    *             type: object
    *             required:
    *               - title
-   *               - description
    *               - categoryId
    *               - vendorId
    *               - branchId
@@ -49,10 +48,6 @@ module.exports = (router) => {
    *                 type: string
    *                 example: "Wireless Headphones"
    *                 description: Product title (required)
-   *               description:
-   *                 type: string
-   *                 example: "High-quality wireless headphones with noise cancellation"
-   *                 description: Product description (required)
    *               categoryId:
    *                 type: integer
    *                 example: 1
@@ -79,10 +74,6 @@ module.exports = (router) => {
    *                 enum: [ACTIVE, INACTIVE]
    *                 example: ACTIVE
    *                 description: Product status (optional, defaults to ACTIVE)
-   *               nutritional:
-   *                 type: string
-   *                 example: "Calories: 100, Protein: 5g"
-   *                 description: Nutritional information (optional)
    *               images:
    *                 type: array
    *                 items:
@@ -91,8 +82,8 @@ module.exports = (router) => {
    *                 description: Multiple product image files (optional, max 3 images per product)
    *               variants:
    *                 type: string
-   *                 description: "JSON string array of variant objects (REQUIRED - at least one variant). Each variant must include: variantName (required), variantType (optional), variantValue (optional), price (required), sellingPrice (required), quantity (required), itemsPerUnit (optional), units (optional), itemQuantity (optional), itemUnit (optional), expiryDate (required), status (optional)"
-   *                 example: '[{"variantName":"500g","variantType":"WEIGHT","variantValue":"VAR-001","price":500,"sellingPrice":450,"quantity":100,"itemsPerUnit":2,"units":"PCS","expiryDate":"2024-12-31","status":"ACTIVE"}]'
+   *                 description: "JSON string array of variant objects (REQUIRED - at least one variant). Each variant must include: variantName (required), description (optional), nutritional (optional), price (required), sellingPrice (required), quantity (required), itemsPerUnit (optional), units (optional), itemQuantity (optional), itemUnit (optional), expiryDate (required), status (optional), comboDiscounts (optional array). Each comboDiscount object includes: comboQuantity (required), discountType (required: PERCENT or OFFER), discountValue (required), startDate (required), endDate (required), status (optional)"
+   *                 example: '[{"variantName":"500g","description":"Fresh product","nutritional":"Calories: 100","price":500,"sellingPrice":450,"quantity":100,"itemsPerUnit":2,"units":"PCS","expiryDate":"2024-12-31","status":"ACTIVE","comboDiscounts":[{"comboQuantity":2,"discountType":"PERCENT","discountValue":10,"startDate":"2024-01-01","endDate":"2024-12-31","status":"ACTIVE"}]}]'
    *     responses:
    *       200:
    *         description: Product created successfully
@@ -218,8 +209,6 @@ module.exports = (router) => {
    *                         type: string
    *                       price:
    *                         type: number
-   *                       description:
-   *                         type: string
    *                 count:
    *                   type: integer
    *                   example: 50
@@ -262,10 +251,6 @@ module.exports = (router) => {
    *                 type: string
    *                 example: "Updated Product Name"
    *                 description: Product title (optional)
-   *               description:
-   *                 type: string
-   *                 example: "Updated description"
-   *                 description: Product description (optional)
    *               categoryId:
    *                 type: integer
    *                 example: 1
@@ -292,10 +277,6 @@ module.exports = (router) => {
    *                 enum: [ACTIVE, INACTIVE]
    *                 example: ACTIVE
    *                 description: Product status (optional)
-   *               nutritional:
-   *                 type: string
-   *                 example: "Calories: 100, Protein: 5g"
-   *                 description: Nutritional information (optional)
    *               updatedBy:
    *                 type: integer
    *                 example: 1
@@ -313,8 +294,8 @@ module.exports = (router) => {
    *                 description: Multiple product image files (optional, max 3 images per product)
    *               variants:
    *                 type: string
-   *                 description: "JSON string array of variant objects (optional). For updates include id and concurrencyStamp. For new omit id. Each variant must include: variantName (required), variantType (optional), variantValue (optional), price (required), sellingPrice (required), quantity (required), itemsPerUnit (optional), units (optional), itemQuantity (optional), itemUnit (optional), expiryDate (required), status (optional). At least one variant must remain after all operations."
-   *                 example: '[{"id":1,"variantName":"500g","variantType":"WEIGHT","variantValue":"VAR-001","price":500,"sellingPrice":450,"quantity":100,"itemsPerUnit":2,"units":"PCS","expiryDate":"2024-12-31","concurrencyStamp":"stamp","status":"ACTIVE"},{"variantName":"1kg","variantType":"WEIGHT","variantValue":"VAR-002","price":900,"sellingPrice":800,"quantity":50,"itemsPerUnit":1,"units":"PCS","expiryDate":"2024-12-31","status":"ACTIVE"}]'
+   *                 description: "JSON string array of variant objects (optional). For updates include id and concurrencyStamp. For new omit id. Each variant must include: variantName (required), description (optional), nutritional (optional), price (required), sellingPrice (required), quantity (required), itemsPerUnit (optional), units (optional), itemQuantity (optional), itemUnit (optional), expiryDate (required), status (optional), comboDiscounts (optional array). For comboDiscounts: include id and concurrencyStamp for updates, omit id for creates, set deleted:true for deletes. At least one variant must remain after all operations."
+   *                 example: '[{"id":1,"variantName":"500g","description":"Fresh product","nutritional":"Calories: 100","price":500,"sellingPrice":450,"quantity":100,"itemsPerUnit":2,"units":"PCS","expiryDate":"2024-12-31","concurrencyStamp":"stamp","status":"ACTIVE","comboDiscounts":[{"id":10,"concurrencyStamp":"cd-stamp","comboQuantity":3,"discountType":"PERCENT","discountValue":15,"startDate":"2024-01-01","endDate":"2024-12-31"},{"comboQuantity":10,"discountType":"PERCENT","discountValue":20,"startDate":"2024-01-01","endDate":"2024-12-31"},{"id":11,"deleted":true}]},{"variantName":"1kg","description":"Fresh product","nutritional":"Calories: 200","price":900,"sellingPrice":800,"quantity":50,"itemsPerUnit":1,"units":"PCS","expiryDate":"2024-12-31","status":"ACTIVE"}]'
    *               variantIdsToDelete:
    *                 type: string
    *                 description: "JSON string array of variant IDs to delete (optional). Example: '[2,3]'. Note: At least one variant must remain after deletion."

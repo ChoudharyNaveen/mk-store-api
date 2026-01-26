@@ -1,21 +1,12 @@
 module.exports = (sequelize, DataTypes) => {
-  const cart = sequelize.define(
-    'cart',
+  const banner = sequelize.define(
+    'banner',
     {
       id: {
         allowNull: false,
         autoIncrement: true,
         primaryKey: true,
         type: DataTypes.INTEGER,
-      },
-      product_id: {
-        type: DataTypes.INTEGER,
-        allowNull: true,
-      },
-      variant_id: {
-        type: DataTypes.INTEGER,
-        allowNull: true,
-        index: true,
       },
       vendor_id: {
         type: DataTypes.INTEGER,
@@ -27,25 +18,22 @@ module.exports = (sequelize, DataTypes) => {
         allowNull: false,
         index: true,
       },
-      quantity: {
-        type: DataTypes.INTEGER,
-        allowNull: false,
-      },
-      is_combo: {
-        type: DataTypes.BOOLEAN,
-        allowNull: false,
-        defaultValue: false,
-        comment: 'Indicates if this cart item uses combo pricing',
-      },
-      unit_price: {
+      sub_category_id: {
         type: DataTypes.INTEGER,
         allowNull: true,
-        comment: 'Unit price at time of adding to cart',
+        index: true,
+        comment: 'Optional link to subcategory',
       },
-      total_price: {
+      image_url: {
+        type: DataTypes.STRING,
+        allowNull: false,
+        comment: 'URL of the banner image',
+      },
+      display_order: {
         type: DataTypes.INTEGER,
-        allowNull: true,
-        comment: 'Total price (unit_price × quantity) at time of adding to cart',
+        allowNull: false,
+        defaultValue: 0,
+        comment: 'Order in which banner should be displayed',
       },
       status: {
         type: DataTypes.STRING,
@@ -60,9 +48,11 @@ module.exports = (sequelize, DataTypes) => {
       },
       created_by: {
         type: DataTypes.INTEGER,
+        allowNull: true,
       },
       updated_by: {
         type: DataTypes.INTEGER,
+        allowNull: true,
       },
     },
     {
@@ -72,33 +62,29 @@ module.exports = (sequelize, DataTypes) => {
     },
   );
 
-  cart.associate = (models) => {
-    cart.belongsTo(models.user, {
-      foreignKey: 'created_by',
-      targetKey: 'id',
-      as: 'user',
-    });
-    cart.belongsTo(models.product, {
-      foreignKey: 'product_id',
-      targetKey: 'id',
-      as: 'productDetails',
-    });
-    cart.belongsTo(models.vendor, {
+  banner.associate = (models) => {
+    banner.belongsTo(models.vendor, {
       foreignKey: 'vendor_id',
       targetKey: 'id',
       as: 'vendor',
     });
-    cart.belongsTo(models.branch, {
+    banner.belongsTo(models.branch, {
       foreignKey: 'branch_id',
       targetKey: 'id',
       as: 'branch',
     });
-    cart.belongsTo(models.productVariant, {
-      foreignKey: 'variant_id',
+    banner.belongsTo(models.subCategory, {
+      foreignKey: 'sub_category_id',
       targetKey: 'id',
-      as: 'variant',
+      as: 'subCategory',
+      required: false,
+    });
+    banner.belongsTo(models.user, {
+      foreignKey: 'created_by',
+      targetKey: 'id',
+      as: 'createdByUser',
     });
   };
 
-  return cart;
+  return banner;
 };

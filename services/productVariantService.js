@@ -30,7 +30,7 @@ const saveProductVariant = async ({ data }) => {
 
   try {
     const {
-      createdBy, productId, variantName, variantType, variantCode, ...datas
+      createdBy, productId, variantName, ...datas
     } = data;
 
     transaction = await sequelize.transaction();
@@ -60,29 +60,12 @@ const saveProductVariant = async ({ data }) => {
       throw new ValidationError('Variant with this name already exists for this product');
     }
 
-    // Check if variant_value is unique (if provided)
-    if (variantCode) {
-      const existingCode = await ProductVariantModel.findOne({
-        where: {
-          variant_value: variantCode,
-          status: 'ACTIVE',
-        },
-        transaction,
-      });
-
-      if (existingCode) {
-        throw new ValidationError('Variant code already exists');
-      }
-    }
-
     const concurrencyStamp = uuidV4();
 
     const doc = {
       ...datas,
       productId,
       variantName,
-      variantType: variantType || null,
-      variantValue: variantCode || null,
       concurrencyStamp,
       createdBy,
       quantity: datas.quantity || 0,
@@ -131,14 +114,14 @@ const updateProductVariant = async ({ data }) => {
   try {
     const { id, ...datas } = data;
     const {
-      concurrencyStamp, updatedBy, variantName, variantCode,
+      concurrencyStamp, updatedBy, variantName,
     } = datas;
 
     transaction = await sequelize.transaction();
 
     const response = await ProductVariantModel.findOne({
       where: { id },
-      attributes: [ 'id', 'product_id', 'concurrency_stamp', 'quantity', 'variant_name', 'variant_value' ],
+      attributes: [ 'id', 'product_id', 'concurrency_stamp', 'quantity', 'variant_name' ],
       include: [
         {
           model: ProductModel,
@@ -176,21 +159,6 @@ const updateProductVariant = async ({ data }) => {
       }
     }
 
-    // Check if variant_value is being changed and if it conflicts
-    if (variantCode && variantCode !== response.variant_value) {
-      const existingCode = await ProductVariantModel.findOne({
-        where: {
-          variant_value: variantCode,
-          id: { [Op.ne]: id },
-          status: 'ACTIVE',
-        },
-        transaction,
-      });
-
-      if (existingCode) {
-        throw new ValidationError('Variant code already exists');
-      }
-    }
 
     // Update product_status based on quantity
     const newQuantity = datas.quantity !== undefined ? datas.quantity : oldQuantity;
@@ -263,7 +231,7 @@ const updateProductVariant = async ({ data }) => {
 
 const getProductVariants = async (payload) => {
   const {
-    pageSize, pageNumber, filters, sorting, productId, variantType,
+    pageSize, pageNumber, filters, sorting, productId,
   } = payload;
   const { limit, offset } = calculatePagination(pageSize, pageNumber);
 
@@ -272,11 +240,6 @@ const getProductVariants = async (payload) => {
   // Add productId filter if provided
   if (productId) {
     where.product_id = productId;
-  }
-
-  // Add variantType filter if provided
-  if (variantType) {
-    where.variant_type = variantType;
   }
 
   const order = sorting
@@ -291,8 +254,8 @@ const getProductVariants = async (payload) => {
         'id',
         'product_id',
         'variant_name',
-        'variant_type',
-        'variant_value',
+        'description',
+        'nutritional',
         'price',
         'selling_price',
         'quantity',
@@ -341,8 +304,8 @@ const getVariantById = async (variantId) => {
         'id',
         'product_id',
         'variant_name',
-        'variant_type',
-        'variant_value',
+        'description',
+        'nutritional',
         'price',
         'selling_price',
         'quantity',
@@ -359,7 +322,7 @@ const getVariantById = async (variantId) => {
         {
           model: ProductModel,
           as: 'product',
-          attributes: [ 'id', 'title', 'description', 'vendor_id', 'branch_id' ],
+          attributes: [ 'id', 'title', 'vendor_id', 'branch_id' ],
         },
       ],
     });
@@ -426,33 +389,20 @@ const getVariantsByType = async (productId) => {
       attributes: [
         'id',
         'variant_name',
-        'variant_type',
-        'variant_value',
         'price',
         'selling_price',
         'quantity',
         'product_status',
       ],
-      order: [ [ 'variant_type', 'ASC' ], [ 'variant_name', 'ASC' ] ],
+      order: [ [ 'variant_name', 'ASC' ] ],
     });
 
-    // Group variants by type
-    const groupedVariants = {};
+    // Return all variants as a single group
+    const variantData = variants.map((variant) => convertSnakeToCamel(variant.dataValues));
 
-    variants.forEach((variant) => {
-      const type = variant.variant_type || 'OTHER';
-      const variantData = convertSnakeToCamel(variant.dataValues);
-
-      if (!groupedVariants[type]) {
-        groupedVariants[type] = [];
-      }
-
-      groupedVariants[type].push(variantData);
-    });
-
-    return { doc: groupedVariants };
+    return { doc: { all: variantData } };
   } catch (error) {
-    return handleServiceError(error, 'Failed to fetch variants by type');
+    return handleServiceError(error, 'Failed to fetch variants');
   }
 };
 

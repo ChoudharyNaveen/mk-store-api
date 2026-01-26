@@ -19,6 +19,7 @@ const notification = require('./notification');
 const shipping = require('./shipping');
 const inventory = require('./inventory');
 const dashboard = require('./dashboard');
+const banner = require('./banner');
 
 module.exports = {
   ...user,
@@ -42,4 +43,5 @@ module.exports = {
   ...shipping,
   ...inventory,
   ...dashboard,
+  ...banner,
 };

@@ -5,10 +5,6 @@ const saveProduct = Joi.object({
     'any.required': 'Parameter: title is required',
     'string.empty': 'Parameter: title is required',
   }),
-  description: Joi.string().required().messages({
-    'any.required': 'Parameter: description is required',
-    'string.empty': 'Parameter: description is required',
-  }),
   categoryId: Joi.number().integer().required().messages({
     'any.required': 'Parameter: categoryId is required',
   }),
@@ -23,7 +19,6 @@ const saveProduct = Joi.object({
     'any.required': 'Parameter: branchId is required',
   }),
   status: Joi.string().valid('ACTIVE', 'INACTIVE').optional(),
-  nutritional: Joi.string().optional(),
   createdBy: Joi.number().integer().optional(),
   variants: Joi.alternatives().try(
     Joi.array().items(
@@ -32,10 +27,12 @@ const saveProduct = Joi.object({
           'any.required': 'Variant: variantName is required',
           'string.empty': 'Variant: variantName is required',
         }),
-        variantType: Joi.string().valid('WEIGHT', 'SIZE', 'COLOR', 'MATERIAL', 'FLAVOR', 'PACKAGING', 'OTHER').optional().messages({
-          'any.only': 'Variant: variantType must be one of: WEIGHT, SIZE, COLOR, MATERIAL, FLAVOR, PACKAGING, OTHER',
+        description: Joi.string().optional().allow(null).messages({
+          'string.base': 'Variant: description must be a string',
         }),
-        variantValue: Joi.string().optional().allow(null),
+        nutritional: Joi.string().optional().allow(null).messages({
+          'string.base': 'Variant: nutritional must be a string',
+        }),
         price: Joi.number().min(0).required().messages({
           'any.required': 'Variant: price is required',
           'number.min': 'Variant: price must be greater than or equal to 0',
@@ -101,6 +98,33 @@ const saveProduct = Joi.object({
           'date.base': 'Variant: expiryDate must be a valid date',
         }),
         status: Joi.string().valid('ACTIVE', 'INACTIVE').optional().default('ACTIVE'),
+        comboDiscounts: Joi.array().items(
+          Joi.object({
+            comboQuantity: Joi.number().integer().min(1).required()
+              .messages({
+                'any.required': 'ComboDiscount: comboQuantity is required',
+                'number.min': 'ComboDiscount: comboQuantity must be at least 1',
+              }),
+            discountType: Joi.string().valid('PERCENT', 'OFFER').required().messages({
+              'any.required': 'ComboDiscount: discountType is required',
+              'any.only': 'ComboDiscount: discountType must be PERCENT or OFFER',
+            }),
+            discountValue: Joi.number().integer().min(1).required()
+              .messages({
+                'any.required': 'ComboDiscount: discountValue is required',
+                'number.min': 'ComboDiscount: discountValue must be at least 1',
+              }),
+            startDate: Joi.date().required().messages({
+              'any.required': 'ComboDiscount: startDate is required',
+              'date.base': 'ComboDiscount: startDate must be a valid date',
+            }),
+            endDate: Joi.date().required().messages({
+              'any.required': 'ComboDiscount: endDate is required',
+              'date.base': 'ComboDiscount: endDate must be a valid date',
+            }),
+            status: Joi.string().valid('ACTIVE', 'INACTIVE').optional().default('ACTIVE'),
+          }),
+        ).optional(),
       }),
     )
       .min(1)

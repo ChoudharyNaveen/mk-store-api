@@ -19,6 +19,7 @@ const Notification = require('./notificationService');
 const Shipping = require('./shippingService');
 const InventoryMovement = require('./inventoryMovementService');
 const Dashboard = require('./dashboardService');
+const Banner = require('./bannerService');
 
 module.exports = {
   User,
@@ -42,4 +43,5 @@ module.exports = {
   Shipping,
   InventoryMovement,
   Dashboard,
+  Banner,
 };

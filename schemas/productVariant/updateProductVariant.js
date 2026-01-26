@@ -5,8 +5,12 @@ const updateProductVariant = Joi.object({
   variantName: Joi.string().optional().messages({
     'string.empty': 'Parameter: variantName cannot be empty',
   }),
-  variantType: Joi.string().valid('WEIGHT', 'SIZE', 'COLOR', 'MATERIAL', 'FLAVOR', 'PACKAGING', 'OTHER').optional(),
-  variantValue: Joi.string().optional().allow(null),
+  description: Joi.string().optional().allow(null).messages({
+    'string.base': 'Parameter: description must be a string',
+  }),
+  nutritional: Joi.string().optional().allow(null).messages({
+    'string.base': 'Parameter: nutritional must be a string',
+  }),
   price: Joi.number().min(0).optional().messages({
     'number.min': 'Parameter: price must be greater than or equal to 0',
   }),

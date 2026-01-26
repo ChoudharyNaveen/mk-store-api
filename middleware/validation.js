@@ -4,6 +4,7 @@ const { sendErrorResponse } = require('../utils/helper');
 const validate = (schema) => (req, res, next) => {
   try {
     // Combine body, query, and params for validation
+    // For multipart/form-data, multer populates req.body with form fields
     const data = {
       ...req.body,
       ...req.query,

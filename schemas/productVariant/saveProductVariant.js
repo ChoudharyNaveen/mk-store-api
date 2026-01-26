@@ -8,11 +8,11 @@ const saveProductVariant = Joi.object({
     'any.required': 'Parameter: variantName is required',
     'string.empty': 'Parameter: variantName is required',
   }),
-  variantType: Joi.string().valid('WEIGHT', 'SIZE', 'COLOR', 'MATERIAL', 'FLAVOR', 'PACKAGING', 'OTHER').optional().messages({
-    'any.only': 'Parameter: variantType must be one of: WEIGHT, SIZE, COLOR, MATERIAL, FLAVOR, PACKAGING, OTHER',
+  description: Joi.string().optional().allow(null).messages({
+    'string.base': 'Parameter: description must be a string',
   }),
-  variantValue: Joi.string().optional().allow(null).messages({
-    'string.base': 'Parameter: variantValue must be a string',
+  nutritional: Joi.string().optional().allow(null).messages({
+    'string.base': 'Parameter: nutritional must be a string',
   }),
   price: Joi.number().min(0).required().messages({
     'any.required': 'Parameter: price is required',

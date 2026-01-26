@@ -18,10 +18,7 @@ const sortingSchema = Joi.object({
   direction: Joi.string().valid('ASC', 'DESC').required(),
 });
 
-const getProductVariants = Joi.object({
-  productId: Joi.number().integer().required().messages({
-    'any.required': 'Parameter: productId is required',
-  }),
+const getBanner = Joi.object({
   pageSize: Joi.number().integer().valid(1, 5, 10, 20, 30, 40, 50, 100, 500).optional()
     .default(10)
     .messages({
@@ -36,4 +33,4 @@ const getProductVariants = Joi.object({
   sorting: Joi.array().items(sortingSchema).optional(),
 }).unknown(false);
 
-module.exports = getProductVariants;
+module.exports = getBanner;

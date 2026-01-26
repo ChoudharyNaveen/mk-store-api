@@ -34,6 +34,23 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.FLOAT,
         allowNull: false,
       },
+      is_combo: {
+        type: DataTypes.BOOLEAN,
+        allowNull: false,
+        defaultValue: false,
+        comment: 'Indicates if this order item uses combo pricing',
+      },
+      subtotal: {
+        type: DataTypes.FLOAT,
+        allowNull: false,
+        comment: 'Total price before discount (quantity * price_at_purchase or combo price)',
+      },
+      discount_amount: {
+        type: DataTypes.FLOAT,
+        allowNull: false,
+        defaultValue: 0,
+        comment: 'Discount amount applied to this item (from offer/promocode)',
+      },
       concurrency_stamp: {
         type: DataTypes.UUID,
         allowNull: false,

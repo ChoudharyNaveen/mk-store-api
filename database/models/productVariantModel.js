@@ -17,15 +17,13 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.STRING,
         allowNull: false,
       },
-      variant_type: {
-        type: DataTypes.STRING,
+      description: {
+        type: DataTypes.TEXT,
         allowNull: true,
-        comment: 'WEIGHT, SIZE, COLOR, MATERIAL, FLAVOR, PACKAGING, OTHER',
       },
-      variant_value: {
-        type: DataTypes.STRING,
+      nutritional: {
+        type: DataTypes.TEXT,
         allowNull: true,
-        unique: true,
       },
       price: {
         type: DataTypes.INTEGER,
@@ -135,6 +133,11 @@ module.exports = (sequelize, DataTypes) => {
       foreignKey: 'variant_id',
       sourceKey: 'id',
       as: 'inventoryMovements',
+    });
+    productVariant.hasMany(models.variantComboDiscount, {
+      foreignKey: 'variant_id',
+      sourceKey: 'id',
+      as: 'comboDiscounts',
     });
   };
 

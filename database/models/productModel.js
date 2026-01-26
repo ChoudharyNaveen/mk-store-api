@@ -35,14 +35,6 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.INTEGER,
         allowNull: false,
       },
-      description: {
-        type: DataTypes.TEXT,
-        allowNull: true,
-      },
-      nutritional: {
-        type: DataTypes.TEXT,
-        allowNull: true,
-      },
       status: {
         type: DataTypes.STRING,
         enum: [ 'ACTIVE', 'INACTIVE' ],

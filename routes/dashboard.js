@@ -1,7 +1,5 @@
 const {
   getDashboardKPIs,
-  getSalesOverview,
-  getSalesByCategory,
   getTopProducts,
   getRecentOrders,
   getExpiringProducts,
@@ -73,83 +71,6 @@ module.exports = (router) => {
    *                       type: object
    */
   router.post('/get-dashboard-kpis', isAuthenticated, getDashboardKPIs);
-
-  /**
-   * @swagger
-   * /get-sales-overview:
-   *   post:
-   *     summary: Get sales overview - daily sales and orders for last N days
-   *     tags: [Dashboard]
-   *     security:
-   *       - bearerAuth: []
-   *     requestBody:
-   *       required: false
-   *       content:
-   *         application/json:
-   *           schema:
-   *             type: object
-   *             properties:
-   *               vendorId:
-   *                 type: integer
-   *                 example: 1
-   *               branchId:
-   *                 type: integer
-   *                 example: 1
-   *               days:
-   *                 type: integer
-   *                 default: 7
-   *                 example: 7
-   *                 description: "Number of days to fetch (default: 7, ignored if startDate/endDate provided)"
-   *               startDate:
-   *                 type: string
-   *                 format: date
-   *                 example: "2025-12-01"
-   *                 description: Start date for filtering (optional, ISO format)
-   *               endDate:
-   *                 type: string
-   *                 format: date
-   *                 example: "2026-01-31"
-   *                 description: End date for filtering (optional, ISO format)
-   *     responses:
-   *       200:
-   *         description: Sales overview retrieved successfully
-   */
-  router.post('/get-sales-overview', isAuthenticated, getSalesOverview);
-
-  /**
-   * @swagger
-   * /get-sales-by-category:
-   *   post:
-   *     summary: Get sales by category - pie chart data
-   *     tags: [Dashboard]
-   *     security:
-   *       - bearerAuth: []
-   *     requestBody:
-   *       required: false
-   *       content:
-   *         application/json:
-   *           schema:
-   *             type: object
-   *             properties:
-   *               vendorId:
-   *                 type: integer
-   *               branchId:
-   *                 type: integer
-   *               startDate:
-   *                 type: string
-   *                 format: date
-   *                 example: "2025-12-01"
-   *                 description: Start date for filtering (optional, ISO format)
-   *               endDate:
-   *                 type: string
-   *                 format: date
-   *                 example: "2026-01-31"
-   *                 description: End date for filtering (optional, ISO format)
-   *     responses:
-   *       200:
-   *         description: Sales by category retrieved successfully
-   */
-  router.post('/get-sales-by-category', isAuthenticated, getSalesByCategory);
 
   /**
    * @swagger
@@ -329,9 +250,6 @@ module.exports = (router) => {
    *                       variant_name:
    *                         type: string
    *                         example: "200g"
-   *                       variant_type:
-   *                         type: string
-   *                         example: "WEIGHT"
    *                       product_id:
    *                         type: integer
    *                         example: 10

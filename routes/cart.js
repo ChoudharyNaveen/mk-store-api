@@ -32,6 +32,8 @@ module.exports = (router) => {
    *               - productId
    *               - variantId
    *               - quantity
+   *               - price
+   *               - isCombo
    *             properties:
    *               productId:
    *                 type: integer
@@ -46,6 +48,14 @@ module.exports = (router) => {
    *                 minimum: 1
    *                 example: 2
    *                 description: Quantity to add to cart (required)
+   *               price:
+   *                 type: number
+   *                 example: 240
+   *                 description: "Total price (required - for regular items: quantity × unit_price; for combo items: (quantity × unit_price) - combo_discount, where discount can be PERCENT or FLATOFF)"
+   *               isCombo:
+   *                 type: boolean
+   *                 example: false
+   *                 description: "Whether this is a combo purchase (required - if true, price must be the total combo price for the specified quantity and quantity must match combo_quantity)"
    *               vendorId:
    *                 type: integer
    *                 example: 1
@@ -54,9 +64,144 @@ module.exports = (router) => {
    *                 type: integer
    *                 example: 1
    *                 description: Branch ID (optional - will be validated against product's branch)
+   *           examples:
+   *             regularItem:
+   *               summary: Add regular item to cart
+   *               description: "Example: 2 items at ₹120 each, total price = ₹240"
+   *               value:
+   *                 productId: 1
+   *                 variantId: 5
+   *                 quantity: 2
+   *                 price: 240
+   *                 isCombo: false
+   *             comboItemFLATOFF:
+   *               summary: Add combo item with FLATOFF discount
+   *               description: "Example: 3 items at ₹120 each = ₹360, FLATOFF discount ₹20, total combo price = ₹340"
+   *               value:
+   *                 productId: 1
+   *                 variantId: 5
+   *                 quantity: 3
+   *                 price: 340
+   *                 isCombo: true
+   *             comboItemPERCENT:
+   *               summary: Add combo item with PERCENT discount
+   *               description: "Example: 3 items at ₹120 each = ₹360, 10% discount, total combo price = ₹324"
+   *               value:
+   *                 productId: 1
+   *                 variantId: 5
+   *                 quantity: 3
+   *                 price: 324
+   *                 isCombo: true
+   *             withVendorBranch:
+   *               summary: Add item with vendor and branch validation
+   *               description: "Example: 1 item at ₹120, total price = ₹120"
+   *               value:
+   *                 productId: 1
+   *                 variantId: 5
+   *                 quantity: 1
+   *                 price: 120
+   *                 isCombo: false
+   *                 vendorId: 1
+   *                 branchId: 2
    *     responses:
    *       200:
-   *         description: Item added to cart successfully
+   *         description: Item added to cart successfully or item already exists in cart
+   *         content:
+   *           application/json:
+   *             schema:
+   *               oneOf:
+   *                 - type: object
+   *                   properties:
+   *                     success:
+   *                       type: boolean
+   *                       example: true
+   *                     message:
+   *                       type: string
+   *                       example: "item already added to cart"
+   *                 - type: object
+   *                   properties:
+   *                     success:
+   *                       type: boolean
+   *                       example: true
+   *                     message:
+   *                       type: string
+   *                       example: "successfully added"
+   *                     doc:
+   *                       type: object
+   *                       properties:
+   *                         cat:
+   *                           type: object
+   *                           properties:
+   *                             id:
+   *                               type: integer
+   *                               example: 1
+   *                             product_id:
+   *                               type: integer
+   *                               example: 1
+   *                             variant_id:
+   *                               type: integer
+   *                               example: 1
+   *                             vendor_id:
+   *                               type: integer
+   *                               example: 1
+   *                             branch_id:
+   *                               type: integer
+   *                               example: 1
+   *                             quantity:
+   *                               type: integer
+   *                               example: 2
+   *                             is_combo:
+   *                               type: boolean
+   *                               example: false
+   *                             unit_price:
+   *                               type: number
+   *                               example: 120
+   *                             total_price:
+   *                               type: number
+   *                               example: 240
+   *                             status:
+   *                               type: string
+   *                               example: "ACTIVE"
+   *                             created_at:
+   *                               type: string
+   *                               format: date-time
+   *                               example: "2025-01-25T10:30:00.000Z"
+   *                             updated_at:
+   *                               type: string
+   *                               format: date-time
+   *                               example: "2025-01-25T10:30:00.000Z"
+   *                             concurrency_stamp:
+   *                               type: string
+   *                               format: uuid
+   *                               example: "550e8400-e29b-41d4-a716-446655440000"
+   *             examples:
+   *               success:
+   *                 summary: Item added successfully
+   *                 value:
+   *                   success: true
+   *                   message: "successfully added"
+   *                   doc:
+   *                     cat:
+   *                       id: 15
+   *                       product_id: 1
+   *                       variant_id: 5
+   *                       vendor_id: 1
+   *                       branch_id: 2
+   *                       quantity: 2
+   *                       is_combo: false
+   *                       unit_price: 120
+   *                       total_price: 240
+   *                       status: "ACTIVE"
+   *                       created_at: "2025-01-25T10:30:00.000Z"
+   *                       updated_at: "2025-01-25T10:30:00.000Z"
+   *                       concurrency_stamp: "550e8400-e29b-41d4-a716-446655440000"
+   *               alreadyExists:
+   *                 summary: Item already in cart
+   *                 value:
+   *                   success: true
+   *                   message: "item already added to cart"
+   *       400:
+   *         description: Validation error (product/variant not found, price mismatch, combo validation failed, etc.)
    *         content:
    *           application/json:
    *             schema:
@@ -64,29 +209,38 @@ module.exports = (router) => {
    *               properties:
    *                 success:
    *                   type: boolean
-   *                   example: true
-   *                 message:
-   *                   type: string
-   *                   example: "successfully added"
-   *                 doc:
+   *                   example: false
+   *                 errors:
    *                   type: object
    *                   properties:
-   *                     id:
-   *                       type: integer
-   *                       example: 1
-   *                     product_id:
-   *                       type: integer
-   *                       example: 1
-   *                     vendor_id:
-   *                       type: integer
-   *                       example: 1
-   *                     branch_id:
-   *                       type: integer
-   *                       example: 1
-   *                     quantity:
-   *                       type: integer
-   *       400:
-   *         description: Validation error or item already in cart
+   *                     message:
+   *                       type: string
+   *                       example: "Price must be ₹240 for regular pricing (2 × ₹120)"
+   *             examples:
+   *               priceMismatch:
+   *                 summary: Price validation error
+   *                 value:
+   *                   success: false
+   *                   errors:
+   *                     message: "Price must be ₹240 for regular pricing (2 × ₹120)"
+   *               comboValidationError:
+   *                 summary: Combo validation error
+   *                 value:
+   *                   success: false
+   *                   errors:
+   *                     message: "Quantity must be exactly 3 for combo discount"
+   *               comboPriceMismatch:
+   *                 summary: Combo price mismatch error
+   *                 value:
+   *                   success: false
+   *                   errors:
+   *                     message: "Price must be ₹340 for combo discount (total for 3 items)"
+   *               variantNotFound:
+   *                 summary: Variant not found
+   *                 value:
+   *                   success: false
+   *                   errors:
+   *                     message: "Product variant not found or does not belong to the specified product"
    */
   router.post('/add-to-cart', isAuthenticated, validate(saveCartSchema), saveCart);
 
@@ -162,6 +316,42 @@ module.exports = (router) => {
    *                       type: string
    *                       enum: [ASC, DESC]
    *                 description: Array of sorting objects
+   *           examples:
+   *             basic:
+   *               summary: Get all cart items
+   *               value: {}
+   *             withPagination:
+   *               summary: Get cart items with pagination
+   *               value:
+   *                 pageSize: 20
+   *                 pageNumber: 1
+   *             withFilters:
+   *               summary: Get cart items filtered by vendor
+   *               value:
+   *                 vendorId: 1
+   *                 pageSize: 10
+   *                 pageNumber: 1
+   *             withSorting:
+   *               summary: Get cart items sorted by creation date
+   *               value:
+   *                 pageSize: 10
+   *                 pageNumber: 1
+   *                 sorting:
+   *                   - key: "created_at"
+   *                     direction: "DESC"
+   *             withMultipleFilters:
+   *               summary: Get cart items with multiple filters
+   *               value:
+   *                 vendorId: 1
+   *                 branchId: 2
+   *                 pageSize: 10
+   *                 pageNumber: 1
+   *                 filters:
+   *                   - key: "is_combo"
+   *                     eq: "false"
+   *                 sorting:
+   *                   - key: "total_price"
+   *                     direction: "DESC"
    *     responses:
    *       200:
    *         description: Cart items retrieved successfully
@@ -184,24 +374,207 @@ module.exports = (router) => {
    *                       product_id:
    *                         type: integer
    *                         example: 1
+   *                       variant_id:
+   *                         type: integer
+   *                         example: 1
    *                       vendor_id:
    *                         type: integer
    *                         example: 1
    *                       branch_id:
    *                         type: integer
    *                         example: 1
+   *                       quantity:
+   *                         type: integer
+   *                         example: 2
+   *                       is_combo:
+   *                         type: boolean
+   *                         example: false
+   *                       unit_price:
+   *                         type: number
+   *                         example: 120
+   *                       total_price:
+   *                         type: number
+   *                         example: 240
+   *                       status:
+   *                         type: string
+   *                         example: "ACTIVE"
+   *                       created_at:
+   *                         type: string
+   *                         format: date-time
+   *                       updated_at:
+   *                         type: string
+   *                         format: date-time
+   *                       concurrency_stamp:
+   *                         type: string
+   *                         format: uuid
    *                       productDetails:
    *                         type: object
    *                         properties:
+   *                           id:
+   *                             type: integer
+   *                             example: 1
+   *                           title:
+   *                             type: string
+   *                             example: "Fresh Milk"
+   *                       variant:
+   *                         type: object
+   *                         properties:
+   *                           id:
+   *                             type: integer
+   *                             example: 1
+   *                           variant_name:
+   *                             type: string
+   *                             example: "500ml"
+   *                           selling_price:
+   *                             type: number
+   *                             example: 120
+   *                           quantity:
+   *                             type: integer
+   *                             example: 50
+   *                           product_status:
+   *                             type: string
+   *                             enum: [INSTOCK, OUT-OF-STOCK]
+   *                             example: "INSTOCK"
+   *                           product:
+   *                             type: object
+   *                             properties:
+   *                               id:
+   *                                 type: integer
+   *                                 example: 1
+   *                               title:
+   *                                 type: string
+   *                                 example: "Fresh Milk"
+   *                               images:
+   *                                 type: array
+   *                                 items:
+   *                                   type: object
+   *                                   properties:
+   *                                     id:
+   *                                       type: integer
+   *                                     image_url:
+   *                                       type: string
+   *                       user:
+   *                         type: object
+   *                         properties:
+   *                           id:
+   *                             type: integer
+   *                             example: 1
    *                           name:
    *                             type: string
-   *                           price:
-   *                             type: number
-   *                       quantity:
-   *                         type: integer
-   *                 count:
-   *                   type: integer
-   *                   example: 5
+   *                             example: "John Doe"
+   *                           email:
+   *                             type: string
+   *                             example: "john@example.com"
+   *                           mobile_number:
+   *                             type: string
+   *                             example: "9876543210"
+   *                 pagination:
+   *                   type: object
+   *                   properties:
+   *                     pageSize:
+   *                       type: integer
+   *                       example: 10
+   *                     pageNumber:
+   *                       type: integer
+   *                       example: 1
+   *                     totalCount:
+   *                       type: integer
+   *                       example: 5
+   *                     totalPages:
+   *                       type: integer
+   *                       example: 1
+   *                     paginationEnabled:
+   *                       type: boolean
+   *                       example: false
+   *             examples:
+   *               success:
+   *                 summary: Cart items retrieved successfully
+   *                 value:
+   *                   success: true
+   *                   doc:
+   *                     - id: 15
+   *                       product_id: 1
+   *                       variant_id: 5
+   *                       vendor_id: 1
+   *                       branch_id: 2
+   *                       quantity: 2
+   *                       is_combo: false
+   *                       unit_price: 120
+   *                       total_price: 240
+   *                       status: "ACTIVE"
+   *                       created_at: "2025-01-25T10:30:00.000Z"
+   *                       updated_at: "2025-01-25T10:30:00.000Z"
+   *                       concurrency_stamp: "550e8400-e29b-41d4-a716-446655440000"
+   *                       productDetails:
+   *                         id: 1
+   *                         title: "Fresh Milk"
+   *                       variant:
+   *                         id: 5
+   *                         variant_name: "500ml"
+   *                         selling_price: 120
+   *                         quantity: 50
+   *                         product_status: "INSTOCK"
+   *                         product:
+   *                           id: 1
+   *                           title: "Fresh Milk"
+   *                           images:
+   *                             - id: 10
+   *                               image_url: "https://example.com/images/milk.jpg"
+   *                       user:
+   *                         id: 1
+   *                         name: "John Doe"
+   *                         email: "john@example.com"
+   *                         mobile_number: "9876543210"
+   *                     - id: 16
+   *                       product_id: 2
+   *                       variant_id: 8
+   *                       vendor_id: 1
+   *                       branch_id: 2
+   *                       quantity: 3
+   *                       is_combo: true
+   *                       unit_price: 100
+   *                       total_price: 300
+   *                       status: "ACTIVE"
+   *                       created_at: "2025-01-25T11:00:00.000Z"
+   *                       updated_at: "2025-01-25T11:00:00.000Z"
+   *                       concurrency_stamp: "660e8400-e29b-41d4-a716-446655440001"
+   *                       productDetails:
+   *                         id: 2
+   *                         title: "Organic Eggs"
+   *                       variant:
+   *                         id: 8
+   *                         variant_name: "Dozen"
+   *                         selling_price: 150
+   *                         quantity: 30
+   *                         product_status: "INSTOCK"
+   *                         product:
+   *                           id: 2
+   *                           title: "Organic Eggs"
+   *                           images:
+   *                             - id: 15
+   *                               image_url: "https://example.com/images/eggs.jpg"
+   *                       user:
+   *                         id: 1
+   *                         name: "John Doe"
+   *                         email: "john@example.com"
+   *                         mobile_number: "9876543210"
+   *                   pagination:
+   *                     pageSize: 10
+   *                     pageNumber: 1
+   *                     totalCount: 2
+   *                     totalPages: 1
+   *                     paginationEnabled: false
+   *               emptyCart:
+   *                 summary: Empty cart
+   *                 value:
+   *                   success: true
+   *                   doc: []
+   *                   pagination:
+   *                     pageSize: 10
+   *                     pageNumber: 1
+   *                     totalCount: 0
+   *                     totalPages: 0
+   *                     paginationEnabled: false
    */
   router.post('/get-cart', isAuthenticated, validate(getCartSchema), getCart);
 
@@ -218,8 +591,9 @@ module.exports = (router) => {
    *         name: cartId
    *         required: true
    *         schema:
-   *           type: string
+   *           type: integer
    *         description: Cart item ID to delete
+   *         example: 15
    *     responses:
    *       200:
    *         description: Item removed from cart successfully
@@ -236,8 +610,37 @@ module.exports = (router) => {
    *                 success:
    *                   type: boolean
    *                   example: true
+   *                 message:
+   *                   type: string
+   *                   example: "successfully deleted"
    *       400:
-   *         description: Error deleting cart item
+   *         description: Validation error or cart item not found
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 success:
+   *                   type: boolean
+   *                   example: false
+   *                 errors:
+   *                   type: object
+   *                   properties:
+   *                     message:
+   *                       type: string
+   *                       example: "Parameter: cartId is required in query"
+   *             examples:
+   *               success:
+   *                 summary: Item deleted successfully
+   *                 value:
+   *                   success: true
+   *                   message: "successfully deleted"
+   *               validationError:
+   *                 summary: Validation error
+   *                 value:
+   *                   success: false
+   *                   errors:
+   *                     message: "Parameter: cartId is required in query"
    */
   router.delete('/delete-cart', isAuthenticated, validate(deleteCartSchema), deleteCart);
 
@@ -245,7 +648,7 @@ module.exports = (router) => {
    * @swagger
    * /update-cart/{id}:
    *   patch:
-   *     summary: Update cart item quantity
+   *     summary: Update cart item quantity, price, or combo status
    *     tags: [Cart]
    *     security:
    *       - bearerAuth: []
@@ -256,29 +659,79 @@ module.exports = (router) => {
    *         schema:
    *           type: integer
    *         description: Cart item ID
+   *         example: 15
    *       - in: header
    *         name: x-concurrencystamp
+   *         required: true
    *         schema:
    *           type: string
-   *         description: Concurrency stamp for optimistic locking
+   *           format: uuid
+   *         description: Concurrency stamp for optimistic locking (required)
    *     requestBody:
    *       required: true
    *       content:
    *         application/json:
    *           schema:
    *             type: object
+   *             required:
+   *               - updatedBy
+   *               - concurrencyStamp
    *             properties:
    *               quantity:
    *                 type: integer
    *                 minimum: 0
    *                 example: 3
+   *                 description: New quantity (optional - if 0, item is removed from cart)
+   *               price:
+   *                 type: number
+   *                 example: 240
+   *                 description: "New total price (optional - for regular items: quantity × unit_price; for combo items: (quantity × unit_price) - combo_discount)"
+   *               isCombo:
+   *                 type: boolean
+   *                 example: false
+   *                 description: "Whether this is a combo purchase (optional - if true, price must be the total combo price for the specified quantity and quantity must match combo_quantity)"
+   *               updatedBy:
+   *                 type: integer
+   *                 example: 1
+   *                 description: User ID who is updating the cart item (required)
+   *               concurrencyStamp:
+   *                 type: string
+   *                 format: uuid
+   *                 example: "550e8400-e29b-41d4-a716-446655440000"
+   *                 description: Concurrency stamp from previous response (required)
+   *           examples:
+   *             updateQuantity:
+   *               summary: Update quantity only
+   *               description: "Example: Updating quantity to 5, total price = 5 × ₹120 = ₹600"
+   *               value:
+   *                 quantity: 5
+   *                 price: 600
+   *                 updatedBy: 1
+   *                 concurrencyStamp: "550e8400-e29b-41d4-a716-446655440000"
+   *             updatePriceAndCombo:
+   *               summary: Update price and combo status
+   *               description: "Example: Updating to combo with 3 items, total combo price ₹340 (FLATOFF discount)"
+   *               value:
+   *                 price: 340
+   *                 isCombo: true
+   *                 quantity: 3
+   *                 updatedBy: 1
+   *                 concurrencyStamp: "550e8400-e29b-41d4-a716-446655440000"
+   *             removeItem:
+   *               summary: Remove item (set quantity to 0)
+   *               value:
+   *                 quantity: 0
+   *                 updatedBy: 1
+   *                 concurrencyStamp: "550e8400-e29b-41d4-a716-446655440000"
    *     responses:
    *       200:
-   *         description: Cart item updated successfully
+   *         description: Cart item updated successfully or removed (if quantity is 0)
    *         headers:
    *           x-concurrencystamp:
    *             schema:
    *               type: string
+   *               format: uuid
+   *             description: New concurrency stamp for optimistic locking
    *           message:
    *             schema:
    *               type: string
@@ -286,15 +739,90 @@ module.exports = (router) => {
    *         content:
    *           application/json:
    *             schema:
+   *               oneOf:
+   *                 - type: object
+   *                   properties:
+   *                     message:
+   *                       type: string
+   *                       example: "item removed from cart"
+   *                 - type: object
+   *                   properties:
+   *                     success:
+   *                       type: boolean
+   *                       example: true
+   *                     message:
+   *                       type: string
+   *                       example: "successfully updated"
+   *       409:
+   *         description: Concurrency conflict - cart item was modified by another request
+   *         content:
+   *           application/json:
+   *             schema:
    *               type: object
    *               properties:
    *                 success:
    *                   type: boolean
-   *                   example: true
-   *       409:
-   *         description: Concurrency conflict
+   *                   example: false
+   *                 errors:
+   *                   type: object
+   *                   properties:
+   *                     message:
+   *                       type: string
+   *                       example: "Concurrency error"
    *       400:
-   *         description: Validation error
+   *         description: Validation error (price mismatch, combo validation failed, etc.)
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 success:
+   *                   type: boolean
+   *                   example: false
+   *                 errors:
+   *                   type: object
+   *                   properties:
+   *                     message:
+   *                       type: string
+   *                       example: "Price must be ₹240 for regular pricing (2 × ₹120)"
+   *             examples:
+   *               success:
+   *                 summary: Cart item updated successfully
+   *                 value:
+   *                   success: true
+   *                   message: "successfully updated"
+   *               itemRemoved:
+   *                 summary: Item removed (quantity set to 0)
+   *                 value:
+   *                   message: "item removed from cart"
+   *               concurrencyError:
+   *                 summary: Concurrency conflict
+   *                 value:
+   *                   success: false
+   *                   errors:
+   *                     message: "Concurrency error"
+   *               priceMismatch:
+   *                 summary: Price validation error
+   *                 value:
+   *                   success: false
+   *                   errors:
+   *                     message: "Price must be ₹240 for regular pricing (2 × ₹120)"
+   *       404:
+   *         description: Cart item not found
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 success:
+   *                   type: boolean
+   *                   example: false
+   *                 errors:
+   *                   type: object
+   *                   properties:
+   *                     message:
+   *                       type: string
+   *                       example: "Cart item not found"
    */
   router.patch('/update-cart/:id', isAuthenticated, validate(updateCartSchema), updateCart);
 };

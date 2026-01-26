@@ -73,7 +73,7 @@ const getWishlist = async (payload) => {
               as: 'variants',
               where: { status: 'ACTIVE' },
               required: false,
-              attributes: [ 'id', 'variant_name', 'variant_type', 'selling_price', 'quantity', 'product_status' ],
+              attributes: [ 'id', 'variant_name', 'selling_price', 'quantity', 'product_status' ],
               limit: 1,
               order: [ [ 'created_at', 'ASC' ] ],
             },

@@ -42,13 +42,6 @@ module.exports = (router) => {
    *               variantName:
    *                 type: string
    *                 example: "500g"
-   *               variantType:
-   *                 type: string
-   *                 enum: [WEIGHT, SIZE, COLOR, MATERIAL, FLAVOR, PACKAGING, OTHER]
-   *                 example: WEIGHT
-   *               variantValue:
-   *                 type: string
-   *                 example: "VAR-001"
    *               price:
    *                 type: number
    *                 example: 500
@@ -104,9 +97,6 @@ module.exports = (router) => {
    *               productId:
    *                 type: integer
    *                 example: 1
-   *               variantType:
-   *                 type: string
-   *                 enum: [WEIGHT, SIZE, COLOR, MATERIAL, FLAVOR, PACKAGING, OTHER]
    *               pageSize:
    *                 type: integer
    *                 enum: [1, 5, 10, 20, 30, 40, 50, 100, 500]

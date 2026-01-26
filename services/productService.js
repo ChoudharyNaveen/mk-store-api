@@ -13,6 +13,7 @@ const {
   branch: BranchModel,
   productVariant: ProductVariantModel,
   productImage: ProductImageModel,
+  variantComboDiscount: VariantComboDiscountModel,
   sequelize,
   Sequelize: { Op },
 } = require('../database');
@@ -31,12 +32,199 @@ const InventoryMovementService = require('./inventoryMovementService');
 const { getProductStatusFromQuantity } = require('../utils/constants/productStatusConstants');
 const { INVENTORY_MOVEMENT_TYPE } = require('../utils/constants/inventoryMovementTypeConstants');
 const { ORDER_STATUS } = require('../utils/constants/orderStatusConstants');
+const { COMBO_DISCOUNT_TYPE } = require('../utils/constants/comboDiscountTypeConstants');
 const {
   NotFoundError,
   ValidationError,
   ConcurrencyError,
   handleServiceError,
 } = require('../utils/serviceErrors');
+
+// Helper function to batch validate combo discount concurrency stamps
+const validateComboDiscountConcurrencyStampsBatch = async (comboDiscountsToUpdate, transaction) => {
+  if (!comboDiscountsToUpdate || comboDiscountsToUpdate.length === 0) {
+    return new Map();
+  }
+
+  const comboDiscountIds = comboDiscountsToUpdate.map((cd) => cd.id).filter(Boolean);
+
+  if (comboDiscountIds.length === 0) {
+    return new Map();
+  }
+
+  // Single query to fetch all combo discounts
+  const comboDiscounts = await VariantComboDiscountModel.findAll({
+    where: {
+      id: { [Op.in]: comboDiscountIds },
+    },
+    attributes: [ 'id', 'concurrency_stamp' ],
+    transaction,
+  });
+
+  // Return Map<comboDiscountId, concurrencyStamp> for quick lookup
+  const concurrencyStampsMap = new Map();
+
+  comboDiscounts.forEach((cd) => {
+    concurrencyStampsMap.set(cd.id, cd.concurrency_stamp);
+  });
+
+  return concurrencyStampsMap;
+};
+
+// Helper function to validate combo discount data structure (without DB queries)
+const validateComboDiscountData = (comboDiscountData) => {
+  const {
+    comboQuantity, discountType, discountValue, startDate, endDate,
+  } = comboDiscountData;
+
+  // Validate combo quantity
+  if (!comboQuantity || comboQuantity < 1) {
+    throw new ValidationError('Combo quantity must be at least 1');
+  }
+
+  // Validate discount type and value
+  if (discountType === COMBO_DISCOUNT_TYPE.PERCENT) {
+    if (!discountValue || discountValue < 1 || discountValue > 100) {
+      throw new ValidationError('Discount percentage must be between 1 and 100');
+    }
+  } else if (discountType === COMBO_DISCOUNT_TYPE.FLATOFF) {
+    if (!discountValue || discountValue <= 0) {
+      throw new ValidationError('Discount amount must be greater than 0 for FLATOFF discount type');
+    }
+  } else {
+    throw new ValidationError(`Discount type must be ${COMBO_DISCOUNT_TYPE.PERCENT} or ${COMBO_DISCOUNT_TYPE.FLATOFF}`);
+  }
+
+  // Validate date ranges
+  if (startDate && endDate) {
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+
+    if (start >= end) {
+      throw new ValidationError('End date must be after start date');
+    }
+  }
+
+  return true;
+};
+
+// Helper function to validate and create combo discount within transaction
+const createComboDiscount = async (comboDiscountData, variantId, createdBy, transaction) => {
+  const {
+    comboQuantity, discountType, discountValue, startDate, endDate, status: comboStatus,
+  } = comboDiscountData;
+
+  // Validate combo discount data using helper function
+  validateComboDiscountData(comboDiscountData);
+
+  const concurrencyStamp = uuidV4();
+
+  const doc = {
+    variantId,
+    comboQuantity,
+    discountType,
+    discountValue,
+    startDate,
+    endDate,
+    concurrencyStamp,
+    createdBy,
+    status: comboStatus || 'ACTIVE',
+  };
+
+  const comboDiscount = await VariantComboDiscountModel.create(convertCamelToSnake(doc), {
+    transaction,
+  });
+
+  return convertSnakeToCamel(comboDiscount.dataValues);
+};
+
+// Helper function to update combo discount within transaction
+const updateComboDiscount = async (comboDiscountData, updatedBy, transaction) => {
+  const {
+    id, concurrencyStamp, comboQuantity, discountType, discountValue, startDate, endDate, status: comboStatus,
+  } = comboDiscountData;
+
+  const response = await VariantComboDiscountModel.findOne({
+    where: { id },
+    attributes: [ 'id', 'concurrency_stamp', 'variant_id', 'combo_quantity', 'discount_type', 'discount_value', 'start_date', 'end_date' ],
+    transaction,
+  });
+
+  if (!response) {
+    throw new NotFoundError('Variant combo discount not found');
+  }
+
+  const { concurrency_stamp: stamp } = response;
+
+  if (concurrencyStamp !== stamp) {
+    throw new ConcurrencyError('invalid concurrency stamp');
+  }
+
+  // Validate combo discount data if any fields are being updated
+  // Only validate fields that are actually being updated
+  if (discountType !== undefined || discountValue !== undefined || comboQuantity !== undefined || startDate !== undefined || endDate !== undefined) {
+    // Create a temporary object with all fields for validation
+    // Use existing values from database if not being updated
+    const validationData = {
+      comboQuantity: comboQuantity !== undefined ? comboQuantity : response.combo_quantity,
+      discountType: discountType !== undefined ? discountType : response.discount_type,
+      discountValue: discountValue !== undefined ? discountValue : response.discount_value,
+      startDate: startDate !== undefined ? startDate : response.start_date,
+      endDate: endDate !== undefined ? endDate : response.end_date,
+    };
+
+    validateComboDiscountData(validationData);
+  }
+
+  const newConcurrencyStamp = uuidV4();
+  const updateData = {};
+
+  if (comboQuantity !== undefined) updateData.combo_quantity = comboQuantity;
+  if (discountType !== undefined) updateData.discount_type = discountType;
+  if (discountValue !== undefined) updateData.discount_value = discountValue;
+  if (startDate !== undefined) updateData.start_date = startDate;
+  if (endDate !== undefined) updateData.end_date = endDate;
+  if (comboStatus !== undefined) updateData.status = comboStatus;
+
+  updateData.updated_by = updatedBy;
+  updateData.concurrency_stamp = newConcurrencyStamp;
+
+  await VariantComboDiscountModel.update(updateData, {
+    where: { id },
+    transaction,
+  });
+
+  return { id, concurrencyStamp: newConcurrencyStamp };
+};
+
+// Helper function to delete combo discount (mark as INACTIVE) within transaction
+const deleteComboDiscount = async (comboDiscountId, updatedBy, transaction) => {
+  const comboDiscount = await VariantComboDiscountModel.findOne({
+    where: { id: comboDiscountId },
+    attributes: [ 'id', 'concurrency_stamp' ],
+    transaction,
+  });
+
+  if (!comboDiscount) {
+    throw new NotFoundError('Variant combo discount not found');
+  }
+
+  const newConcurrencyStamp = uuidV4();
+
+  await VariantComboDiscountModel.update(
+    {
+      status: 'INACTIVE',
+      updated_by: updatedBy,
+      concurrency_stamp: newConcurrencyStamp,
+    },
+    {
+      where: { id: comboDiscountId },
+      transaction,
+    },
+  );
+
+  return { id: comboDiscountId, concurrencyStamp: newConcurrencyStamp };
+};
 
 const saveProduct = async ({ data, imageFiles }) => withTransaction(sequelize, async (transaction) => {
   const {
@@ -127,55 +315,21 @@ const saveProduct = async ({ data, imageFiles }) => withTransaction(sequelize, a
       throw new ValidationError('Duplicate variant names are not allowed');
     }
 
-    // Fast validation: duplicate values in input
-    const variantValues = variantsData.filter((v) => v.variantValue).map((v) => v.variantValue);
-
-    if (variantValues.length > 0) {
-      const duplicateValues = variantValues.filter((value, index) => variantValues.indexOf(value) !== index);
-
-      if (duplicateValues.length > 0) {
-        throw new ValidationError(`Duplicate variant values: ${duplicateValues.join(', ')}`);
+    // Validate all combo discount data in-memory before creating variants
+    variantsData.forEach((variantData) => {
+      if (variantData.comboDiscounts && Array.isArray(variantData.comboDiscounts)) {
+        variantData.comboDiscounts.forEach((comboDiscountData) => {
+          validateComboDiscountData(comboDiscountData);
+        });
       }
-    }
-
-    // Parallel database checks: existing names and values
-    const variantChecks = await Promise.all([
-      ProductVariantModel.findAll({
-        where: {
-          product_id: cat.id,
-          variant_name: { [Op.in]: variantNames },
-          status: 'ACTIVE',
-        },
-        attributes: [ 'variant_name' ],
-        transaction,
-      }),
-      variantValues.length > 0
-        ? ProductVariantModel.findAll({
-          where: {
-            variant_value: { [Op.in]: variantValues },
-            status: 'ACTIVE',
-          },
-          attributes: [ 'variant_value' ],
-          transaction,
-        })
-        : Promise.resolve([]),
-    ]);
-
-    const [ existingVariants, existingValues ] = variantChecks;
-
-    if (existingVariants.length > 0) {
-      throw new ValidationError(`Variant name(s) already exist: ${existingVariants.map((v) => v.variant_name).join(', ')}`);
-    }
-
-    if (existingValues.length > 0) {
-      throw new ValidationError(`Variant value(s) already exist: ${existingValues.map((v) => v.variant_value).join(', ')}`);
-    }
+    });
 
     // Create all variants in parallel
     const variantPromises = variantsData.map(async (variantData) => {
       const {
-        variantName, variantType, variantValue, price, sellingPrice, quantity,
+        variantName, description, nutritional, price, sellingPrice, quantity,
         itemsPerUnit, units, itemQuantity, itemUnit, expiryDate, status: variantStatus,
+        comboDiscounts,
       } = variantData;
 
       const variantConcurrencyStamp = uuidV4();
@@ -183,8 +337,8 @@ const saveProduct = async ({ data, imageFiles }) => withTransaction(sequelize, a
       const variantDoc = {
         productId: cat.id,
         variantName,
-        variantType: variantType || null,
-        variantValue: variantValue || null,
+        description: description || null,
+        nutritional: nutritional || null,
         price,
         sellingPrice,
         quantity: quantity || 0,
@@ -221,10 +375,52 @@ const saveProduct = async ({ data, imageFiles }) => withTransaction(sequelize, a
 
       await inventoryMovementPromise;
 
-      return convertSnakeToCamel(variant.dataValues);
+      const variantResult = convertSnakeToCamel(variant.dataValues);
+
+      // Store combo discounts data for batch creation after all variants are created
+      variantResult.comboDiscountsData = comboDiscounts || [];
+      variantResult.variantId = variant.id;
+
+      return variantResult;
     });
 
     const createdVariantsResults = await Promise.all(variantPromises);
+
+    // Batch create all combo discounts after all variants are created
+    const comboDiscountCreatePromises = [];
+
+    createdVariantsResults.forEach((variantResult) => {
+      if (variantResult.comboDiscountsData && Array.isArray(variantResult.comboDiscountsData) && variantResult.comboDiscountsData.length > 0) {
+        variantResult.comboDiscountsData.forEach((comboDiscountData) => {
+          comboDiscountCreatePromises.push(
+            createComboDiscount(comboDiscountData, variantResult.variantId, createdBy, transaction),
+          );
+        });
+      }
+    });
+
+    const comboDiscountResults = await Promise.all(comboDiscountCreatePromises);
+
+    // Map combo discounts back to their variants
+    let comboDiscountIndex = 0;
+
+    createdVariantsResults.forEach((variantResult) => {
+      const comboDiscountsForVariant = [];
+
+      if (variantResult.comboDiscountsData && Array.isArray(variantResult.comboDiscountsData)) {
+        for (let i = 0; i < variantResult.comboDiscountsData.length; i += 1) {
+          comboDiscountsForVariant.push(comboDiscountResults[comboDiscountIndex]);
+          comboDiscountIndex += 1;
+        }
+      }
+
+      // eslint-disable-next-line no-param-reassign
+      variantResult.comboDiscounts = comboDiscountsForVariant;
+      // eslint-disable-next-line no-param-reassign
+      delete variantResult.comboDiscountsData;
+      // eslint-disable-next-line no-param-reassign
+      delete variantResult.variantId;
+    });
 
     createdVariants.push(...createdVariantsResults);
   }
@@ -351,7 +547,7 @@ const updateProduct = async ({ data, imageFiles }) => withTransaction(sequelize,
     // Get existing variants for this product
     const existingVariants = await ProductVariantModel.findAll({
       where: { product_id: id, status: 'ACTIVE' },
-      attributes: [ 'id', 'variant_name', 'variant_value', 'concurrency_stamp', 'quantity' ],
+      attributes: [ 'id', 'variant_name', 'concurrency_stamp', 'quantity' ],
       transaction,
     });
 
@@ -382,7 +578,7 @@ const updateProduct = async ({ data, imageFiles }) => withTransaction(sequelize,
     // Batch all duplicate checks in parallel
     const duplicateCheckPromises = [
       ...variantsToUpdate.map((variantData) => {
-        const { id: variantId, variantName, variantValue } = variantData;
+        const { id: variantId, variantName } = variantData;
         const checks = [];
 
         if (variantName) {
@@ -398,23 +594,6 @@ const updateProduct = async ({ data, imageFiles }) => withTransaction(sequelize,
             }).then((duplicate) => {
               if (duplicate) {
                 throw new ValidationError(`Variant name "${variantName}" already exists`);
-              }
-            }),
-          );
-        }
-
-        if (variantValue) {
-          checks.push(
-            ProductVariantModel.findOne({
-              where: {
-                variant_value: variantValue,
-                id: { [Op.ne]: variantId },
-                status: 'ACTIVE',
-              },
-              transaction,
-            }).then((duplicate) => {
-              if (duplicate) {
-                throw new ValidationError(`Variant value "${variantValue}" already exists`);
               }
             }),
           );
@@ -423,7 +602,7 @@ const updateProduct = async ({ data, imageFiles }) => withTransaction(sequelize,
         return Promise.all(checks);
       }),
       ...variantsToCreate.map((variantData) => {
-        const { variantName, variantValue } = variantData;
+        const { variantName } = variantData;
         const checks = [];
 
         if (variantName) {
@@ -438,22 +617,6 @@ const updateProduct = async ({ data, imageFiles }) => withTransaction(sequelize,
             }).then((duplicate) => {
               if (duplicate) {
                 throw new ValidationError(`Variant name "${variantName}" already exists`);
-              }
-            }),
-          );
-        }
-
-        if (variantValue) {
-          checks.push(
-            ProductVariantModel.findOne({
-              where: {
-                variant_value: variantValue,
-                status: 'ACTIVE',
-              },
-              transaction,
-            }).then((duplicate) => {
-              if (duplicate) {
-                throw new ValidationError(`Variant value "${variantValue}" already exists`);
               }
             }),
           );
@@ -465,11 +628,58 @@ const updateProduct = async ({ data, imageFiles }) => withTransaction(sequelize,
 
     await Promise.all(duplicateCheckPromises.flat());
 
+    // Collect all combo discounts from all variants for batch validation
+    const allComboDiscountsToUpdate = [];
+    const allComboDiscountsToCreate = [];
+
+    variantsToUpdate.forEach((variantData) => {
+      if (variantData.comboDiscounts && Array.isArray(variantData.comboDiscounts)) {
+        const comboDiscountsToUpdate = variantData.comboDiscounts.filter((cd) => cd.id && !cd.deleted);
+        const comboDiscountsToCreate = variantData.comboDiscounts.filter((cd) => !cd.id && !cd.deleted);
+
+        allComboDiscountsToUpdate.push(...comboDiscountsToUpdate);
+        allComboDiscountsToCreate.push(...comboDiscountsToCreate);
+      }
+    });
+
+    variantsToCreate.forEach((variantData) => {
+      if (variantData.comboDiscounts && Array.isArray(variantData.comboDiscounts)) {
+        const comboDiscountsToCreate = variantData.comboDiscounts.filter((cd) => !cd.deleted);
+
+        allComboDiscountsToCreate.push(...comboDiscountsToCreate);
+      }
+    });
+
+    // Batch validate combo discount concurrency stamps
+    const concurrencyStampsMap = await validateComboDiscountConcurrencyStampsBatch(allComboDiscountsToUpdate, transaction);
+
+    // Validate all combo discount data in-memory
+    allComboDiscountsToUpdate.forEach((comboDiscountData) => {
+      // Validate concurrency stamp
+      const expectedStamp = concurrencyStampsMap.get(comboDiscountData.id);
+
+      if (!expectedStamp) {
+        throw new NotFoundError(`Variant combo discount with id ${comboDiscountData.id} not found`);
+      }
+
+      if (comboDiscountData.concurrencyStamp !== expectedStamp) {
+        throw new ConcurrencyError('invalid concurrency stamp');
+      }
+
+      // Validate data structure
+      validateComboDiscountData(comboDiscountData);
+    });
+
+    allComboDiscountsToCreate.forEach((comboDiscountData) => {
+      validateComboDiscountData(comboDiscountData);
+    });
+
     // Process all updates in parallel
     const updatePromises = variantsToUpdate.map(async (variantData) => {
       const {
-        id: variantId, variantName, variantType, variantValue, price, sellingPrice, quantity,
+        id: variantId, variantName, description, nutritional, price, sellingPrice, quantity,
         itemsPerUnit, units, itemQuantity, itemUnit, expiryDate, status: variantStatus,
+        comboDiscounts,
       } = variantData;
 
       const existingVariant = existingVariantMap.get(variantId);
@@ -480,8 +690,8 @@ const updateProduct = async ({ data, imageFiles }) => withTransaction(sequelize,
 
       const variantUpdateDoc = {
         variantName,
-        variantType: variantType || null,
-        variantValue: variantValue || null,
+        description: description !== undefined ? description : null,
+        nutritional: nutritional !== undefined ? nutritional : null,
         price,
         sellingPrice,
         quantity: newVariantQuantity,
@@ -521,9 +731,21 @@ const updateProduct = async ({ data, imageFiles }) => withTransaction(sequelize,
 
       await inventoryPromise;
 
+      // Store combo discount operations for batch execution after all variants are updated
+      const comboDiscountsForVariant = comboDiscounts && Array.isArray(comboDiscounts) ? comboDiscounts : [];
+      const comboDiscountsToUpdate = comboDiscountsForVariant.filter((cd) => cd.id && !cd.deleted);
+      const comboDiscountsToCreate = comboDiscountsForVariant.filter((cd) => !cd.id && !cd.deleted);
+      const comboDiscountsToDelete = comboDiscountsForVariant.filter((cd) => cd.deleted || (cd.id && cd.deleted === true));
+
       variantIdsToUpdate.add(variantId);
 
-      return { id: variantId, concurrencyStamp: variantConcurrencyStampNew };
+      return {
+        id: variantId,
+        concurrencyStamp: variantConcurrencyStampNew,
+        comboDiscountsToUpdate: comboDiscountsToUpdate.map((cd) => ({ ...cd, variantId })),
+        comboDiscountsToCreate: comboDiscountsToCreate.map((cd) => ({ ...cd, variantId })),
+        comboDiscountsToDelete: comboDiscountsToDelete.filter((cd) => cd.id).map((cd) => ({ id: cd.id, variantId })),
+      };
     });
 
     const updateResults = await Promise.all(updatePromises);
@@ -533,8 +755,9 @@ const updateProduct = async ({ data, imageFiles }) => withTransaction(sequelize,
     // Process all creates in parallel
     const createPromises = variantsToCreate.map(async (variantData) => {
       const {
-        variantName, variantType, variantValue, price, sellingPrice, quantity,
+        variantName, description, nutritional, price, sellingPrice, quantity,
         itemsPerUnit, units, itemQuantity, itemUnit, expiryDate, status: variantStatus,
+        comboDiscounts,
       } = variantData;
 
       const variantConcurrencyStampNew = uuidV4();
@@ -542,8 +765,8 @@ const updateProduct = async ({ data, imageFiles }) => withTransaction(sequelize,
       const variantDoc = {
         productId: id,
         variantName,
-        variantType: variantType || null,
-        variantValue: variantValue || null,
+        description: description || null,
+        nutritional: nutritional || null,
         price,
         sellingPrice,
         quantity: quantity || 0,
@@ -580,15 +803,161 @@ const updateProduct = async ({ data, imageFiles }) => withTransaction(sequelize,
 
       await inventoryPromise;
 
-      return { id: newVariant.id, concurrencyStamp: variantConcurrencyStampNew };
+      // Store combo discount operations for batch execution after all variants are created
+      const comboDiscountsForVariant = comboDiscounts && Array.isArray(comboDiscounts) ? comboDiscounts.filter((cd) => !cd.deleted) : [];
+
+      return {
+        id: newVariant.id,
+        concurrencyStamp: variantConcurrencyStampNew,
+        comboDiscountsToCreate: comboDiscountsForVariant.map((cd) => ({ ...cd, variantId: newVariant.id })),
+      };
     });
 
     const createResults = await Promise.all(createPromises);
 
     updatedVariants.push(...createResults);
 
+    // Batch execute all combo discount operations in parallel
+    const comboDiscountOperations = [];
+
+    // Collect all combo discount operations from update results
+    updateResults.forEach((result) => {
+      if (result.comboDiscountsToUpdate) {
+        result.comboDiscountsToUpdate.forEach((cd) => {
+          comboDiscountOperations.push({
+            type: 'update',
+            data: cd,
+          });
+        });
+      }
+
+      if (result.comboDiscountsToCreate) {
+        result.comboDiscountsToCreate.forEach((cd) => {
+          comboDiscountOperations.push({
+            type: 'create',
+            data: cd,
+          });
+        });
+      }
+
+      if (result.comboDiscountsToDelete) {
+        result.comboDiscountsToDelete.forEach((cd) => {
+          comboDiscountOperations.push({
+            type: 'delete',
+            data: cd,
+          });
+        });
+      }
+    });
+
+    // Collect all combo discount operations from create results
+    createResults.forEach((result) => {
+      if (result.comboDiscountsToCreate) {
+        result.comboDiscountsToCreate.forEach((cd) => {
+          comboDiscountOperations.push({
+            type: 'create',
+            data: cd,
+          });
+        });
+      }
+    });
+
+    // Execute all combo discount operations in parallel
+    const comboDiscountPromises = comboDiscountOperations.map(async (op) => {
+      if (op.type === 'update') {
+        return updateComboDiscount(op.data, updatedBy, transaction);
+      }
+
+      if (op.type === 'create') {
+        return createComboDiscount(op.data, op.data.variantId, updatedBy, transaction);
+      }
+
+      if (op.type === 'delete') {
+        return deleteComboDiscount(op.data.id, updatedBy, transaction);
+      }
+
+      return null;
+    });
+
+    const comboDiscountResults = await Promise.all(comboDiscountPromises);
+
+    // Map combo discounts back to their variants
+    let comboDiscountIndex = 0;
+
+    // eslint-disable-next-line no-param-reassign
+    updateResults.forEach((result) => {
+      const comboDiscounts = [];
+
+      if (result.comboDiscountsToUpdate) {
+        // eslint-disable-next-line no-plusplus
+        for (let i = 0; i < result.comboDiscountsToUpdate.length; i += 1) {
+          comboDiscounts.push(comboDiscountResults[comboDiscountIndex]);
+          // eslint-disable-next-line no-plusplus
+          comboDiscountIndex += 1;
+        }
+      }
+
+      if (result.comboDiscountsToCreate) {
+        // eslint-disable-next-line no-plusplus
+        for (let i = 0; i < result.comboDiscountsToCreate.length; i += 1) {
+          comboDiscounts.push(comboDiscountResults[comboDiscountIndex]);
+          // eslint-disable-next-line no-plusplus
+          comboDiscountIndex += 1;
+        }
+      }
+
+      // Delete operations don't return results, so skip them
+      if (result.comboDiscountsToDelete) {
+        comboDiscountIndex += result.comboDiscountsToDelete.length;
+      }
+
+      // eslint-disable-next-line no-param-reassign
+      result.comboDiscounts = comboDiscounts;
+      // eslint-disable-next-line no-param-reassign
+      delete result.comboDiscountsToUpdate;
+      // eslint-disable-next-line no-param-reassign
+      delete result.comboDiscountsToCreate;
+      // eslint-disable-next-line no-param-reassign
+      delete result.comboDiscountsToDelete;
+    });
+
+    // eslint-disable-next-line no-param-reassign
+    createResults.forEach((result) => {
+      const comboDiscounts = [];
+
+      if (result.comboDiscountsToCreate) {
+        // eslint-disable-next-line no-plusplus
+        for (let i = 0; i < result.comboDiscountsToCreate.length; i += 1) {
+          comboDiscounts.push(comboDiscountResults[comboDiscountIndex]);
+          // eslint-disable-next-line no-plusplus
+          comboDiscountIndex += 1;
+        }
+      }
+
+      // eslint-disable-next-line no-param-reassign
+      result.comboDiscounts = comboDiscounts;
+      // eslint-disable-next-line no-param-reassign
+      delete result.comboDiscountsToCreate;
+    });
+
     // Delete variants marked in variantIdsToDelete array
     if (variantIdsToDelete && Array.isArray(variantIdsToDelete) && variantIdsToDelete.length > 0) {
+      // Mark all associated combo discounts as INACTIVE when variant is deleted
+      await VariantComboDiscountModel.update(
+        {
+          status: 'INACTIVE',
+          updated_by: updatedBy,
+          concurrency_stamp: uuidV4(),
+        },
+        {
+          where: {
+            variant_id: { [Op.in]: variantIdsToDelete },
+            status: 'ACTIVE',
+          },
+          transaction,
+        },
+      );
+
       await ProductVariantModel.update(
         {
           status: 'INACTIVE',
@@ -606,24 +975,57 @@ const updateProduct = async ({ data, imageFiles }) => withTransaction(sequelize,
     }
 
     // Validate: at least one variant must remain after all operations
-    const remainingVariantsCount = await ProductVariantModel.count({
-      where: { product_id: id, status: 'ACTIVE' },
-      transaction,
+    // Calculate remaining count from existing variants map and operations instead of querying
+    let remainingVariantsCount = existingVariants.length;
+
+    // Subtract variants being deleted
+    if (variantIdsToDelete && Array.isArray(variantIdsToDelete)) {
+      remainingVariantsCount -= variantIdsToDelete.length;
+    }
+
+    // Subtract variants being updated that are being deleted (if any)
+    variantsToUpdate.forEach((variantData) => {
+      if (variantData.deleted) {
+        remainingVariantsCount -= 1;
+      }
     });
+
+    // Add variants being created
+    remainingVariantsCount += variantsToCreate.length;
 
     if (remainingVariantsCount === 0) {
       throw new ValidationError('At least one variant is required. Cannot delete all variants.');
     }
   } else if (variantIdsToDelete && Array.isArray(variantIdsToDelete) && variantIdsToDelete.length > 0) {
     // If only deleting variants without adding/updating, check remaining count
-    const existingVariantsCount = await ProductVariantModel.count({
+    // Get existing variants count to calculate remaining
+    const existingVariantsForCount = await ProductVariantModel.findAll({
       where: { product_id: id, status: 'ACTIVE' },
+      attributes: [ 'id' ],
       transaction,
     });
+
+    const existingVariantsCount = existingVariantsForCount.length;
 
     if (existingVariantsCount <= variantIdsToDelete.length) {
       throw new ValidationError('At least one variant is required. Cannot delete all variants.');
     }
+
+    // Mark all associated combo discounts as INACTIVE when variant is deleted
+    await VariantComboDiscountModel.update(
+      {
+        status: 'INACTIVE',
+        updated_by: updatedBy,
+        concurrency_stamp: uuidV4(),
+      },
+      {
+        where: {
+          variant_id: { [Op.in]: variantIdsToDelete },
+          status: 'ACTIVE',
+        },
+        transaction,
+      },
+    );
 
     await ProductVariantModel.update(
       {
@@ -923,9 +1325,7 @@ const getProduct = async (payload) => {
       attributes: [
         'id',
         'title',
-        'description',
         'status',
-        'nutritional',
         'concurrency_stamp',
         'created_at',
       ],
@@ -954,8 +1354,6 @@ const getProduct = async (payload) => {
           attributes: [
             'id',
             'variant_name',
-            'variant_type',
-            'variant_value',
             'price',
             'selling_price',
             'quantity',
@@ -1023,7 +1421,7 @@ const getProductsGroupedByCategory = async (payload) => {
     {
       subQuery: false,
       where: { status: 'ACTIVE' },
-      attributes: [ 'id', 'title', 'description', 'image', 'status' ],
+      attributes: [ 'id', 'title', 'image', 'status' ],
       include: [
         {
           model: ProductModel,
@@ -1033,9 +1431,7 @@ const getProductsGroupedByCategory = async (payload) => {
           attributes: [
             'id',
             'title',
-            'description',
             'status',
-            'nutritional',
             'concurrency_stamp',
             'created_at',
           ],
@@ -1054,8 +1450,6 @@ const getProductsGroupedByCategory = async (payload) => {
               attributes: [
                 'id',
                 'variant_name',
-                'variant_type',
-                'variant_value',
                 'price',
                 'selling_price',
                 'quantity',
@@ -1132,9 +1526,7 @@ const getProductDetails = async (productId) => {
       attributes: [
         'id',
         'title',
-        'description',
         'status',
-        'nutritional',
         'concurrency_stamp',
         'created_at',
         'updated_at',
@@ -1164,8 +1556,8 @@ const getProductDetails = async (productId) => {
           attributes: [
             'id',
             'variant_name',
-            'variant_type',
-            'variant_value',
+            'description',
+            'nutritional',
             'price',
             'selling_price',
             'quantity',
@@ -1180,7 +1572,25 @@ const getProductDetails = async (productId) => {
             'created_at',
             'updated_at',
           ],
-          order: [ [ 'variant_type', 'ASC' ], [ 'variant_name', 'ASC' ] ],
+          include: [
+            {
+              model: VariantComboDiscountModel,
+              as: 'comboDiscounts',
+              where: { status: 'ACTIVE' },
+              required: false,
+              attributes: [
+                'id',
+                'combo_quantity',
+                'discount_type',
+                'discount_value',
+                'start_date',
+                'end_date',
+                'status',
+                'concurrency_stamp',
+              ],
+            },
+          ],
+          order: [ [ 'variant_name', 'ASC' ] ],
         },
         {
           model: ProductImageModel,

@@ -155,7 +155,7 @@ const fetchAndValidateCartItems = async (createdBy, vendorId, branchId, transact
       vendor_id: vendorId,
       branch_id: branchId,
     },
-    attributes: [ 'id', 'product_id', 'variant_id', 'vendor_id', 'branch_id', 'quantity', 'created_by' ],
+    attributes: [ 'id', 'product_id', 'variant_id', 'vendor_id', 'branch_id', 'quantity', 'unit_price', 'total_price', 'is_combo', 'created_by' ],
     include: [
       {
         model: ProductVariantModel,
@@ -210,7 +210,13 @@ const fetchAndValidateCartItems = async (createdBy, vendorId, branchId, transact
 const calculateOrderAmount = (cartItems) => {
   let totalAmount = 0;
   const validationResults = cartItems.map((item) => {
-    const { quantity, variant } = item;
+    const {
+      quantity,
+      variant,
+      total_price: totalPrice,
+      unit_price: unitPrice,
+      is_combo: isCombo,
+    } = item;
 
     if (!variant) {
       return {
@@ -218,15 +224,14 @@ const calculateOrderAmount = (cartItems) => {
       };
     }
 
-    const price = variant.selling_price;
+    const price = unitPrice || variant.selling_price;
     const itemTitle = variant.variant_name;
     const currentQuantity = variant.quantity;
     const itemConcurrencyStamp = variant.concurrency_stamp;
     const itemProductId = variant.product_id;
     const itemVariantId = variant.id;
     const itemVariantName = variant.variant_name;
-
-    const subtotal = price * quantity;
+    const subtotal = totalPrice || (price * quantity);
 
     if (quantity > currentQuantity) {
       return {
@@ -244,6 +249,8 @@ const calculateOrderAmount = (cartItems) => {
         variant_name: itemVariantName,
         quantity,
         price_at_purchase: price,
+        is_combo: isCombo || false,
+        subtotal,
         product_quantity: currentQuantity,
         product_concurrency_stamp: itemConcurrencyStamp,
       },
@@ -453,18 +460,31 @@ const calculateOrderShipping = async (branchId, addressId, orderPriority, provid
 
 // Helper: Create order items and reduce inventory
 // Optimized: Uses bulk operations for better performance
-const createOrderItemsAndReduceInventory = async (orderItemsData, orderId, orderNumber, vendorId, branchId, createdBy, transaction) => {
+const createOrderItemsAndReduceInventory = async (orderItemsData, orderId, orderNumber, vendorId, branchId, createdBy, discountAmount, totalAmount, transaction) => {
+  // Calculate discount per item proportionally
+  // discountAmount is the total discount applied at order level (from offer/promocode)
+  // Combo discounts are already included in subtotal from cart
+  const discountRatio = totalAmount > 0 ? (discountAmount / totalAmount) : 0;
+
   // Prepare bulk data for order items
-  const orderItemsBulk = orderItemsData.map((item) => ({
-    concurrency_stamp: uuidV4(),
-    order_id: orderId,
-    product_id: item.product_id,
-    variant_id: item.variant_id || null,
-    variant_name: item.variant_name || null,
-    quantity: item.quantity,
-    price_at_purchase: item.price_at_purchase,
-    created_by: createdBy,
-  }));
+  const orderItemsBulk = orderItemsData.map((item) => {
+    const itemSubtotal = item.subtotal || (item.price_at_purchase * item.quantity);
+    const itemDiscount = itemSubtotal * discountRatio;
+
+    return {
+      concurrency_stamp: uuidV4(),
+      order_id: orderId,
+      product_id: item.product_id,
+      variant_id: item.variant_id || null,
+      variant_name: item.variant_name || null,
+      quantity: item.quantity,
+      price_at_purchase: item.price_at_purchase,
+      is_combo: item.is_combo || false,
+      subtotal: item.is_combo ? item.subtotal : itemSubtotal,
+      discount_amount: itemDiscount,
+      created_by: createdBy,
+    };
+  });
 
   // Bulk insert order items (much faster than individual inserts)
   await OrderItemModel.bulkCreate(orderItemsBulk, {
@@ -569,38 +589,46 @@ const placeOrder = async (data) => withTransaction(sequelize, async (transaction
   // Calculate order amount and validate quantities
   const { totalAmount, orderItemsData } = calculateOrderAmount(cartItems);
 
-  // Handle address
-  const address = await handleOrderAddress(data, createdBy, transaction);
+  // Parallelize address handling and discount application (they don't depend on each other)
+  const [ address, discountResult ] = await Promise.all([
+    handleOrderAddress(data, createdBy, transaction),
+    (async () => {
+      let discountApplied = false;
+      let discountType = null;
+      let discountId = null;
+      let discountPercentage = 0;
+      let discountAmount = 0;
 
-  // Apply discounts
-  let discountApplied = false;
-  let discountType = null;
-  let discountId = null;
-  let discountPercentage = 0;
-  let discountAmount = 0;
+      if (offerCode) {
+        const offerResult = await applyOfferDiscount(offerCode, totalAmount, transaction);
+
+        discountApplied = offerResult.discountApplied;
+        discountType = offerResult.discountType;
+        discountId = offerResult.discountId;
+        discountPercentage = offerResult.discountPercentage;
+        discountAmount = offerResult.discountAmount;
+      } else if (promocodeId) {
+        const promocodeResult = await applyPromocodeDiscount(promocodeId, branchId, totalAmount, transaction);
+
+        discountApplied = promocodeResult.discountApplied;
+        discountType = promocodeResult.discountType;
+        discountId = promocodeResult.discountId;
+        discountPercentage = promocodeResult.discountPercentage;
+        discountAmount = promocodeResult.discountAmount;
+      }
+
+      return {
+        discountApplied,
+        discountType,
+        discountId,
+        discountPercentage,
+        discountAmount,
+      };
+    })(),
+  ]);
+
   const originalAmount = totalAmount;
-
-  let discountedTotal = totalAmount;
-
-  if (offerCode) {
-    const offerResult = await applyOfferDiscount(offerCode, totalAmount, transaction);
-
-    discountApplied = offerResult.discountApplied;
-    discountType = offerResult.discountType;
-    discountId = offerResult.discountId;
-    discountPercentage = offerResult.discountPercentage;
-    discountAmount = offerResult.discountAmount;
-    discountedTotal = totalAmount - discountAmount;
-  } else if (promocodeId) {
-    const promocodeResult = await applyPromocodeDiscount(promocodeId, branchId, totalAmount, transaction);
-
-    discountApplied = promocodeResult.discountApplied;
-    discountType = promocodeResult.discountType;
-    discountId = promocodeResult.discountId;
-    discountPercentage = promocodeResult.discountPercentage;
-    discountAmount = promocodeResult.discountAmount;
-    discountedTotal = totalAmount - discountAmount;
-  }
+  const discountedTotal = totalAmount - discountResult.discountAmount;
 
   // Calculate shipping charges
   const shippingResult = await calculateOrderShipping(
@@ -621,7 +649,7 @@ const placeOrder = async (data) => withTransaction(sequelize, async (transaction
 
   const orderDoc = {
     totalAmount,
-    discountAmount,
+    discountAmount: discountResult.discountAmount,
     shippingCharges: shippingResult.shippingCharges,
     finalAmount,
     addressId: address.id,
@@ -649,22 +677,22 @@ const placeOrder = async (data) => withTransaction(sequelize, async (transaction
   );
 
   // Create order discount record if discount was applied
-  if (discountApplied) {
+  if (discountResult.discountApplied) {
     const discountDoc = {
       concurrencyStamp: uuidV4(),
       orderId: newOrder.id,
-      discountType,
-      discountAmount,
-      discountPercentage,
+      discountType: discountResult.discountType,
+      discountAmount: discountResult.discountAmount,
+      discountPercentage: discountResult.discountPercentage,
       originalAmount,
-      finalAmount: totalAmount,
+      finalAmount,
       createdBy,
     };
 
-    if (discountType === 'OFFER') {
-      discountDoc.offerId = discountId;
-    } else if (discountType === 'PROMOCODE') {
-      discountDoc.promocodeId = discountId;
+    if (discountResult.discountType === 'OFFER') {
+      discountDoc.offerId = discountResult.discountId;
+    } else if (discountResult.discountType === 'PROMOCODE') {
+      discountDoc.promocodeId = discountResult.discountId;
     }
 
     await OrderDiscountModel.create(convertCamelToSnake(discountDoc), {
@@ -692,6 +720,8 @@ const placeOrder = async (data) => withTransaction(sequelize, async (transaction
     branchVendorId,
     branchId,
     createdBy,
+    discountResult.discountAmount,
+    totalAmount,
     transaction,
   );
 
@@ -801,7 +831,7 @@ const getOrder = async (payload) => {
         {
           model: OrderItemModel,
           as: 'orderItems',
-          attributes: [ 'id', 'product_id', 'variant_id', 'variant_name', 'quantity', 'price_at_purchase' ],
+          attributes: [ 'id', 'product_id', 'variant_id', 'variant_name', 'quantity', 'price_at_purchase', 'is_combo', 'subtotal', 'discount_amount' ],
           include: [
             {
               model: ProductModel,
@@ -812,7 +842,7 @@ const getOrder = async (payload) => {
             {
               model: ProductVariantModel,
               as: 'variant',
-              attributes: [ 'id', 'variant_name', 'variant_type' ],
+              attributes: [ 'id', 'variant_name' ],
               required: false,
             },
           ],
@@ -1554,32 +1584,19 @@ const updateOrder = async (data) => withTransaction(sequelize, async (transactio
     });
   }
 
-  // Handle order cancellation - restore inventory
-  if (newStatus === ORDER_STATUS.CANCELLED && oldStatus !== ORDER_STATUS.CANCELLED) {
-    await handleOrderCancellation(
-      id,
-      response.order_number,
-      response.vendor_id,
-      response.branch_id,
-      updatedBy,
-      transaction,
-    );
-  }
+  // Handle order cancellation/rejection/return - restore inventory
+  // Consolidate multiple status checks into a single operation
+  const statusesRequiringInventoryRestore = [
+    { status: ORDER_STATUS.CANCELLED, isReturn: false },
+    { status: ORDER_STATUS.REJECTED, isReturn: false },
+    { status: ORDER_STATUS.RETURNED, isReturn: true },
+  ];
 
-  // Handle order rejection - restore inventory (same as cancellation)
-  if (newStatus === ORDER_STATUS.REJECTED && oldStatus !== ORDER_STATUS.REJECTED) {
-    await handleOrderCancellation(
-      id,
-      response.order_number,
-      response.vendor_id,
-      response.branch_id,
-      updatedBy,
-      transaction,
-    );
-  }
+  const statusRequiringRestore = statusesRequiringInventoryRestore.find(
+    (s) => newStatus === s.status && oldStatus !== s.status,
+  );
 
-  // Handle order return - restore inventory when order is returned
-  if (newStatus === ORDER_STATUS.RETURNED && oldStatus !== ORDER_STATUS.RETURNED) {
+  if (statusRequiringRestore) {
     await handleOrderCancellation(
       id,
       response.order_number,
@@ -1587,7 +1604,7 @@ const updateOrder = async (data) => withTransaction(sequelize, async (transactio
       response.branch_id,
       updatedBy,
       transaction,
-      true, // isReturn = true
+      statusRequiringRestore.isReturn,
     );
   }
 
@@ -1701,6 +1718,9 @@ const getOrderDetails = async (orderId) => {
             'variant_name',
             'quantity',
             'price_at_purchase',
+            'is_combo',
+            'subtotal',
+            'discount_amount',
           ],
           include: [
             {
@@ -1718,8 +1738,6 @@ const getOrderDetails = async (orderId) => {
               attributes: [
                 'id',
                 'variant_name',
-                'variant_type',
-                'variant_value',
                 'selling_price',
               ],
               required: false,
@@ -1770,6 +1788,28 @@ const getOrderDetails = async (orderId) => {
           ],
           required: false,
         },
+        {
+          model: OrderStatusHistoryModel,
+          as: 'orderStatusHistory',
+          attributes: [
+            'id',
+            'status',
+            'previous_status',
+            'notes',
+            'created_at',
+            'updated_at',
+          ],
+          include: [
+            {
+              model: UserModel,
+              as: 'changedByUser',
+              attributes: [ 'id', 'name', 'email' ],
+              required: false,
+            },
+          ],
+          required: false,
+          order: [ [ 'created_at', 'ASC' ] ],
+        },
       ],
     });
 
@@ -1780,22 +1820,17 @@ const getOrderDetails = async (orderId) => {
     // Transform the data to match the UI structure
     const orderData = order.toJSON();
 
-    // Calculate item-level discounts and totals
+    // Use DB values for order items (subtotal and discount_amount are already calculated)
     const orderItems = orderData.orderItems.map((item) => {
-      const { price_at_purchase: unitPrice, quantity } = item;
+      const {
+        price_at_purchase: unitPrice,
+        quantity,
+        is_combo: isCombo,
+        subtotal: itemSubtotal,
+        discount_amount: itemDiscount,
+      } = item;
 
-      const itemSubtotal = unitPrice * quantity;
-
-      // Calculate discount per item (proportional to total discount)
-      // If there's a discount, distribute it proportionally
-      let itemDiscount = 0;
-
-      if (orderData.discount_amount > 0 && orderData.total_amount > 0) {
-        const discountRatio = orderData.discount_amount / orderData.total_amount;
-
-        itemDiscount = itemSubtotal * discountRatio;
-      }
-
+      // Calculate item total from DB values
       const itemTotal = itemSubtotal - itemDiscount;
 
       // Use variant data if available, otherwise use product data
@@ -1822,6 +1857,8 @@ const getOrderDetails = async (orderId) => {
         unit_price: parseFloat(unitPrice.toFixed(2)),
         discount: parseFloat(itemDiscount.toFixed(2)),
         total: parseFloat(itemTotal.toFixed(2)),
+        subtotal: parseFloat(itemSubtotal.toFixed(2)),
+        is_combo: Boolean(isCombo),
       };
     });
 
@@ -1890,6 +1927,20 @@ const getOrderDetails = async (orderId) => {
       estimatedDeliveryDate = deliveryDate.toISOString();
     }
 
+    // Format order status history
+    const statusHistory = (orderData.orderStatusHistory || []).map((history) => ({
+      id: history.id,
+      status: history.status,
+      previous_status: history.previous_status,
+      notes: history.notes || null,
+      changed_by: history.changedByUser ? {
+        id: history.changedByUser.id,
+        name: history.changedByUser.name,
+        email: history.changedByUser.email,
+      } : null,
+      changed_at: history.created_at,
+    }));
+
     // Format response to match UI structure
     const response = {
       order_id: orderData.id,
@@ -1916,6 +1967,7 @@ const getOrderDetails = async (orderId) => {
         payment_status: orderData.payment_status,
         order_status: orderData.status,
       },
+      status_history: statusHistory,
     };
 
     // Convert image URLs to CloudFront URLs (recursively handles nested objects/arrays)

@@ -3,7 +3,6 @@ const Joi = require('joi');
 const updateProduct = Joi.object({
   id: Joi.number().integer().required(),
   title: Joi.string().optional(),
-  description: Joi.string().optional(),
   categoryId: Joi.number().integer().optional(),
   branchId: Joi.number().integer().optional(),
   vendorId: Joi.number().integer().optional(),
@@ -13,7 +12,6 @@ const updateProduct = Joi.object({
       'number.base': 'Parameter: brandId must be a number',
     }),
   status: Joi.string().valid('ACTIVE', 'INACTIVE').optional(),
-  nutritional: Joi.string().optional(),
   updatedBy: Joi.number().integer().required(),
   concurrencyStamp: Joi.string().required(),
   variants: Joi.string().optional().messages({

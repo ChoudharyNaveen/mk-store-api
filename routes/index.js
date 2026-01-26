@@ -26,6 +26,7 @@ const inventory = require('./inventory');
 const userFcmToken = require('./userFcmToken');
 const riderStats = require('./riderStats');
 const dashboard = require('./dashboard');
+const banner = require('./banner');
 
 user(router);
 category(router);
@@ -51,5 +52,6 @@ inventory(router);
 userFcmToken(router);
 riderStats(router);
 dashboard(router);
+banner(router);
 
 module.exports = router;

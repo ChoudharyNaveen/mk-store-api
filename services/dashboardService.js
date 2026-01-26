@@ -1,3 +1,4 @@
+/* eslint-disable max-lines */
 const { Op } = require('sequelize');
 const {
   user: UserModel,
@@ -28,7 +29,7 @@ const getDashboardKPIs = async (payload = {}) => {
     // Build where conditions for vendor/branch filtering
     const orderWhere = {};
     // Get current stats and previous period stats in parallel
-    const [currentStats, yesterdayStats, lastWeekStats] = await Promise.all([
+    const [ currentStats, yesterdayStats, lastWeekStats ] = await Promise.all([
       // Current stats
       Promise.all([
         // Total Users (only users with role = 'USER')
@@ -64,6 +65,7 @@ const getDashboardKPIs = async (payload = {}) => {
             replacements,
             type: sequelize.QueryTypes.SELECT,
           });
+
           return result[0]?.total_users || 0;
         })(),
         // Total Orders
@@ -77,13 +79,15 @@ const getDashboardKPIs = async (payload = {}) => {
               ${vendorId ? 'AND \`order\`.vendor_id = ?' : ''}
               ${branchId ? 'AND \`order\`.branch_id = ?' : ''}
           `;
-          const replacements = [ORDER_STATUS.DELIVERED];
+          const replacements = [ ORDER_STATUS.DELIVERED ];
+
           if (vendorId) replacements.push(vendorId);
           if (branchId) replacements.push(branchId);
           const result = await sequelize.query(revenueQuery, {
             replacements,
             type: sequelize.QueryTypes.SELECT,
           });
+
           return result[0]?.total_revenue || 0;
         })(),
         // Total Returns
@@ -99,8 +103,9 @@ const getDashboardKPIs = async (payload = {}) => {
       Promise.all([
         (async () => {
           const yesterdayEnd = new Date();
+
           yesterdayEnd.setHours(0, 0, 0, 0);
-          const replacements = [yesterdayEnd];
+          const replacements = [ yesterdayEnd ];
           let vendorCondition = '';
           let branchJoin = '';
           let branchCondition = '';
@@ -132,6 +137,7 @@ const getDashboardKPIs = async (payload = {}) => {
             replacements,
             type: sequelize.QueryTypes.SELECT,
           });
+
           return result[0]?.total_users || 0;
         })(),
         OrderModel.count({
@@ -144,9 +150,11 @@ const getDashboardKPIs = async (payload = {}) => {
         }),
         (async () => {
           const yesterdayStart = new Date();
+
           yesterdayStart.setDate(yesterdayStart.getDate() - 1);
           yesterdayStart.setHours(0, 0, 0, 0);
           const yesterdayEnd = new Date(yesterdayStart);
+
           yesterdayEnd.setHours(23, 59, 59, 999);
 
           const revenueQuery = `
@@ -157,13 +165,15 @@ const getDashboardKPIs = async (payload = {}) => {
               ${vendorId ? 'AND \`order\`.vendor_id = ?' : ''}
               ${branchId ? 'AND \`order\`.branch_id = ?' : ''}
           `;
-          const replacements = [ORDER_STATUS.DELIVERED, yesterdayStart, yesterdayEnd];
+          const replacements = [ ORDER_STATUS.DELIVERED, yesterdayStart, yesterdayEnd ];
+
           if (vendorId) replacements.push(vendorId);
           if (branchId) replacements.push(branchId);
           const result = await sequelize.query(revenueQuery, {
             replacements,
             type: sequelize.QueryTypes.SELECT,
           });
+
           return result[0]?.total_revenue || 0;
         })(),
         OrderModel.count({
@@ -189,14 +199,15 @@ const getDashboardKPIs = async (payload = {}) => {
       }),
     ]);
 
-    const [totalUsers, totalOrders, totalRevenue, totalReturns] = currentStats;
-    const [yesterdayUsers, yesterdayOrders, yesterdayRevenue, yesterdayReturns] = yesterdayStats;
+    const [ totalUsers, totalOrders, totalRevenue, totalReturns ] = currentStats;
+    const [ yesterdayUsers, yesterdayOrders, yesterdayRevenue, yesterdayReturns ] = yesterdayStats;
     const lastWeekOrders = lastWeekStats;
 
     // Calculate percentage changes
     const calculatePercentage = (current, previous) => {
       if (!previous || previous === 0) return current > 0 ? 100 : 0;
       const percentage = ((current - previous) / previous) * 100;
+
       return parseFloat(percentage.toFixed(1));
     };
 
@@ -234,288 +245,15 @@ const getDashboardKPIs = async (payload = {}) => {
 };
 
 /**
- * Get Sales Overview - Daily sales and orders for last 7 days
- */
-const getSalesOverview = async (payload = {}) => {
-  try {
-    const { vendorId, branchId, days = 7, startDate, endDate } = payload;
-
-    const replacements = [ORDER_STATUS.DELIVERED];
-    let whereClause = 'WHERE `order`.status = ?';
-    let dateCondition = '';
-    let start = null;
-    let end = null;
-    let dateRangeDays = null;
-
-    // Determine date range and calculate duration
-    if (startDate || endDate) {
-      if (startDate && endDate) {
-        start = new Date(startDate);
-        end = new Date(endDate);
-        end.setHours(23, 59, 59, 999);
-        dateCondition = 'AND `order`.created_at >= ? AND `order`.created_at <= ?';
-        replacements.push(start, end);
-        dateRangeDays = Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1;
-      } else if (startDate) {
-        start = new Date(startDate);
-        dateCondition = 'AND `order`.created_at >= ?';
-        replacements.push(start);
-      } else if (endDate) {
-        end = new Date(endDate);
-        end.setHours(23, 59, 59, 999);
-        dateCondition = 'AND `order`.created_at <= ?';
-        replacements.push(end);
-      }
-    } else {
-      // Default: last N days
-      dateRangeDays = days;
-      dateCondition = 'AND `order`.created_at >= DATE_SUB(CURDATE(), INTERVAL ? DAY)';
-      replacements.push(days);
-    }
-
-    if (vendorId) {
-      whereClause += ' AND `order`.vendor_id = ?';
-      replacements.push(vendorId);
-    }
-    if (branchId) {
-      whereClause += ' AND `order`.branch_id = ?';
-      replacements.push(branchId);
-    }
-
-    // Determine grouping based on date range duration
-    let groupByClause = '';
-    let selectClause = '';
-    let orderByClause = '';
-    let periodType = 'day'; // default
-
-    if (dateRangeDays !== null) {
-      if (dateRangeDays === 1) {
-        // Single day: Group by hour
-        periodType = 'hour';
-        selectClause = `
-          HOUR(\`order\`.created_at) as period_value,
-          CONCAT(LPAD(HOUR(\`order\`.created_at), 2, '0'), ':00') as period_label,
-          DATE(\`order\`.created_at) as date,
-          HOUR(\`order\`.created_at) as hour
-        `;
-        groupByClause = 'HOUR(`order`.created_at), DATE(`order`.created_at)';
-        orderByClause = 'DATE(`order`.created_at) ASC, HOUR(`order`.created_at) ASC';
-      } else if (dateRangeDays <= 7) {
-        // Multiple days (up to 7): Group by day
-        periodType = 'day';
-        selectClause = `
-          DATE(\`order\`.created_at) as date,
-          DAYNAME(\`order\`.created_at) as day_name,
-          DAYOFWEEK(\`order\`.created_at) as day_of_week,
-          DATE(\`order\`.created_at) as period_value,
-          DAYNAME(\`order\`.created_at) as period_label
-        `;
-        groupByClause = 'DATE(`order`.created_at), DAYNAME(`order`.created_at), DAYOFWEEK(`order`.created_at)';
-        orderByClause = 'DATE(`order`.created_at) ASC';
-      } else if (dateRangeDays <= 60) {
-        // Multiple weeks (up to ~60 days): Group by week
-        periodType = 'week';
-        selectClause = `
-          YEARWEEK(\`order\`.created_at, 1) as period_value,
-          CONCAT(
-            DATE_FORMAT(DATE_SUB(\`order\`.created_at, INTERVAL WEEKDAY(\`order\`.created_at) DAY), '%b %d'),
-            ' - ',
-            DATE_FORMAT(DATE_SUB(\`order\`.created_at, INTERVAL WEEKDAY(\`order\`.created_at) DAY) + INTERVAL 6 DAY, '%b %d')
-          ) as period_label,
-          DATE_SUB(\`order\`.created_at, INTERVAL WEEKDAY(\`order\`.created_at) DAY) as week_start,
-          YEARWEEK(\`order\`.created_at, 1) as week_number
-        `;
-        groupByClause = 'YEARWEEK(`order`.created_at, 1), DATE_SUB(`order`.created_at, INTERVAL WEEKDAY(`order`.created_at) DAY)';
-        orderByClause = 'YEARWEEK(`order`.created_at, 1) ASC';
-      } else {
-        // Multiple months (60+ days): Group by month
-        periodType = 'month';
-        selectClause = `
-          DATE_FORMAT(\`order\`.created_at, '%Y-%m') as period_value,
-          DATE_FORMAT(\`order\`.created_at, '%b') as period_label,
-          YEAR(\`order\`.created_at) as year,
-          MONTH(\`order\`.created_at) as month
-        `;
-        groupByClause = 'YEAR(`order`.created_at), MONTH(`order`.created_at), DATE_FORMAT(`order`.created_at, \'%Y-%m\')';
-        orderByClause = 'YEAR(`order`.created_at) ASC, MONTH(`order`.created_at) ASC';
-      }
-    } else {
-      // Fallback to daily grouping if date range cannot be determined
-      periodType = 'day';
-      selectClause = `
-        DATE(\`order\`.created_at) as date,
-        DAYNAME(\`order\`.created_at) as day_name,
-        DAYOFWEEK(\`order\`.created_at) as day_of_week,
-        DATE(\`order\`.created_at) as period_value,
-        DAYNAME(\`order\`.created_at) as period_label
-      `;
-      groupByClause = 'DATE(`order`.created_at), DAYNAME(`order`.created_at), DAYOFWEEK(`order`.created_at)';
-      orderByClause = 'DATE(`order`.created_at) ASC';
-    }
-
-    const salesOverviewQuery = `
-      SELECT 
-        ${selectClause},
-        COALESCE(SUM(\`order\`.final_amount), 0) as sales,
-        COUNT(DISTINCT \`order\`.id) as orders
-      FROM \`order\`
-      ${whereClause}
-        ${dateCondition}
-      GROUP BY ${groupByClause}
-      ORDER BY ${orderByClause}
-    `;
-
-    const results = await sequelize.query(salesOverviewQuery, {
-      replacements,
-      type: sequelize.QueryTypes.SELECT,
-    });
-
-    // Map day names to abbreviations
-    const dayMap = {
-      Monday: 'Mon',
-      Tuesday: 'Tue',
-      Wednesday: 'Wed',
-      Thursday: 'Thu',
-      Friday: 'Fri',
-      Saturday: 'Sat',
-      Sunday: 'Sun',
-    };
-
-    // Format results based on period type
-    const doc = results.map((row) => {
-      const baseData = {
-        period_type: periodType,
-        sales: parseFloat(row.sales) || 0,
-        orders: parseInt(row.orders) || 0,
-      };
-
-      if (periodType === 'hour') {
-        return {
-          ...baseData,
-          period_label: row.period_label,
-          period_value: row.period_value,
-          hour: row.hour,
-          date: row.date,
-        };
-      } else if (periodType === 'day') {
-        return {
-          ...baseData,
-          period_label: dayMap[row.day_name] || row.day_name?.substring(0, 3) || row.period_label,
-          period_value: row.period_value || row.date,
-          day: dayMap[row.day_name] || row.day_name?.substring(0, 3),
-          day_name: row.day_name,
-          date: row.date,
-        };
-      } else if (periodType === 'week') {
-        return {
-          ...baseData,
-          period_label: row.period_label,
-          period_value: row.period_value,
-          week_start: row.week_start,
-          week_number: row.week_number,
-        };
-      } else if (periodType === 'month') {
-        return {
-          ...baseData,
-          period_label: row.period_label,
-          period_value: row.period_value,
-          year: row.year,
-          month: row.month,
-        };
-      }
-
-      return baseData;
-    });
-
-    return { doc, period_type: periodType };
-  } catch (error) {
-    return handleServiceError(error, 'Failed to fetch sales overview');
-  }
-};
-
-/**
- * Get Sales by Category - Pie chart data
- */
-const getSalesByCategory = async (payload = {}) => {
-  try {
-    const { vendorId, branchId, startDate, endDate } = payload;
-
-    const replacements = [ORDER_STATUS.DELIVERED];
-    let whereClause = 'WHERE `order`.status = ?';
-    let dateCondition = '';
-
-    if (startDate || endDate) {
-      if (startDate && endDate) {
-        const endDateTime = new Date(endDate);
-        endDateTime.setHours(23, 59, 59, 999);
-        dateCondition = 'AND orderitem.created_at >= ? AND orderitem.created_at <= ?';
-        replacements.push(new Date(startDate), endDateTime);
-      } else if (startDate) {
-        dateCondition = 'AND orderitem.created_at >= ?';
-        replacements.push(new Date(startDate));
-      } else if (endDate) {
-        const endDateTime = new Date(endDate);
-        endDateTime.setHours(23, 59, 59, 999);
-        dateCondition = 'AND orderitem.created_at <= ?';
-        replacements.push(endDateTime);
-      }
-    }
-
-    if (vendorId) {
-      whereClause += ' AND `order`.vendor_id = ?';
-      replacements.push(vendorId);
-    }
-    if (branchId) {
-      whereClause += ' AND `order`.branch_id = ?';
-      replacements.push(branchId);
-    }
-
-    const salesByCategoryQuery = `
-      SELECT 
-        category.id,
-        category.title as category_name,
-        COALESCE(SUM(orderitem.quantity * orderitem.price_at_purchase), 0) as total_sales,
-        COUNT(DISTINCT orderitem.order_id) as order_count
-      FROM orderitem
-      INNER JOIN product ON orderitem.product_id = product.id
-      INNER JOIN category ON product.category_id = category.id
-      INNER JOIN \`order\` ON orderitem.order_id = \`order\`.id
-      ${whereClause}
-      ${dateCondition}
-      GROUP BY category.id, category.title
-      ORDER BY total_sales DESC
-    `;
-
-    const results = await sequelize.query(salesByCategoryQuery, {
-      replacements,
-      type: sequelize.QueryTypes.SELECT,
-    });
-
-    // Calculate total sales for percentage calculation
-    const totalSales = results.reduce((sum, row) => sum + parseFloat(row.total_sales || 0), 0);
-
-    const doc = results.map((row) => ({
-      category_id: row.id,
-      category_name: row.category_name,
-      sales: parseFloat(row.total_sales) || 0,
-      order_count: parseInt(row.order_count) || 0,
-      percentage: totalSales > 0 ? ((parseFloat(row.total_sales) / totalSales) * 100).toFixed(1) : 0,
-    }));
-
-    return { doc };
-  } catch (error) {
-    return handleServiceError(error, 'Failed to fetch sales by category');
-  }
-};
-
-/**
  * Get Top Products - Top 5 products with revenue, orders, and trend
  */
 const getTopProducts = async (payload = {}) => {
   try {
-    const { vendorId, branchId, limit = 5, startDate, endDate } = payload;
+    const {
+      vendorId, branchId, limit = 5, startDate, endDate,
+    } = payload;
 
-    const replacements = [ORDER_STATUS.DELIVERED];
+    const replacements = [ ORDER_STATUS.DELIVERED ];
     let whereClause = 'WHERE `order`.status = ?';
     let currentDateCondition = '';
     let previousDateCondition = '';
@@ -524,6 +262,7 @@ const getTopProducts = async (payload = {}) => {
     if (startDate || endDate) {
       if (startDate && endDate) {
         const endDateTime = new Date(endDate);
+
         endDateTime.setHours(23, 59, 59, 999);
         currentDateCondition = 'AND orderitem.created_at >= ? AND orderitem.created_at <= ?';
         replacements.push(new Date(startDate), endDateTime);
@@ -532,6 +271,7 @@ const getTopProducts = async (payload = {}) => {
         replacements.push(new Date(startDate));
       } else if (endDate) {
         const endDateTime = new Date(endDate);
+
         endDateTime.setHours(23, 59, 59, 999);
         currentDateCondition = 'AND orderitem.created_at <= ?';
         replacements.push(endDateTime);
@@ -542,8 +282,10 @@ const getTopProducts = async (payload = {}) => {
         const end = new Date(endDate);
         const durationMs = end - start;
         const previousEnd = new Date(start);
+
         previousEnd.setTime(start.getTime() - 1);
         const previousStart = new Date(previousEnd);
+
         previousStart.setTime(previousEnd.getTime() - durationMs);
         previousDateCondition = 'AND orderitem.created_at >= ? AND orderitem.created_at <= ?';
         replacements.push(previousStart, previousEnd);
@@ -594,10 +336,10 @@ const getTopProducts = async (payload = {}) => {
       GROUP BY product.id
     `;
 
-    const currentReplacements = [...replacements, limit];
-    const previousReplacements = [...replacements];
+    const currentReplacements = [ ...replacements, limit ];
+    const previousReplacements = [ ...replacements ];
 
-    const [currentResults, previousResults] = await Promise.all([
+    const [ currentResults, previousResults ] = await Promise.all([
       sequelize.query(currentPeriodQuery, {
         replacements: currentReplacements,
         type: sequelize.QueryTypes.SELECT,
@@ -610,6 +352,7 @@ const getTopProducts = async (payload = {}) => {
 
     // Create a map of previous period stats
     const previousMap = {};
+
     previousResults.forEach((row) => {
       previousMap[row.id] = {
         revenue: parseFloat(row.revenue) || 0,
@@ -621,6 +364,7 @@ const getTopProducts = async (payload = {}) => {
     const calculateTrend = (current, previous) => {
       if (!previous || previous === 0) return current > 0 ? 100 : 0;
       const percentage = ((current - previous) / previous) * 100;
+
       return parseFloat(percentage.toFixed(1));
     };
 
@@ -635,7 +379,7 @@ const getTopProducts = async (payload = {}) => {
         product_name: row.product_name,
         revenue: currentRevenue,
         orders: parseInt(row.orders) || 0,
-        trend: trend,
+        trend,
         trend_type: trend >= 0 ? 'up' : 'down',
       };
     });
@@ -651,9 +395,12 @@ const getTopProducts = async (payload = {}) => {
  */
 const getRecentOrders = async (payload = {}) => {
   try {
-    const { vendorId, branchId, limit = 5, startDate, endDate } = payload;
+    const {
+      vendorId, branchId, limit = 5, startDate, endDate,
+    } = payload;
 
     const where = {};
+
     if (vendorId) where.vendor_id = vendorId;
     if (branchId) where.branch_id = branchId;
     if (startDate || endDate) {
@@ -663,6 +410,7 @@ const getRecentOrders = async (payload = {}) => {
       }
       if (endDate) {
         const endDateTime = new Date(endDate);
+
         endDateTime.setHours(23, 59, 59, 999);
         where.created_at[Op.lte] = endDateTime;
       }
@@ -698,12 +446,14 @@ const getRecentOrders = async (payload = {}) => {
       const diffHours = Math.floor(diffMs / 3600000);
 
       let timeAgo = '';
+
       if (diffMins < 60) {
         timeAgo = `${diffMins} ${diffMins === 1 ? 'min' : 'mins'} ago`;
       } else if (diffHours < 24) {
         timeAgo = `${diffHours} ${diffHours === 1 ? 'hour' : 'hours'} ago`;
       } else {
         const diffDays = Math.floor(diffHours / 24);
+
         timeAgo = `${diffDays} ${diffDays === 1 ? 'day' : 'days'} ago`;
       }
 
@@ -751,8 +501,10 @@ const getExpiringProducts = async (payload = {}) => {
 
     // Add expiry date filter - show products expiring within daysAhead days or already expired
     const today = new Date();
+
     today.setHours(0, 0, 0, 0);
     const futureDate = new Date(today);
+
     futureDate.setDate(futureDate.getDate() + daysAhead);
     futureDate.setHours(23, 59, 59, 999);
 
@@ -786,13 +538,14 @@ const getExpiringProducts = async (payload = {}) => {
     // Process filters and iLike conditions
     if (processedFilters && processedFilters.length > 0) {
       processedFilters.forEach((filter) => {
-        const key = filter.key;
+        const { key } = filter;
         const snakeKey = convertSnakeCase(key);
 
         // Check both original and snake_case versions
         if (productTableColumns.includes(key) || productTableColumns.includes(snakeKey)) {
           // Map product_name/productName to title for product table
           const mappedFilter = { ...filter };
+
           if (key === 'product_name' || key === 'productName' || snakeKey === 'product_name') {
             mappedFilter.key = 'title';
           }
@@ -800,6 +553,7 @@ const getExpiringProducts = async (payload = {}) => {
         } else if (categoryTableColumns.includes(key) || categoryTableColumns.includes(snakeKey)) {
           // Map category_name/category to title for category table
           const mappedFilter = { ...filter };
+
           if (key === 'category_name' || key === 'category' || snakeKey === 'category_name') {
             mappedFilter.key = 'title';
           }
@@ -820,6 +574,7 @@ const getExpiringProducts = async (payload = {}) => {
         if (productTableColumns.includes(key) || productTableColumns.includes(snakeKey)) {
           // Map product_name/productName to title for product table
           const mappedCondition = { ...iLikeCond };
+
           if (key === 'product_name' || key === 'productName' || snakeKey === 'product_name') {
             mappedCondition.column = 'title';
           }
@@ -827,6 +582,7 @@ const getExpiringProducts = async (payload = {}) => {
         } else if (categoryTableColumns.includes(key) || categoryTableColumns.includes(snakeKey)) {
           // Map category_name/category to title for category table
           const mappedCondition = { ...iLikeCond };
+
           if (key === 'category_name' || key === 'category' || snakeKey === 'category_name') {
             mappedCondition.column = 'title';
           }
@@ -887,6 +643,7 @@ const getExpiringProducts = async (payload = {}) => {
         if (col === 'price' || col === 'selling_price') {
           return `product_variant.selling_price ${dir}`;
         }
+
         return `product_variant.${col} ${dir}`;
       });
 
@@ -900,7 +657,6 @@ const getExpiringProducts = async (payload = {}) => {
       SELECT 
         product_variant.id as variant_id,
         product_variant.variant_name,
-        product_variant.variant_type,
         product_variant.quantity as stock,
         product_variant.selling_price as price,
         product_variant.expiry_date,
@@ -941,10 +697,12 @@ const getExpiringProducts = async (payload = {}) => {
 
       // Calculate expiry status for each variant
       const today = new Date();
+
       today.setHours(0, 0, 0, 0);
 
       const items = rows.map((row) => {
         const expiryDate = new Date(row.expiry_date);
+
         expiryDate.setHours(0, 0, 0, 0);
         const diffTime = expiryDate - today;
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
@@ -955,6 +713,7 @@ const getExpiringProducts = async (payload = {}) => {
         if (diffDays < 0) {
           // Expired
           const daysAgo = Math.abs(diffDays);
+
           expiryStatus = `Expired ${daysAgo} ${daysAgo === 1 ? 'day' : 'days'} ago`;
           expiryStatusType = 'expired';
         } else if (diffDays === 0) {
@@ -977,7 +736,6 @@ const getExpiringProducts = async (payload = {}) => {
         return {
           variant_id: row.variant_id,
           variant_name: row.variant_name,
-          variant_type: row.variant_type,
           product_id: row.product_id,
           product_name: row.product_name,
           category_id: row.category_id,
@@ -1005,8 +763,6 @@ const getExpiringProducts = async (payload = {}) => {
 
 module.exports = {
   getDashboardKPIs,
-  getSalesOverview,
-  getSalesByCategory,
   getTopProducts,
   getRecentOrders,
   getExpiringProducts,

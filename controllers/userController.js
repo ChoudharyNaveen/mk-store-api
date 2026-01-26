@@ -72,7 +72,7 @@ const createVendorAdmin = async (req, res) => {
 const updateUser = async (req, res) => {
   try {
     const data = { ...req.validatedData, id: req.params.id };
-    const imageFile = req.files.file ? req.files.file[0] : null;
+    const imageFile = req?.files?.file ? req.files.file[0] : null;
 
     const {
       errors: err,

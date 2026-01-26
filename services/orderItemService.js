@@ -4,8 +4,6 @@ const {
   product: ProductModel,
   productVariant: ProductVariantModel,
   productImage: ProductImageModel,
-  user: UserModel,
-  address: AddressModel,
 } = require('../database');
 const {
   calculatePagination,
@@ -29,7 +27,7 @@ const getOrderItem = async (payload) => {
     OrderItemModel,
     {
       where: { ...where },
-      attributes: [ 'id', 'order_id', 'product_id', 'variant_id', 'variant_name', 'quantity', 'price_at_purchase', 'created_by', 'created_at', 'updated_at', 'concurrency_stamp' ],
+      attributes: [ 'id', 'order_id', 'product_id', 'variant_id', 'variant_name', 'quantity', 'price_at_purchase', 'is_combo', 'subtotal', 'discount_amount', 'created_by', 'created_at', 'updated_at', 'concurrency_stamp' ],
       include: [
         {
           model: OrderModel,
@@ -55,7 +53,7 @@ const getOrderItem = async (payload) => {
         {
           model: ProductVariantModel,
           as: 'variant',
-          attributes: [ 'id', 'variant_name', 'variant_type', 'selling_price' ],
+          attributes: [ 'id', 'variant_name', 'selling_price' ],
           required: false,
         },
       ],

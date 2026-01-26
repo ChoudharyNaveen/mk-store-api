@@ -15,6 +15,17 @@ const saveCart = Joi.object({
     'any.required': 'Parameter: quantity is required',
     'number.base': 'Parameter: quantity is required',
   }),
+  price: Joi.number().integer().min(0).required()
+    .messages({
+      'any.required': 'Parameter: price is required',
+      'number.base': 'Parameter: price must be a number',
+      'number.min': 'Parameter: price must be greater than or equal to 0',
+    }),
+  isCombo: Joi.boolean().required()
+    .messages({
+      'any.required': 'Parameter: isCombo is required',
+      'boolean.base': 'Parameter: isCombo must be a boolean',
+    }),
   vendorId: Joi.number().integer().optional().messages({
     'number.base': 'Parameter: vendorId must be a number',
   }),
