@@ -82,7 +82,7 @@ module.exports = (router) => {
    *                 description: Multiple product image files (optional, max 3 images per product)
    *               variants:
    *                 type: string
-   *                 description: "JSON string array of variant objects (REQUIRED - at least one variant). Each variant must include: variantName (required), description (optional), nutritional (optional), price (required), sellingPrice (required), quantity (required), itemsPerUnit (optional), units (optional), itemQuantity (optional), itemUnit (optional), expiryDate (required), status (optional), comboDiscounts (optional array). Each comboDiscount object includes: comboQuantity (required), discountType (required: PERCENT or OFFER), discountValue (required), startDate (required), endDate (required), status (optional)"
+   *                 description: "JSON string array of variant objects (REQUIRED - at least one variant). Each variant must include: variantName (required), description (optional), nutritional (optional), price (required), sellingPrice (required), quantity (required), itemsPerUnit (optional), units (optional), itemQuantity (optional), itemUnit (optional), expiryDate (required), status (optional), comboDiscounts (optional array). Each comboDiscount object includes: comboQuantity (required), discountType (required: PERCENT or FLATOFF), discountValue (required), startDate (required), endDate (required), status (optional)"
    *                 example: '[{"variantName":"500g","description":"Fresh product","nutritional":"Calories: 100","price":500,"sellingPrice":450,"quantity":100,"itemsPerUnit":2,"units":"PCS","expiryDate":"2024-12-31","status":"ACTIVE","comboDiscounts":[{"comboQuantity":2,"discountType":"PERCENT","discountValue":10,"startDate":"2024-01-01","endDate":"2024-12-31","status":"ACTIVE"}]}]'
    *     responses:
    *       200:
@@ -294,7 +294,7 @@ module.exports = (router) => {
    *                 description: Multiple product image files (optional, max 3 images per product)
    *               variants:
    *                 type: string
-   *                 description: "JSON string array of variant objects (optional). For updates include id and concurrencyStamp. For new omit id. Each variant must include: variantName (required), description (optional), nutritional (optional), price (required), sellingPrice (required), quantity (required), itemsPerUnit (optional), units (optional), itemQuantity (optional), itemUnit (optional), expiryDate (required), status (optional), comboDiscounts (optional array). For comboDiscounts: include id and concurrencyStamp for updates, omit id for creates, set deleted:true for deletes. At least one variant must remain after all operations."
+   *                 description: "JSON string array of variant objects (optional). For updates include id and concurrencyStamp. For new omit id. Each variant must include: variantName (required), description (optional), nutritional (optional), price (required), sellingPrice (required), quantity (required), itemsPerUnit (optional), units (optional), itemQuantity (optional), itemUnit (optional), expiryDate (required), status (optional), comboDiscounts (optional array). For comboDiscounts: include id and concurrencyStamp for updates, omit id for creates, set deleted:true for deletes. At least one variant must remain after all operations. discountType supports PERCENT or FLATOFF."
    *                 example: '[{"id":1,"variantName":"500g","description":"Fresh product","nutritional":"Calories: 100","price":500,"sellingPrice":450,"quantity":100,"itemsPerUnit":2,"units":"PCS","expiryDate":"2024-12-31","concurrencyStamp":"stamp","status":"ACTIVE","comboDiscounts":[{"id":10,"concurrencyStamp":"cd-stamp","comboQuantity":3,"discountType":"PERCENT","discountValue":15,"startDate":"2024-01-01","endDate":"2024-12-31"},{"comboQuantity":10,"discountType":"PERCENT","discountValue":20,"startDate":"2024-01-01","endDate":"2024-12-31"},{"id":11,"deleted":true}]},{"variantName":"1kg","description":"Fresh product","nutritional":"Calories: 200","price":900,"sellingPrice":800,"quantity":50,"itemsPerUnit":1,"units":"PCS","expiryDate":"2024-12-31","status":"ACTIVE"}]'
    *               variantIdsToDelete:
    *                 type: string
@@ -447,7 +447,7 @@ module.exports = (router) => {
    *         description: Product ID
    *     responses:
    *       200:
-   *         description: Product details retrieved successfully
+   *         description: Product details retrieved successfully. Each variant's comboDiscounts entries include discount_price (discounted price for ONE combo set).
    *         content:
    *           application/json:
    *             schema:

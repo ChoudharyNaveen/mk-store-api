@@ -33,7 +33,6 @@ module.exports = (router) => {
    *               - variantId
    *               - quantity
    *               - price
-   *               - isCombo
    *             properties:
    *               productId:
    *                 type: integer
@@ -48,14 +47,10 @@ module.exports = (router) => {
    *                 minimum: 1
    *                 example: 2
    *                 description: Quantity to add to cart (required)
-   *               price:
-   *                 type: number
-   *                 example: 240
-   *                 description: "Total price (required - for regular items: quantity × unit_price; for combo items: (quantity × unit_price) - combo_discount, where discount can be PERCENT or FLATOFF)"
-   *               isCombo:
-   *                 type: boolean
-   *                 example: false
-   *                 description: "Whether this is a combo purchase (required - if true, price must be the total combo price for the specified quantity and quantity must match combo_quantity)"
+   *               comboId:
+   *                 type: integer
+   *                 example: 10
+   *                 description: "Combo discount ID (optional - if provided, price is calculated automatically as combo price for one combo set, quantity can be any value ≥ 1)"
    *               vendorId:
    *                 type: integer
    *                 example: 1
@@ -67,40 +62,34 @@ module.exports = (router) => {
    *           examples:
    *             regularItem:
    *               summary: Add regular item to cart
-   *               description: "Example: 2 items at ₹120 each, total price = ₹240"
+   *               description: "Example: 2 items at ₹120 each, price calculated automatically as ₹240"
    *               value:
    *                 productId: 1
    *                 variantId: 5
    *                 quantity: 2
-   *                 price: 240
-   *                 isCombo: false
-   *             comboItemFLATOFF:
-   *               summary: Add combo item with FLATOFF discount
-   *               description: "Example: 3 items at ₹120 each = ₹360, FLATOFF discount ₹20, total combo price = ₹340"
-   *               value:
-   *                 productId: 1
-   *                 variantId: 5
-   *                 quantity: 3
-   *                 price: 340
-   *                 isCombo: true
    *             comboItemPERCENT:
    *               summary: Add combo item with PERCENT discount
-   *               description: "Example: 3 items at ₹120 each = ₹360, 10% discount, total combo price = ₹324"
-   *               value:
-   *                 productId: 1
-   *                 variantId: 5
-   *                 quantity: 3
-   *                 price: 324
-   *                 isCombo: true
-   *             withVendorBranch:
-   *               summary: Add item with vendor and branch validation
-   *               description: "Example: 1 item at ₹120, total price = ₹120"
+   *               description: "Example: combo_quantity=3, sellingPrice=₹120, 10% discount. Price calculated automatically as ₹324. Quantity can be 1, 2, 3, etc."
    *               value:
    *                 productId: 1
    *                 variantId: 5
    *                 quantity: 1
-   *                 price: 120
-   *                 isCombo: false
+   *                 comboId: 10
+   *             comboItemFLATOFF:
+   *               summary: Add combo item with FLATOFF discount
+   *               description: "Example: combo_quantity=3, sellingPrice=₹120, FLATOFF ₹20. Price calculated automatically as ₹340. Quantity can be 1, 2, 3, etc."
+   *               value:
+   *                 productId: 1
+   *                 variantId: 5
+   *                 quantity: 1
+   *                 comboId: 10
+   *             withVendorBranch:
+   *               summary: Add item with vendor and branch validation
+   *               description: "Example: 1 item at ₹120, price calculated automatically as ₹120"
+   *               value:
+   *                 productId: 1
+   *                 variantId: 5
+   *                 quantity: 1
    *                 vendorId: 1
    *                 branchId: 2
    *     responses:
@@ -150,9 +139,10 @@ module.exports = (router) => {
    *                             quantity:
    *                               type: integer
    *                               example: 2
-   *                             is_combo:
-   *                               type: boolean
-   *                               example: false
+   *                             combo_id:
+   *                               type: integer
+   *                               nullable: true
+   *                               example: null
    *                             unit_price:
    *                               type: number
    *                               example: 120
@@ -347,8 +337,8 @@ module.exports = (router) => {
    *                 pageSize: 10
    *                 pageNumber: 1
    *                 filters:
-   *                   - key: "is_combo"
-   *                     eq: "false"
+   *                   - key: "combo_id"
+   *                     eq: "null"
    *                 sorting:
    *                   - key: "total_price"
    *                     direction: "DESC"
@@ -386,9 +376,10 @@ module.exports = (router) => {
    *                       quantity:
    *                         type: integer
    *                         example: 2
-   *                       is_combo:
-   *                         type: boolean
-   *                         example: false
+   *                       combo_id:
+   *                         type: integer
+   *                         nullable: true
+   *                         example: null
    *                       unit_price:
    *                         type: number
    *                         example: 120
@@ -531,9 +522,9 @@ module.exports = (router) => {
    *                       vendor_id: 1
    *                       branch_id: 2
    *                       quantity: 3
-   *                       is_combo: true
-   *                       unit_price: 100
-   *                       total_price: 300
+   *                       combo_id: 10
+   *                       unit_price: 324
+   *                       total_price: 972
    *                       status: "ACTIVE"
    *                       created_at: "2025-01-25T11:00:00.000Z"
    *                       updated_at: "2025-01-25T11:00:00.000Z"
@@ -681,15 +672,12 @@ module.exports = (router) => {
    *                 type: integer
    *                 minimum: 0
    *                 example: 3
-   *                 description: New quantity (optional - if 0, item is removed from cart)
-   *               price:
-   *                 type: number
-   *                 example: 240
-   *                 description: "New total price (optional - for regular items: quantity × unit_price; for combo items: (quantity × unit_price) - combo_discount)"
-   *               isCombo:
-   *                 type: boolean
-   *                 example: false
-   *                 description: "Whether this is a combo purchase (optional - if true, price must be the total combo price for the specified quantity and quantity must match combo_quantity)"
+   *                 description: New quantity (optional - if 0, item is removed from cart; price is calculated automatically)
+   *               comboId:
+   *                 type: integer
+   *                 nullable: true
+   *                 example: null
+   *                 description: "Combo discount ID (optional - if provided, price is calculated automatically as combo price for one combo set; if set to null, switches from combo to regular)"
    *               updatedBy:
    *                 type: integer
    *                 example: 1
@@ -702,19 +690,17 @@ module.exports = (router) => {
    *           examples:
    *             updateQuantity:
    *               summary: Update quantity only
-   *               description: "Example: Updating quantity to 5, total price = 5 × ₹120 = ₹600"
+   *               description: "Example: Updating quantity to 5, price calculated automatically as 5 × ₹120 = ₹600"
    *               value:
    *                 quantity: 5
-   *                 price: 600
    *                 updatedBy: 1
    *                 concurrencyStamp: "550e8400-e29b-41d4-a716-446655440000"
-   *             updatePriceAndCombo:
-   *               summary: Update price and combo status
-   *               description: "Example: Updating to combo with 3 items, total combo price ₹340 (FLATOFF discount)"
+   *             updateCombo:
+   *               summary: Update combo status
+   *               description: "Example: Updating to combo with quantity 2, price calculated automatically as combo price per set ₹324 (PERCENT discount)"
    *               value:
-   *                 price: 340
-   *                 isCombo: true
-   *                 quantity: 3
+   *                 quantity: 2
+   *                 comboId: 10
    *                 updatedBy: 1
    *                 concurrencyStamp: "550e8400-e29b-41d4-a716-446655440000"
    *             removeItem:

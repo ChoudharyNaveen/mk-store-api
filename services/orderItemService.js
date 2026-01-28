@@ -27,7 +27,7 @@ const getOrderItem = async (payload) => {
     OrderItemModel,
     {
       where: { ...where },
-      attributes: [ 'id', 'order_id', 'product_id', 'variant_id', 'variant_name', 'quantity', 'price_at_purchase', 'is_combo', 'subtotal', 'discount_amount', 'created_by', 'created_at', 'updated_at', 'concurrency_stamp' ],
+      attributes: [ 'id', 'order_id', 'product_id', 'variant_id', 'variant_name', 'quantity', 'price_at_purchase', 'combo_id', 'subtotal', 'discount_amount', 'created_by', 'created_at', 'updated_at', 'concurrency_stamp' ],
       include: [
         {
           model: OrderModel,

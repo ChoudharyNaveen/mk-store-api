@@ -21,7 +21,7 @@ module.exports = (sequelize, DataTypes) => {
       discount_type: {
         type: DataTypes.STRING,
         allowNull: false,
-        enum: [ 'PERCENT', 'OFFER' ],
+        enum: [ 'PERCENT', 'FLATOFF' ],
       },
       discount_value: {
         type: DataTypes.INTEGER,

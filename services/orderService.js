@@ -17,6 +17,7 @@ const {
   orderStatusHistory: OrderStatusHistoryModel,
   productImage: ProductImageModel,
   user_roles_mappings: UserRolesMappingModel,
+  variantComboDiscount: VariantComboDiscountModel,
   sequelize,
   Sequelize: { Op },
 } = require('../database');
@@ -155,7 +156,7 @@ const fetchAndValidateCartItems = async (createdBy, vendorId, branchId, transact
       vendor_id: vendorId,
       branch_id: branchId,
     },
-    attributes: [ 'id', 'product_id', 'variant_id', 'vendor_id', 'branch_id', 'quantity', 'unit_price', 'total_price', 'is_combo', 'created_by' ],
+    attributes: [ 'id', 'product_id', 'variant_id', 'vendor_id', 'branch_id', 'quantity', 'unit_price', 'total_price', 'combo_id', 'created_by' ],
     include: [
       {
         model: ProductVariantModel,
@@ -207,15 +208,15 @@ const fetchAndValidateCartItems = async (createdBy, vendorId, branchId, transact
 };
 
 // Helper: Calculate order amount and validate quantities
-const calculateOrderAmount = (cartItems) => {
+const calculateOrderAmount = async (cartItems, transaction) => {
   let totalAmount = 0;
-  const validationResults = cartItems.map((item) => {
+  const validationResults = await Promise.all(cartItems.map(async (item) => {
     const {
-      quantity,
+      quantity: cartQuantity,
       variant,
       total_price: totalPrice,
       unit_price: unitPrice,
-      is_combo: isCombo,
+      combo_id: comboId,
     } = item;
 
     if (!variant) {
@@ -224,16 +225,49 @@ const calculateOrderAmount = (cartItems) => {
       };
     }
 
-    const price = unitPrice || variant.selling_price;
     const itemTitle = variant.variant_name;
     const currentQuantity = variant.quantity;
     const itemConcurrencyStamp = variant.concurrency_stamp;
     const itemProductId = variant.product_id;
     const itemVariantId = variant.id;
     const itemVariantName = variant.variant_name;
-    const subtotal = totalPrice || (price * quantity);
 
-    if (quantity > currentQuantity) {
+    let orderQuantity;
+    let priceAtPurchase;
+    let subtotal;
+    let finalComboId = null;
+
+    if (comboId) {
+      // Fetch combo discount to get combo_quantity
+      const comboDiscount = await VariantComboDiscountModel.findOne({
+        where: { id: comboId },
+        attributes: [ 'id', 'combo_quantity' ],
+        transaction,
+      });
+
+      if (!comboDiscount) {
+        return {
+          errors: { message: `Combo discount with id ${comboId} not found` },
+        };
+      }
+
+      // Order quantity = cart quantity × combo_quantity
+      orderQuantity = cartQuantity * comboDiscount.combo_quantity;
+      // Price at purchase = cart unit_price (combo price per set)
+      priceAtPurchase = unitPrice;
+      // Subtotal = cart quantity × cart unit_price (combo price per set)
+      subtotal = cartQuantity * unitPrice;
+      finalComboId = comboId;
+    } else {
+      // Regular item: use cart quantity as-is
+      orderQuantity = cartQuantity;
+      priceAtPurchase = unitPrice || variant.selling_price;
+      subtotal = totalPrice || (priceAtPurchase * cartQuantity);
+      finalComboId = null;
+    }
+
+    // Validate inventory: check orderQuantity (not cartQuantity)
+    if (orderQuantity > currentQuantity) {
       return {
         errors: {
           message: `we apologize for the inconvenience, quantity for the ${itemTitle} is left with only ${currentQuantity}.
@@ -247,16 +281,16 @@ const calculateOrderAmount = (cartItems) => {
         product_id: itemProductId,
         variant_id: itemVariantId,
         variant_name: itemVariantName,
-        quantity,
-        price_at_purchase: price,
-        is_combo: isCombo || false,
+        quantity: orderQuantity,
+        price_at_purchase: priceAtPurchase,
+        combo_id: finalComboId,
         subtotal,
         product_quantity: currentQuantity,
         product_concurrency_stamp: itemConcurrencyStamp,
       },
       subtotal,
     };
-  });
+  }));
 
   const errorResult = validationResults.find((result) => result?.errors);
 
@@ -479,8 +513,8 @@ const createOrderItemsAndReduceInventory = async (orderItemsData, orderId, order
       variant_name: item.variant_name || null,
       quantity: item.quantity,
       price_at_purchase: item.price_at_purchase,
-      is_combo: item.is_combo || false,
-      subtotal: item.is_combo ? item.subtotal : itemSubtotal,
+      combo_id: item.combo_id || null,
+      subtotal: item.subtotal || itemSubtotal,
       discount_amount: itemDiscount,
       created_by: createdBy,
     };
@@ -615,7 +649,7 @@ const placeOrder = async (data) => withTransaction(sequelize, async (transaction
   const cartItems = await fetchAndValidateCartItems(createdBy, branchVendorId, branchId, transaction);
 
   // Calculate order amount and validate quantities
-  const { totalAmount, orderItemsData } = calculateOrderAmount(cartItems);
+  const { totalAmount, orderItemsData } = await calculateOrderAmount(cartItems, transaction);
 
   // Parallelize address handling and discount application (they don't depend on each other)
   const [ address, discountResult ] = await Promise.all([
@@ -859,7 +893,7 @@ const getOrder = async (payload) => {
         {
           model: OrderItemModel,
           as: 'orderItems',
-          attributes: [ 'id', 'product_id', 'variant_id', 'variant_name', 'quantity', 'price_at_purchase', 'is_combo', 'subtotal', 'discount_amount' ],
+          attributes: [ 'id', 'product_id', 'variant_id', 'variant_name', 'quantity', 'price_at_purchase', 'combo_id', 'subtotal', 'discount_amount' ],
           include: [
             {
               model: ProductModel,
@@ -1759,7 +1793,7 @@ const getOrderDetails = async (orderId) => {
             'variant_name',
             'quantity',
             'price_at_purchase',
-            'is_combo',
+            'combo_id',
             'subtotal',
             'discount_amount',
           ],
@@ -1799,6 +1833,15 @@ const getOrderDetails = async (orderId) => {
                   ],
                 },
               ],
+            },
+            {
+              model: VariantComboDiscountModel,
+              as: 'comboDiscount',
+              attributes: [
+                'id',
+                'combo_quantity',
+              ],
+              required: false,
             },
           ],
         },
@@ -1866,10 +1909,12 @@ const getOrderDetails = async (orderId) => {
       const {
         price_at_purchase: unitPrice,
         quantity,
-        is_combo: isCombo,
+        combo_id: comboId,
         subtotal: itemSubtotal,
         discount_amount: itemDiscount,
       } = item;
+
+      const comboQuantity = item.comboDiscount?.combo_quantity ?? null;
 
       // Calculate item total from DB values
       const itemTotal = itemSubtotal - itemDiscount;
@@ -1899,7 +1944,8 @@ const getOrderDetails = async (orderId) => {
         discount: parseFloat(itemDiscount.toFixed(2)),
         total: parseFloat(itemTotal.toFixed(2)),
         subtotal: parseFloat(itemSubtotal.toFixed(2)),
-        is_combo: Boolean(isCombo),
+        combo_id: comboId || null,
+        combo_quantity: comboQuantity,
       };
     });
 

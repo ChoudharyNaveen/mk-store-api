@@ -28,6 +28,7 @@ const {
 } = require('../utils/helper');
 const { uploadFile } = require('../config/aws');
 const { convertImageFieldsToCloudFront } = require('../utils/s3Helper');
+const { calculateComboDiscountPricePerSet } = require('../utils/comboDiscountPrice');
 const InventoryMovementService = require('./inventoryMovementService');
 const { getProductStatusFromQuantity } = require('../utils/constants/productStatusConstants');
 const { INVENTORY_MOVEMENT_TYPE } = require('../utils/constants/inventoryMovementTypeConstants');
@@ -1366,6 +1367,24 @@ const getProduct = async (payload) => {
             'status',
             'concurrency_stamp',
           ],
+          include: [
+            {
+              model: VariantComboDiscountModel,
+              as: 'comboDiscounts',
+              where: { status: 'ACTIVE' },
+              required: false,
+              attributes: [
+                'id',
+                'combo_quantity',
+                'discount_type',
+                'discount_value',
+                'start_date',
+                'end_date',
+                'status',
+                'concurrency_stamp',
+              ],
+            },
+          ],
         },
         {
           model: ProductImageModel,
@@ -1394,6 +1413,26 @@ const getProduct = async (payload) => {
       JSON.parse(JSON.stringify(dataValues)),
       [ 'image', 'logo', 'image_url' ],
     );
+
+    // Add discount_price to comboDiscounts (price for ONE combo set)
+    for (let p = 0; p < doc.length; p += 1) {
+      const variants = doc[p].variants || [];
+
+      for (let v = 0; v < variants.length; v += 1) {
+        const sellingPrice = variants[v].selling_price;
+        const cds = variants[v].comboDiscounts || [];
+
+        variants[v].comboDiscounts = cds.map((cd) => ({
+          ...cd,
+          discount_price: calculateComboDiscountPricePerSet({
+            sellingPrice,
+            comboQuantity: cd.combo_quantity,
+            discountType: cd.discount_type,
+            discountValue: cd.discount_value,
+          }),
+        }));
+      }
+    }
 
     return { count, totalCount, doc };
   }
@@ -1607,100 +1646,28 @@ const getProductDetails = async (productId) => {
       return handleServiceError(new NotFoundError('Product not found'));
     }
 
-    // Get statistics
-    // const [ cartCount, wishlistCount, orderCount ] = await Promise.all([
-    //   CartModel.count({
-    //     where: { product_id: productId, status: 'ACTIVE' },
-    //   }),
-    //   WishlistModel.count({
-    //     where: { product_id: productId },
-    //   }),
-    //   OrderItemModel.count({
-    //     where: { product_id: productId },
-    //   }),
-    // ]);
-
-    // // Get related products (same category, limit 6)
-    // const relatedProducts = await ProductModel.findAll({
-    //   where: {
-    //     category_id: product.category_id,
-    //     id: { [Op.ne]: productId },
-    //     status: 'ACTIVE',
-    //   },
-    //   attributes: [
-    //     'id',
-    //     'title',
-    //     'status',
-    //   ],
-    //   include: [
-    //     {
-    //       model: BrandModel,
-    //       as: 'brand',
-    //       attributes: [ 'id', 'name', 'logo' ],
-    //       required: false,
-    //     },
-    //     {
-    //       model: ProductVariantModel,
-    //       as: 'variants',
-    //       where: { status: 'ACTIVE' },
-    //       required: false,
-    //       attributes: [ 'id', 'selling_price', 'variant_name' ],
-    //       limit: 1,
-    //       order: [ [ 'created_at', 'ASC' ] ],
-    //     },
-    //     {
-    //       model: ProductImageModel,
-    //       as: 'images',
-    //       where: { status: 'ACTIVE', is_default: 1 },
-    //       required: false,
-    //       attributes: [ 'id', 'image_url' ],
-    //       limit: 1,
-    //     },
-    //   ],
-    //   limit: 6,
-    //   order: [ [ 'created_at', 'DESC' ] ],
-    // });
-
-    // const productData = product.dataValues;
-    // const statistics = {
-    //   cart_count: cartCount,
-    //   wishlist_count: wishlistCount,
-    //   order_count: orderCount,
-    //   total_sold: orderCount, // Can be enhanced with actual quantity sold
-    // };
-
-    // Convert image URLs to CloudFront URLs
-    // Include 'image_url' to convert product image URLs in the images array
-    // const convertedProduct = convertImageFieldsToCloudFront(
-    //   [ productData ],
-    //   [ 'image', 'logo', 'image_url' ],
-    // )[0];
-
-    // // Transform related products to include variant price and image
-    // const convertedRelated = relatedProducts.map((p) => {
-    //   const relatedProductData = p.dataValues;
-    //   const variant = relatedProductData.variants && relatedProductData.variants[0];
-    //   const image = relatedProductData.images && relatedProductData.images[0];
-
-    //   return {
-    //     id: relatedProductData.id,
-    //     title: relatedProductData.title,
-    //     status: relatedProductData.status,
-    //     selling_price: variant ? variant.selling_price : null,
-    //     image: image ? image.image_url : null,
-    //     brand: relatedProductData.brand,
-    //   };
-    // });
-
-    // const convertedRelatedImages = convertImageFieldsToCloudFront(
-    //   convertedRelated,
-    //   [ 'image', 'logo', 'image_url' ],
-    // );
-
     const convertedProduct = convertImageFieldsToCloudFront(
       JSON.parse(JSON.stringify(product.dataValues)),
       [ 'image', 'logo', 'image_url' ],
     );
+
+    // Add discount_price to comboDiscounts (price for ONE combo set)
+    const variants = convertedProduct.variants || [];
+
+    for (let v = 0; v < variants.length; v += 1) {
+      const sellingPrice = variants[v].selling_price;
+      const cds = variants[v].comboDiscounts || [];
+
+      variants[v].comboDiscounts = cds.map((cd) => ({
+        ...cd,
+        discount_price: calculateComboDiscountPricePerSet({
+          sellingPrice,
+          comboQuantity: cd.combo_quantity,
+          discountType: cd.discount_type,
+          discountValue: cd.discount_value,
+        }),
+      }));
+    }
 
     return {
       doc: {

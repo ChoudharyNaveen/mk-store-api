@@ -34,11 +34,11 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.FLOAT,
         allowNull: false,
       },
-      is_combo: {
-        type: DataTypes.BOOLEAN,
-        allowNull: false,
-        defaultValue: false,
-        comment: 'Indicates if this order item uses combo pricing',
+      combo_id: {
+        type: DataTypes.INTEGER,
+        allowNull: true,
+        defaultValue: null,
+        comment: 'Combo discount ID if this is a combo item, NULL for regular items',
       },
       subtotal: {
         type: DataTypes.FLOAT,
@@ -89,6 +89,11 @@ module.exports = (sequelize, DataTypes) => {
       foreignKey: 'variant_id',
       targetKey: 'id',
       as: 'variant',
+    });
+    orderItem.belongsTo(models.variantComboDiscount, {
+      foreignKey: 'combo_id',
+      targetKey: 'id',
+      as: 'comboDiscount',
     });
   };
 

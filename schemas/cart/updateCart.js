@@ -3,14 +3,9 @@ const Joi = require('joi');
 const updateCart = Joi.object({
   id: Joi.number().integer().required(),
   quantity: Joi.number().integer().min(1).optional(),
-  price: Joi.number().integer().min(0).optional()
+  comboId: Joi.number().integer().optional().allow(null)
     .messages({
-      'number.base': 'Parameter: price must be a number',
-      'number.min': 'Parameter: price must be greater than or equal to 0',
-    }),
-  isCombo: Joi.boolean().optional()
-    .messages({
-      'boolean.base': 'Parameter: isCombo must be a boolean',
+      'number.base': 'Parameter: comboId must be a number',
     }),
   updatedBy: Joi.number().integer().required(),
   concurrencyStamp: Joi.string().required(),

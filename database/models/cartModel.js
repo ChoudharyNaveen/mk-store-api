@@ -31,11 +31,11 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.INTEGER,
         allowNull: false,
       },
-      is_combo: {
-        type: DataTypes.BOOLEAN,
-        allowNull: false,
-        defaultValue: false,
-        comment: 'Indicates if this cart item uses combo pricing',
+      combo_id: {
+        type: DataTypes.INTEGER,
+        allowNull: true,
+        defaultValue: null,
+        comment: 'Combo discount ID if this is a combo item, NULL for regular items',
       },
       unit_price: {
         type: DataTypes.INTEGER,
@@ -97,6 +97,11 @@ module.exports = (sequelize, DataTypes) => {
       foreignKey: 'variant_id',
       targetKey: 'id',
       as: 'variant',
+    });
+    cart.belongsTo(models.variantComboDiscount, {
+      foreignKey: 'combo_id',
+      targetKey: 'id',
+      as: 'comboDiscount',
     });
   };
 

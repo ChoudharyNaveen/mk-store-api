@@ -1,7 +1,6 @@
 const { v4: uuidV4 } = require('uuid');
 const {
   cart: CartModel,
-  user: UserModel,
   product: ProductModel,
   productVariant: ProductVariantModel,
   productImage: ProductImageModel,
@@ -25,12 +24,13 @@ const {
 const { COMBO_DISCOUNT_TYPE } = require('../utils/constants/comboDiscountTypeConstants');
 const { variantComboDiscount: VariantComboDiscountModel, Sequelize: { Op } } = require('../database');
 
-// Helper: Get active combo discount for a variant at current date
-const getActiveComboDiscountForVariant = async (variantId, transaction = null) => {
+// Helper: Get combo discount by ID and validate it belongs to variant
+const getComboDiscountById = async (comboId, variantId, transaction = null) => {
   const currentDate = new Date();
 
   const options = {
     where: {
+      id: comboId,
       variant_id: variantId,
       status: 'ACTIVE',
       start_date: { [Op.lte]: currentDate },
@@ -53,12 +53,35 @@ const getActiveComboDiscountForVariant = async (variantId, transaction = null) =
 
   const comboDiscount = await VariantComboDiscountModel.findOne(options);
 
+  if (!comboDiscount) {
+    throw new ValidationError('Combo discount not found, inactive, or does not belong to this variant');
+  }
+
   return comboDiscount;
+};
+
+// Helper: Calculate combo price for ONE combo set
+const calculateComboPricePerSet = (sellingPrice, comboDiscount) => {
+  const basePrice = comboDiscount.combo_quantity * sellingPrice;
+  let comboPricePerSet;
+
+  if (comboDiscount.discount_type === COMBO_DISCOUNT_TYPE.PERCENT) {
+    comboPricePerSet = Math.round(basePrice * (1 - comboDiscount.discount_value / 100));
+  } else if (comboDiscount.discount_type === COMBO_DISCOUNT_TYPE.FLATOFF) {
+    comboPricePerSet = Math.round(basePrice - comboDiscount.discount_value);
+    if (comboPricePerSet < 0) {
+      comboPricePerSet = 0;
+    }
+  } else {
+    throw new ValidationError(`Invalid discount type. Must be ${COMBO_DISCOUNT_TYPE.PERCENT} or ${COMBO_DISCOUNT_TYPE.FLATOFF}`);
+  }
+
+  return comboPricePerSet;
 };
 
 const saveCart = async (data) => withTransaction(sequelize, async (transaction) => {
   const {
-    createdBy, productId, variantId, vendorId, branchId, price, isCombo, quantity, ...datas
+    createdBy, productId, variantId, vendorId, branchId, comboId, quantity, ...datas
   } = data;
 
   // Validate: Both productId and variantId are required
@@ -68,14 +91,6 @@ const saveCart = async (data) => withTransaction(sequelize, async (transaction) 
 
   if (!variantId) {
     throw new ValidationError('variantId is required');
-  }
-
-  if (!price) {
-    throw new ValidationError('price is required');
-  }
-
-  if (typeof isCombo !== 'boolean') {
-    throw new ValidationError('isCombo is required and must be a boolean');
   }
 
   // Get variant and validate it belongs to the product
@@ -127,73 +142,39 @@ const saveCart = async (data) => withTransaction(sequelize, async (transaction) 
     throw new ValidationError('Branch not found or does not belong to vendor');
   }
 
-  // Calculate and validate price based on isCombo flag
+  // Calculate price based on comboId
   let unitPrice;
   let totalPrice;
+  let finalComboId = null;
 
-  if (isCombo) {
-    // Validate combo discount exists and quantity matches
-    const comboDiscount = await getActiveComboDiscountForVariant(
-      variantId,
-      transaction,
-    );
+  if (comboId) {
+    // Validate combo discount exists and belongs to variant
+    const comboDiscount = await getComboDiscountById(comboId, variantId, transaction);
 
-    if (!comboDiscount) {
-      throw new ValidationError('No active combo discount found for this variant');
-    }
+    // Calculate combo price for ONE combo set
+    const comboPricePerSet = calculateComboPricePerSet(sellingPrice, comboDiscount);
 
-    if (quantity !== comboDiscount.combo_quantity) {
-      throw new ValidationError(`Quantity must be exactly ${comboDiscount.combo_quantity} for combo discount`);
-    }
-
-    // Calculate total combo price: (quantity * unit_price) - combo_discount
-    const totalBeforeDiscount = sellingPrice * quantity;
-    let expectedTotalComboPrice;
-
-    if (comboDiscount.discount_type === COMBO_DISCOUNT_TYPE.PERCENT) {
-      // PERCENT: Apply percentage discount to total
-      expectedTotalComboPrice = Math.round(totalBeforeDiscount * (1 - comboDiscount.discount_value / 100));
-    } else if (comboDiscount.discount_type === COMBO_DISCOUNT_TYPE.FLATOFF) {
-      // FLATOFF: Subtract flat discount from total
-      expectedTotalComboPrice = Math.round(totalBeforeDiscount - comboDiscount.discount_value);
-
-      // Ensure price doesn't go negative
-      if (expectedTotalComboPrice < 0) {
-        expectedTotalComboPrice = 0;
-      }
-    } else {
-      throw new ValidationError(`Invalid discount type. Must be ${COMBO_DISCOUNT_TYPE.PERCENT} or ${COMBO_DISCOUNT_TYPE.FLATOFF}`);
-    }
-
-    // Validate sent price matches expected total combo price
-    if (price !== expectedTotalComboPrice) {
-      throw new ValidationError(`Price must be ₹${expectedTotalComboPrice} for combo discount (total for ${quantity} items)`);
-    }
-
-    // For combo items: treat as single unit, unitPrice = totalPrice (combo price)
-    totalPrice = price;
-    unitPrice = price; // Combo products are treated as single unit
+    // Store combo price per set
+    unitPrice = comboPricePerSet;
+    totalPrice = comboPricePerSet * quantity;
+    finalComboId = comboId;
   } else {
-    // For regular items: price should be total price (quantity × unit_price)
-    const expectedTotalPrice = sellingPrice * quantity;
-
-    if (price !== expectedTotalPrice) {
-      throw new ValidationError(`Price must be ₹${expectedTotalPrice} for regular pricing (${quantity} × ₹${sellingPrice})`);
-    }
+    // For regular items: calculate total price (quantity × unit_price)
     unitPrice = sellingPrice;
-    totalPrice = price;
+    totalPrice = sellingPrice * quantity;
+    finalComboId = null;
   }
 
   const concurrencyStamp = uuidV4();
 
-  // Check if cart item already exists (same product/variant, user, vendor, branch, is_combo)
+  // Check if cart item already exists (same product/variant, user, vendor, branch, combo_id)
   const existingWhere = {
     created_by: createdBy,
     vendor_id: finalVendorId,
     branch_id: finalBranchId,
     product_id: finalProductId,
     variant_id: finalVariantId,
-    is_combo: isCombo,
+    combo_id: finalComboId || null,
   };
 
   const isExists = await CartModel.findOne({
@@ -213,7 +194,7 @@ const saveCart = async (data) => withTransaction(sequelize, async (transaction) 
     vendorId: finalVendorId,
     branchId: finalBranchId,
     quantity,
-    isCombo,
+    comboId: finalComboId,
     unitPrice,
     totalPrice,
     concurrencyStamp,
@@ -251,7 +232,7 @@ const getCartOfUser = async (payload) => {
     CartModel,
     {
       where: { ...where, status: 'ACTIVE' },
-      attributes: [ 'id', 'product_id', 'variant_id', 'vendor_id', 'branch_id', 'quantity', 'is_combo', 'unit_price', 'total_price', 'status', 'created_by', 'created_at', 'updated_at', 'concurrency_stamp' ],
+      attributes: [ 'id', 'product_id', 'variant_id', 'vendor_id', 'branch_id', 'quantity', 'combo_id', 'unit_price', 'total_price', 'status', 'created_by', 'created_at', 'updated_at', 'concurrency_stamp' ],
       include: [
         {
           model: ProductModel,
@@ -282,11 +263,6 @@ const getCartOfUser = async (payload) => {
             },
           ],
         },
-        {
-          model: UserModel,
-          as: 'user',
-          attributes: [ 'id', 'name', 'email', 'mobile_number' ],
-        },
       ],
       order,
       limit,
@@ -301,7 +277,9 @@ const getCartOfUser = async (payload) => {
 
     rows.map((element) => doc.push(element.dataValues));
 
-    return { count, totalCount, doc };
+    const totalPrice = doc.reduce((acc, item) => acc + item.total_price, 0);
+
+    return { count, totalCount, doc: { totalPrice, cartItems: doc } };
   }
 
   return { count: 0, totalCount: 0, doc: [] };
@@ -321,13 +299,13 @@ const deleteCart = async (cartId) => {
 
 const updateCart = async (data) => withTransaction(sequelize, async (transaction) => {
   const {
-    id, quantity, price, isCombo, ...datas
+    id, quantity, comboId, ...datas
   } = data;
   const { concurrencyStamp, updatedBy } = datas;
 
   const response = await CartModel.findOne({
     where: { id },
-    attributes: [ 'id', 'concurrency_stamp', 'variant_id', 'is_combo', 'unit_price', 'quantity' ],
+    attributes: [ 'id', 'concurrency_stamp', 'variant_id', 'combo_id', 'unit_price', 'quantity' ],
     include: [
       {
         model: ProductVariantModel,
@@ -352,7 +330,7 @@ const updateCart = async (data) => withTransaction(sequelize, async (transaction
   }
 
   const {
-    concurrency_stamp: stamp, variant_id: variantId, is_combo: currentIsCombo, unit_price: currentUnitPrice,
+    concurrency_stamp: stamp, variant_id: variantId, combo_id: currentComboId,
   } = response;
   const { variant } = response;
 
@@ -360,111 +338,46 @@ const updateCart = async (data) => withTransaction(sequelize, async (transaction
     throw new ConcurrencyError('invalid concurrency stamp');
   }
 
-  // Determine if we need to recalculate prices
-  const newIsCombo = isCombo !== undefined ? isCombo : currentIsCombo;
+  // Validation: prevent converting combo cart item back to regular or changing comboId
+  if (currentComboId) {
+    // For existing combo cart items, client must send the same comboId
+    if (comboId === undefined || comboId === null) {
+      throw new ValidationError('comboId is required when updating a combo cart item');
+    }
+
+    if (comboId !== currentComboId) {
+      throw new ValidationError('Cannot change combo discount for an existing combo cart item. Remove and add again with a different combo.');
+    }
+  }
+
+  // Determine combo status
+  let newComboId;
+
+  if (comboId !== undefined) {
+    newComboId = comboId; // Can be null to switch from combo to regular
+  } else {
+    newComboId = currentComboId; // Keep current combo_id
+  }
+
   const newQuantity = quantity !== undefined ? quantity : response.quantity;
   const sellingPrice = variant.selling_price;
 
   let unitPrice;
   let totalPrice;
 
-  // If price or isCombo is being updated, validate
-  if (price !== undefined || isCombo !== undefined) {
-    if (newIsCombo) {
-      // Validate combo discount exists and quantity matches
-      const comboDiscount = await getActiveComboDiscountForVariant(
-        variantId,
-        transaction,
-      );
+  // Calculate prices based on combo status
+  if (newComboId) {
+    // Combo item: fetch combo discount and calculate combo price per set
+    const comboDiscount = await getComboDiscountById(newComboId, variantId, transaction);
+    const comboPricePerSet = calculateComboPricePerSet(sellingPrice, comboDiscount);
 
-      if (!comboDiscount) {
-        throw new ValidationError('No active combo discount found for this variant');
-      }
-
-      if (newQuantity !== comboDiscount.combo_quantity) {
-        throw new ValidationError(`Quantity must be exactly ${comboDiscount.combo_quantity} for combo discount`);
-      }
-
-      // Calculate total combo price: (quantity * unit_price) - combo_discount
-      const totalBeforeDiscount = sellingPrice * newQuantity;
-      let expectedTotalComboPrice;
-
-      if (comboDiscount.discount_type === COMBO_DISCOUNT_TYPE.PERCENT) {
-        // PERCENT: Apply percentage discount to total
-        expectedTotalComboPrice = Math.round(totalBeforeDiscount * (1 - comboDiscount.discount_value / 100));
-      } else if (comboDiscount.discount_type === COMBO_DISCOUNT_TYPE.FLATOFF) {
-        // FLATOFF: Subtract flat discount from total
-        expectedTotalComboPrice = Math.round(totalBeforeDiscount - comboDiscount.discount_value);
-
-        // Ensure price doesn't go negative
-        if (expectedTotalComboPrice < 0) {
-          expectedTotalComboPrice = 0;
-        }
-      } else {
-        throw new ValidationError(`Invalid discount type. Must be ${COMBO_DISCOUNT_TYPE.PERCENT} or ${COMBO_DISCOUNT_TYPE.FLATOFF}`);
-      }
-
-      // Validate sent price matches expected total combo price
-      if (price !== undefined && price !== expectedTotalComboPrice) {
-        throw new ValidationError(`Price must be ₹${expectedTotalComboPrice} for combo discount (total for ${newQuantity} items)`);
-      }
-
-      // For combo items: treat as single unit, unitPrice = totalPrice (combo price)
-      totalPrice = price !== undefined ? price : expectedTotalComboPrice;
-      unitPrice = totalPrice; // Combo products are treated as single unit
-    } else {
-      // For regular items: price should be total price (quantity × unit_price)
-      const expectedTotalPrice = sellingPrice * newQuantity;
-
-      if (price !== undefined && price !== expectedTotalPrice) {
-        throw new ValidationError(`Price must be ₹${expectedTotalPrice} for regular pricing (${newQuantity} × ₹${sellingPrice})`);
-      }
-
-      unitPrice = sellingPrice;
-      totalPrice = price !== undefined ? price : expectedTotalPrice;
-    }
-  } else if (quantity !== undefined) {
-    // Only quantity changed, recalculate total_price based on current unit_price
-    // For regular items: total = quantity × unit_price
-    // For combo items: total = (quantity × unit_price) - combo_discount
-    if (currentIsCombo) {
-      // If it's a combo item, validate combo discount still exists
-      const comboDiscount = await getActiveComboDiscountForVariant(
-        variantId,
-        transaction,
-      );
-
-      if (!comboDiscount) {
-        throw new ValidationError('No active combo discount found for this variant');
-      }
-
-      if (newQuantity !== comboDiscount.combo_quantity) {
-        throw new ValidationError(`Quantity must be exactly ${comboDiscount.combo_quantity} for combo discount`);
-      }
-
-      // Calculate total combo price
-      const totalBeforeDiscount = sellingPrice * newQuantity;
-      let expectedTotalComboPrice;
-
-      if (comboDiscount.discount_type === COMBO_DISCOUNT_TYPE.PERCENT) {
-        expectedTotalComboPrice = Math.round(totalBeforeDiscount * (1 - comboDiscount.discount_value / 100));
-      } else if (comboDiscount.discount_type === COMBO_DISCOUNT_TYPE.FLATOFF) {
-        expectedTotalComboPrice = Math.round(totalBeforeDiscount - comboDiscount.discount_value);
-
-        if (expectedTotalComboPrice < 0) {
-          expectedTotalComboPrice = 0;
-        }
-      } else {
-        throw new ValidationError(`Invalid discount type. Must be ${COMBO_DISCOUNT_TYPE.PERCENT} or ${COMBO_DISCOUNT_TYPE.FLATOFF}`);
-      }
-
-      totalPrice = expectedTotalComboPrice;
-      unitPrice = expectedTotalComboPrice; // Combo products are treated as single unit
-    } else {
-      // Regular item: total = quantity × unit_price
-      unitPrice = currentUnitPrice;
-      totalPrice = currentUnitPrice * newQuantity;
-    }
+    // Use combo price per set
+    unitPrice = comboPricePerSet;
+    totalPrice = comboPricePerSet * newQuantity;
+  } else {
+    // Regular item: calculate from quantity
+    unitPrice = sellingPrice;
+    totalPrice = sellingPrice * newQuantity;
   }
 
   const newConcurrencyStamp = uuidV4();
@@ -478,17 +391,13 @@ const updateCart = async (data) => withTransaction(sequelize, async (transaction
   if (quantity !== undefined) {
     doc.quantity = newQuantity;
   }
-  if (price !== undefined) {
+  if (comboId !== undefined || quantity !== undefined) {
+    // Recalculate prices when comboId or quantity changes
     doc.unit_price = unitPrice;
     doc.total_price = totalPrice;
   }
-  if (isCombo !== undefined) {
-    doc.is_combo = newIsCombo;
-  }
-  if (quantity !== undefined && price === undefined) {
-    // Quantity changed but price didn't, recalculate total and unit_price
-    doc.unit_price = unitPrice;
-    doc.total_price = totalPrice;
+  if (comboId !== undefined) {
+    doc.combo_id = newComboId;
   }
 
   await CartModel.update(doc, {
