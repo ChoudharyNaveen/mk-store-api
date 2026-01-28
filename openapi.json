@@ -132,8 +132,12 @@
       "description": "OTP verification endpoints"
     },
     {
-      "name": "Rider FCM",
-      "description": "Rider FCM token management endpoints"
+      "name": "User FCM",
+      "description": "User FCM token management endpoints"
+    },
+    {
+      "name": "Rider Stats",
+      "description": "Rider statistics management endpoints"
     },
     {
       "name": "Test",
@@ -159,54 +163,87 @@
               "schema": {
                 "type": "object",
                 "required": [
-                  "house_no",
-                  "streetDetails",
-                  "city",
-                  "state",
-                  "postal_code",
                   "name",
                   "mobileNumber"
                 ],
                 "properties": {
-                  "house_no": {
+                  "addressLine1": {
                     "type": "string",
-                    "example": "123"
+                    "example": "123",
+                    "description": "Address line 1 (optional)"
                   },
-                  "address_line_2": {
+                  "addressLine2": {
                     "type": "string",
-                    "example": "Apartment 4B"
+                    "example": "Apartment 4B",
+                    "description": "Address line 2 (optional)"
                   },
-                  "streetDetails": {
+                  "street": {
                     "type": "string",
-                    "example": "Main Street"
+                    "example": "Main Street",
+                    "description": "Street name (optional)"
                   },
                   "landmark": {
                     "type": "string",
-                    "example": "Near City Park"
+                    "example": "Near City Park",
+                    "description": "Landmark (optional)"
                   },
                   "city": {
                     "type": "string",
-                    "example": "Mumbai"
+                    "example": "Mumbai",
+                    "description": "City name (optional)"
                   },
                   "state": {
                     "type": "string",
-                    "example": "Maharashtra"
+                    "example": "Maharashtra",
+                    "description": "State name (optional)"
                   },
                   "country": {
                     "type": "string",
-                    "example": "India"
+                    "example": "India",
+                    "default": "India",
+                    "description": "Country name (optional, defaults to India)"
                   },
-                  "postal_code": {
+                  "pincode": {
                     "type": "string",
-                    "example": "400001"
+                    "example": "400001",
+                    "description": "Postal/PIN code (optional)"
+                  },
+                  "latitude": {
+                    "type": "number",
+                    "format": "decimal",
+                    "minimum": -90,
+                    "maximum": 90,
+                    "example": 19.076,
+                    "description": "Latitude coordinate (optional)"
+                  },
+                  "longitude": {
+                    "type": "number",
+                    "format": "decimal",
+                    "minimum": -180,
+                    "maximum": 180,
+                    "example": 72.8777,
+                    "description": "Longitude coordinate (optional)"
                   },
                   "name": {
                     "type": "string",
-                    "example": "John Doe"
+                    "example": "John Doe",
+                    "description": "Recipient name (required)"
                   },
                   "mobileNumber": {
                     "type": "string",
-                    "example": "+1234567890"
+                    "example": "+1234567890",
+                    "description": "Mobile number (required)"
+                  },
+                  "phone": {
+                    "type": "string",
+                    "example": "+1234567890",
+                    "description": "Phone number (optional)"
+                  },
+                  "email": {
+                    "type": "string",
+                    "format": "email",
+                    "example": "john.doe@example.com",
+                    "description": "Email address (optional)"
                   },
                   "status": {
                     "type": "string",
@@ -214,7 +251,9 @@
                       "ACTIVE",
                       "INACTIVE"
                     ],
-                    "example": "ACTIVE"
+                    "default": "ACTIVE",
+                    "example": "ACTIVE",
+                    "description": "Address status (optional)"
                   }
                 }
               }
@@ -244,10 +283,49 @@
                           "type": "integer",
                           "example": 1
                         },
-                        "house_no": {
+                        "addressLine1": {
                           "type": "string"
                         },
-                        "streetDetails": {
+                        "addressLine2": {
+                          "type": "string"
+                        },
+                        "street": {
+                          "type": "string"
+                        },
+                        "landmark": {
+                          "type": "string"
+                        },
+                        "city": {
+                          "type": "string"
+                        },
+                        "state": {
+                          "type": "string"
+                        },
+                        "country": {
+                          "type": "string"
+                        },
+                        "pincode": {
+                          "type": "string"
+                        },
+                        "latitude": {
+                          "type": "number"
+                        },
+                        "longitude": {
+                          "type": "number"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "mobileNumber": {
+                          "type": "string"
+                        },
+                        "phone": {
+                          "type": "string"
+                        },
+                        "email": {
+                          "type": "string"
+                        },
+                        "status": {
                           "type": "string"
                         }
                       }
@@ -390,35 +468,69 @@
                             "type": "integer",
                             "example": 1
                           },
-                          "house_no": {
-                            "type": "string"
+                          "addressLine1": {
+                            "type": "string",
+                            "example": "123"
                           },
-                          "address_line_2": {
-                            "type": "string"
+                          "addressLine2": {
+                            "type": "string",
+                            "example": "Apartment 4B"
                           },
-                          "streetDetails": {
-                            "type": "string"
+                          "street": {
+                            "type": "string",
+                            "example": "Main Street"
                           },
                           "landmark": {
-                            "type": "string"
+                            "type": "string",
+                            "example": "Near City Park"
                           },
                           "city": {
-                            "type": "string"
+                            "type": "string",
+                            "example": "Mumbai"
                           },
                           "state": {
-                            "type": "string"
+                            "type": "string",
+                            "example": "Maharashtra"
                           },
                           "country": {
-                            "type": "string"
+                            "type": "string",
+                            "example": "India"
                           },
-                          "postal_code": {
-                            "type": "string"
+                          "pincode": {
+                            "type": "string",
+                            "example": "400001"
+                          },
+                          "latitude": {
+                            "type": "number",
+                            "example": 19.076
+                          },
+                          "longitude": {
+                            "type": "number",
+                            "example": 72.8777
                           },
                           "name": {
-                            "type": "string"
+                            "type": "string",
+                            "example": "John Doe"
                           },
                           "mobileNumber": {
-                            "type": "string"
+                            "type": "string",
+                            "example": "+1234567890"
+                          },
+                          "phone": {
+                            "type": "string",
+                            "example": "+1234567890"
+                          },
+                          "email": {
+                            "type": "string",
+                            "example": "john.doe@example.com"
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "ACTIVE",
+                              "INACTIVE"
+                            ],
+                            "example": "ACTIVE"
                           }
                         }
                       }
@@ -462,43 +574,107 @@
             "application/json": {
               "schema": {
                 "type": "object",
+                "required": [
+                  "updatedBy",
+                  "concurrencyStamp"
+                ],
                 "properties": {
-                  "house_no": {
-                    "type": "string"
+                  "addressLine1": {
+                    "type": "string",
+                    "example": "123",
+                    "description": "Address line 1 (optional)"
                   },
-                  "address_line_2": {
-                    "type": "string"
+                  "addressLine2": {
+                    "type": "string",
+                    "example": "Apartment 4B",
+                    "description": "Address line 2 (optional)"
                   },
-                  "streetDetails": {
-                    "type": "string"
+                  "street": {
+                    "type": "string",
+                    "example": "Main Street",
+                    "description": "Street name (optional)"
                   },
                   "landmark": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "Near City Park",
+                    "description": "Landmark (optional)"
                   },
                   "city": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "Mumbai",
+                    "description": "City name (optional)"
                   },
                   "state": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "Maharashtra",
+                    "description": "State name (optional)"
                   },
                   "country": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "India",
+                    "description": "Country name (optional)"
                   },
-                  "postal_code": {
-                    "type": "string"
+                  "pincode": {
+                    "type": "string",
+                    "example": "400001",
+                    "description": "Postal/PIN code (optional)"
+                  },
+                  "latitude": {
+                    "type": "number",
+                    "format": "decimal",
+                    "minimum": -90,
+                    "maximum": 90,
+                    "example": 19.076,
+                    "description": "Latitude coordinate (optional)"
+                  },
+                  "longitude": {
+                    "type": "number",
+                    "format": "decimal",
+                    "minimum": -180,
+                    "maximum": 180,
+                    "example": 72.8777,
+                    "description": "Longitude coordinate (optional)"
                   },
                   "name": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "John Doe",
+                    "description": "Recipient name (optional)"
                   },
                   "mobileNumber": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "+1234567890",
+                    "description": "Mobile number (optional)"
+                  },
+                  "phone": {
+                    "type": "string",
+                    "example": "+1234567890",
+                    "description": "Phone number (optional)"
+                  },
+                  "email": {
+                    "type": "string",
+                    "format": "email",
+                    "example": "john.doe@example.com",
+                    "description": "Email address (optional)"
                   },
                   "status": {
                     "type": "string",
                     "enum": [
                       "ACTIVE",
                       "INACTIVE"
-                    ]
+                    ],
+                    "example": "ACTIVE",
+                    "description": "Address status (optional)"
+                  },
+                  "updatedBy": {
+                    "type": "integer",
+                    "example": 1,
+                    "description": "User ID who is updating the address (required)"
+                  },
+                  "concurrencyStamp": {
+                    "type": "string",
+                    "format": "uuid",
+                    "example": "123e4567-e89b-12d3-a456-426614174000",
+                    "description": "Concurrency stamp from previous response (required)"
                   }
                 }
               }
@@ -533,6 +709,308 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "/api/save-banner": {
+      "post": {
+        "summary": "Create a new banner",
+        "tags": [
+          "Banners"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "vendorId",
+                  "branchId"
+                ],
+                "properties": {
+                  "vendorId": {
+                    "type": "integer",
+                    "example": 1,
+                    "description": "Vendor ID"
+                  },
+                  "branchId": {
+                    "type": "integer",
+                    "example": 1,
+                    "description": "Branch ID"
+                  },
+                  "subCategoryId": {
+                    "type": "integer",
+                    "nullable": true,
+                    "example": 5,
+                    "description": "Subcategory ID (optional)"
+                  },
+                  "file": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "Banner image file (required if imageUrl not provided)"
+                  },
+                  "imageUrl": {
+                    "type": "string",
+                    "example": "https://example.com/banner.jpg",
+                    "description": "URL of the banner image (required if file not provided)"
+                  },
+                  "displayOrder": {
+                    "type": "integer",
+                    "example": 1,
+                    "default": 0,
+                    "description": "Order in which banner should be displayed"
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "ACTIVE",
+                      "INACTIVE"
+                    ],
+                    "example": "ACTIVE",
+                    "default": "ACTIVE",
+                    "description": "Banner status"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Banner created successfully"
+          },
+          "400": {
+            "description": "Validation error"
+          }
+        }
+      }
+    },
+    "/api/get-banner": {
+      "post": {
+        "summary": "Get list of banners with pagination",
+        "tags": [
+          "Banners"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "pageSize": {
+                    "type": "integer",
+                    "enum": [
+                      1,
+                      5,
+                      10,
+                      20,
+                      30,
+                      40,
+                      50,
+                      100,
+                      500
+                    ],
+                    "default": 10
+                  },
+                  "pageNumber": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "default": 1
+                  },
+                  "filters": {
+                    "type": "array",
+                    "items": {
+                      "type": "object"
+                    }
+                  },
+                  "sorting": {
+                    "type": "array",
+                    "items": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Banners retrieved successfully"
+          }
+        }
+      }
+    },
+    "/api/get-banner-by-id/{id}": {
+      "get": {
+        "summary": "Get banner by ID",
+        "tags": [
+          "Banners"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            },
+            "description": "Banner ID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Banner retrieved successfully"
+          },
+          "404": {
+            "description": "Banner not found"
+          }
+        }
+      }
+    },
+    "/api/update-banner/{id}": {
+      "put": {
+        "summary": "Update a banner",
+        "tags": [
+          "Banners"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            },
+            "description": "Banner ID"
+          },
+          {
+            "in": "header",
+            "name": "x-concurrencystamp",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Concurrency stamp for optimistic locking"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "vendorId": {
+                    "type": "integer"
+                  },
+                  "branchId": {
+                    "type": "integer"
+                  },
+                  "subCategoryId": {
+                    "type": "integer",
+                    "nullable": true
+                  },
+                  "file": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "Banner image file (optional, if provided will replace existing image)"
+                  },
+                  "imageUrl": {
+                    "type": "string",
+                    "description": "URL of the banner image (optional, if file not provided)"
+                  },
+                  "displayOrder": {
+                    "type": "integer"
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "ACTIVE",
+                      "INACTIVE"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Banner updated successfully"
+          },
+          "400": {
+            "description": "Validation error"
+          },
+          "409": {
+            "description": "Concurrency error"
+          }
+        }
+      }
+    },
+    "/api/delete-banner/{id}": {
+      "delete": {
+        "summary": "Delete a banner",
+        "tags": [
+          "Banners"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            },
+            "description": "Banner ID"
+          },
+          {
+            "in": "header",
+            "name": "x-concurrencystamp",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Concurrency stamp for optimistic locking"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Banner deleted successfully"
+          },
+          "400": {
+            "description": "Validation error"
+          },
+          "409": {
+            "description": "Concurrency error"
           }
         }
       }
@@ -1423,7 +1901,9 @@
                 "required": [
                   "productId",
                   "variantId",
-                  "quantity"
+                  "quantity",
+                  "price",
+                  "isCombo"
                 ],
                 "properties": {
                   "productId": {
@@ -1442,6 +1922,16 @@
                     "example": 2,
                     "description": "Quantity to add to cart (required)"
                   },
+                  "price": {
+                    "type": "number",
+                    "example": 240,
+                    "description": "Total price (required - for regular items: quantity × unit_price; for combo items: (quantity × unit_price) - combo_discount, where discount can be PERCENT or FLATOFF)"
+                  },
+                  "isCombo": {
+                    "type": "boolean",
+                    "example": false,
+                    "description": "Whether this is a combo purchase (required - if true, price must be the total combo price for the specified quantity and quantity must match combo_quantity)"
+                  },
                   "vendorId": {
                     "type": "integer",
                     "example": 1,
@@ -1453,49 +1943,188 @@
                     "description": "Branch ID (optional - will be validated against product's branch)"
                   }
                 }
+              },
+              "examples": {
+                "regularItem": {
+                  "summary": "Add regular item to cart",
+                  "description": "Example: 2 items at ₹120 each, total price = ₹240",
+                  "value": {
+                    "productId": 1,
+                    "variantId": 5,
+                    "quantity": 2,
+                    "price": 240,
+                    "isCombo": false
+                  }
+                },
+                "comboItemFLATOFF": {
+                  "summary": "Add combo item with FLATOFF discount",
+                  "description": "Example: 3 items at ₹120 each = ₹360, FLATOFF discount ₹20, total combo price = ₹340",
+                  "value": {
+                    "productId": 1,
+                    "variantId": 5,
+                    "quantity": 3,
+                    "price": 340,
+                    "isCombo": true
+                  }
+                },
+                "comboItemPERCENT": {
+                  "summary": "Add combo item with PERCENT discount",
+                  "description": "Example: 3 items at ₹120 each = ₹360, 10% discount, total combo price = ₹324",
+                  "value": {
+                    "productId": 1,
+                    "variantId": 5,
+                    "quantity": 3,
+                    "price": 324,
+                    "isCombo": true
+                  }
+                },
+                "withVendorBranch": {
+                  "summary": "Add item with vendor and branch validation",
+                  "description": "Example: 1 item at ₹120, total price = ₹120",
+                  "value": {
+                    "productId": 1,
+                    "variantId": 5,
+                    "quantity": 1,
+                    "price": 120,
+                    "isCombo": false,
+                    "vendorId": 1,
+                    "branchId": 2
+                  }
+                }
               }
             }
           }
         },
         "responses": {
           "200": {
-            "description": "Item added to cart successfully",
+            "description": "Item added to cart successfully or item already exists in cart",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "success": {
-                      "type": "boolean",
-                      "example": true
-                    },
-                    "message": {
-                      "type": "string",
-                      "example": "successfully added"
-                    },
-                    "doc": {
+                  "oneOf": [
+                    {
                       "type": "object",
                       "properties": {
-                        "id": {
-                          "type": "integer",
-                          "example": 1
+                        "success": {
+                          "type": "boolean",
+                          "example": true
                         },
-                        "product_id": {
-                          "type": "integer",
-                          "example": 1
-                        },
-                        "vendor_id": {
-                          "type": "integer",
-                          "example": 1
-                        },
-                        "branch_id": {
-                          "type": "integer",
-                          "example": 1
-                        },
-                        "quantity": {
-                          "type": "integer"
+                        "message": {
+                          "type": "string",
+                          "example": "item already added to cart"
                         }
                       }
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "success": {
+                          "type": "boolean",
+                          "example": true
+                        },
+                        "message": {
+                          "type": "string",
+                          "example": "successfully added"
+                        },
+                        "doc": {
+                          "type": "object",
+                          "properties": {
+                            "cat": {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "integer",
+                                  "example": 1
+                                },
+                                "product_id": {
+                                  "type": "integer",
+                                  "example": 1
+                                },
+                                "variant_id": {
+                                  "type": "integer",
+                                  "example": 1
+                                },
+                                "vendor_id": {
+                                  "type": "integer",
+                                  "example": 1
+                                },
+                                "branch_id": {
+                                  "type": "integer",
+                                  "example": 1
+                                },
+                                "quantity": {
+                                  "type": "integer",
+                                  "example": 2
+                                },
+                                "is_combo": {
+                                  "type": "boolean",
+                                  "example": false
+                                },
+                                "unit_price": {
+                                  "type": "number",
+                                  "example": 120
+                                },
+                                "total_price": {
+                                  "type": "number",
+                                  "example": 240
+                                },
+                                "status": {
+                                  "type": "string",
+                                  "example": "ACTIVE"
+                                },
+                                "created_at": {
+                                  "type": "string",
+                                  "format": "date-time",
+                                  "example": "2025-01-25T10:30:00.000Z"
+                                },
+                                "updated_at": {
+                                  "type": "string",
+                                  "format": "date-time",
+                                  "example": "2025-01-25T10:30:00.000Z"
+                                },
+                                "concurrency_stamp": {
+                                  "type": "string",
+                                  "format": "uuid",
+                                  "example": "550e8400-e29b-41d4-a716-446655440000"
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                },
+                "examples": {
+                  "success": {
+                    "summary": "Item added successfully",
+                    "value": {
+                      "success": true,
+                      "message": "successfully added",
+                      "doc": {
+                        "cat": {
+                          "id": 15,
+                          "product_id": 1,
+                          "variant_id": 5,
+                          "vendor_id": 1,
+                          "branch_id": 2,
+                          "quantity": 2,
+                          "is_combo": false,
+                          "unit_price": 120,
+                          "total_price": 240,
+                          "status": "ACTIVE",
+                          "created_at": "2025-01-25T10:30:00.000Z",
+                          "updated_at": "2025-01-25T10:30:00.000Z",
+                          "concurrency_stamp": "550e8400-e29b-41d4-a716-446655440000"
+                        }
+                      }
+                    }
+                  },
+                  "alreadyExists": {
+                    "summary": "Item already in cart",
+                    "value": {
+                      "success": true,
+                      "message": "item already added to cart"
                     }
                   }
                 }
@@ -1503,7 +2132,67 @@
             }
           },
           "400": {
-            "description": "Validation error or item already in cart"
+            "description": "Validation error (product/variant not found, price mismatch, combo validation failed, etc.)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": false
+                    },
+                    "errors": {
+                      "type": "object",
+                      "properties": {
+                        "message": {
+                          "type": "string",
+                          "example": "Price must be ₹240 for regular pricing (2 × ₹120)"
+                        }
+                      }
+                    }
+                  }
+                },
+                "examples": {
+                  "priceMismatch": {
+                    "summary": "Price validation error",
+                    "value": {
+                      "success": false,
+                      "errors": {
+                        "message": "Price must be ₹240 for regular pricing (2 × ₹120)"
+                      }
+                    }
+                  },
+                  "comboValidationError": {
+                    "summary": "Combo validation error",
+                    "value": {
+                      "success": false,
+                      "errors": {
+                        "message": "Quantity must be exactly 3 for combo discount"
+                      }
+                    }
+                  },
+                  "comboPriceMismatch": {
+                    "summary": "Combo price mismatch error",
+                    "value": {
+                      "success": false,
+                      "errors": {
+                        "message": "Price must be ₹340 for combo discount (total for 3 items)"
+                      }
+                    }
+                  },
+                  "variantNotFound": {
+                    "summary": "Variant not found",
+                    "value": {
+                      "success": false,
+                      "errors": {
+                        "message": "Product variant not found or does not belong to the specified product"
+                      }
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       }
@@ -1620,6 +2309,61 @@
                     "description": "Array of sorting objects"
                   }
                 }
+              },
+              "examples": {
+                "basic": {
+                  "summary": "Get all cart items",
+                  "value": {}
+                },
+                "withPagination": {
+                  "summary": "Get cart items with pagination",
+                  "value": {
+                    "pageSize": 20,
+                    "pageNumber": 1
+                  }
+                },
+                "withFilters": {
+                  "summary": "Get cart items filtered by vendor",
+                  "value": {
+                    "vendorId": 1,
+                    "pageSize": 10,
+                    "pageNumber": 1
+                  }
+                },
+                "withSorting": {
+                  "summary": "Get cart items sorted by creation date",
+                  "value": {
+                    "pageSize": 10,
+                    "pageNumber": 1,
+                    "sorting": [
+                      {
+                        "key": "created_at",
+                        "direction": "DESC"
+                      }
+                    ]
+                  }
+                },
+                "withMultipleFilters": {
+                  "summary": "Get cart items with multiple filters",
+                  "value": {
+                    "vendorId": 1,
+                    "branchId": 2,
+                    "pageSize": 10,
+                    "pageNumber": 1,
+                    "filters": [
+                      {
+                        "key": "is_combo",
+                        "eq": "false"
+                      }
+                    ],
+                    "sorting": [
+                      {
+                        "key": "total_price",
+                        "direction": "DESC"
+                      }
+                    ]
+                  }
+                }
               }
             }
           }
@@ -1649,6 +2393,10 @@
                             "type": "integer",
                             "example": 1
                           },
+                          "variant_id": {
+                            "type": "integer",
+                            "example": 1
+                          },
                           "vendor_id": {
                             "type": "integer",
                             "example": 1
@@ -1657,26 +2405,270 @@
                             "type": "integer",
                             "example": 1
                           },
+                          "quantity": {
+                            "type": "integer",
+                            "example": 2
+                          },
+                          "is_combo": {
+                            "type": "boolean",
+                            "example": false
+                          },
+                          "unit_price": {
+                            "type": "number",
+                            "example": 120
+                          },
+                          "total_price": {
+                            "type": "number",
+                            "example": 240
+                          },
+                          "status": {
+                            "type": "string",
+                            "example": "ACTIVE"
+                          },
+                          "created_at": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "updated_at": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "concurrency_stamp": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
                           "productDetails": {
                             "type": "object",
                             "properties": {
-                              "name": {
-                                "type": "string"
+                              "id": {
+                                "type": "integer",
+                                "example": 1
                               },
-                              "price": {
-                                "type": "number"
+                              "title": {
+                                "type": "string",
+                                "example": "Fresh Milk"
                               }
                             }
                           },
-                          "quantity": {
-                            "type": "integer"
+                          "variant": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "integer",
+                                "example": 1
+                              },
+                              "variant_name": {
+                                "type": "string",
+                                "example": "500ml"
+                              },
+                              "selling_price": {
+                                "type": "number",
+                                "example": 120
+                              },
+                              "quantity": {
+                                "type": "integer",
+                                "example": 50
+                              },
+                              "product_status": {
+                                "type": "string",
+                                "enum": [
+                                  "INSTOCK",
+                                  "OUT-OF-STOCK"
+                                ],
+                                "example": "INSTOCK"
+                              },
+                              "product": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "integer",
+                                    "example": 1
+                                  },
+                                  "title": {
+                                    "type": "string",
+                                    "example": "Fresh Milk"
+                                  },
+                                  "images": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "object",
+                                      "properties": {
+                                        "id": {
+                                          "type": "integer"
+                                        },
+                                        "image_url": {
+                                          "type": "string"
+                                        }
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          },
+                          "user": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "integer",
+                                "example": 1
+                              },
+                              "name": {
+                                "type": "string",
+                                "example": "John Doe"
+                              },
+                              "email": {
+                                "type": "string",
+                                "example": "john@example.com"
+                              },
+                              "mobile_number": {
+                                "type": "string",
+                                "example": "9876543210"
+                              }
+                            }
                           }
                         }
                       }
                     },
-                    "count": {
-                      "type": "integer",
-                      "example": 5
+                    "pagination": {
+                      "type": "object",
+                      "properties": {
+                        "pageSize": {
+                          "type": "integer",
+                          "example": 10
+                        },
+                        "pageNumber": {
+                          "type": "integer",
+                          "example": 1
+                        },
+                        "totalCount": {
+                          "type": "integer",
+                          "example": 5
+                        },
+                        "totalPages": {
+                          "type": "integer",
+                          "example": 1
+                        },
+                        "paginationEnabled": {
+                          "type": "boolean",
+                          "example": false
+                        }
+                      }
+                    }
+                  }
+                },
+                "examples": {
+                  "success": {
+                    "summary": "Cart items retrieved successfully",
+                    "value": {
+                      "success": true,
+                      "doc": [
+                        {
+                          "id": 15,
+                          "product_id": 1,
+                          "variant_id": 5,
+                          "vendor_id": 1,
+                          "branch_id": 2,
+                          "quantity": 2,
+                          "is_combo": false,
+                          "unit_price": 120,
+                          "total_price": 240,
+                          "status": "ACTIVE",
+                          "created_at": "2025-01-25T10:30:00.000Z",
+                          "updated_at": "2025-01-25T10:30:00.000Z",
+                          "concurrency_stamp": "550e8400-e29b-41d4-a716-446655440000",
+                          "productDetails": {
+                            "id": 1,
+                            "title": "Fresh Milk"
+                          },
+                          "variant": {
+                            "id": 5,
+                            "variant_name": "500ml",
+                            "selling_price": 120,
+                            "quantity": 50,
+                            "product_status": "INSTOCK",
+                            "product": {
+                              "id": 1,
+                              "title": "Fresh Milk",
+                              "images": [
+                                {
+                                  "id": 10,
+                                  "image_url": "https://example.com/images/milk.jpg"
+                                }
+                              ]
+                            }
+                          },
+                          "user": {
+                            "id": 1,
+                            "name": "John Doe",
+                            "email": "john@example.com",
+                            "mobile_number": "9876543210"
+                          }
+                        },
+                        {
+                          "id": 16,
+                          "product_id": 2,
+                          "variant_id": 8,
+                          "vendor_id": 1,
+                          "branch_id": 2,
+                          "quantity": 3,
+                          "is_combo": true,
+                          "unit_price": 100,
+                          "total_price": 300,
+                          "status": "ACTIVE",
+                          "created_at": "2025-01-25T11:00:00.000Z",
+                          "updated_at": "2025-01-25T11:00:00.000Z",
+                          "concurrency_stamp": "660e8400-e29b-41d4-a716-446655440001",
+                          "productDetails": {
+                            "id": 2,
+                            "title": "Organic Eggs"
+                          },
+                          "variant": {
+                            "id": 8,
+                            "variant_name": "Dozen",
+                            "selling_price": 150,
+                            "quantity": 30,
+                            "product_status": "INSTOCK",
+                            "product": {
+                              "id": 2,
+                              "title": "Organic Eggs",
+                              "images": [
+                                {
+                                  "id": 15,
+                                  "image_url": "https://example.com/images/eggs.jpg"
+                                }
+                              ]
+                            }
+                          },
+                          "user": {
+                            "id": 1,
+                            "name": "John Doe",
+                            "email": "john@example.com",
+                            "mobile_number": "9876543210"
+                          }
+                        }
+                      ],
+                      "pagination": {
+                        "pageSize": 10,
+                        "pageNumber": 1,
+                        "totalCount": 2,
+                        "totalPages": 1,
+                        "paginationEnabled": false
+                      }
+                    }
+                  },
+                  "emptyCart": {
+                    "summary": "Empty cart",
+                    "value": {
+                      "success": true,
+                      "doc": [],
+                      "pagination": {
+                        "pageSize": 10,
+                        "pageNumber": 1,
+                        "totalCount": 0,
+                        "totalPages": 0,
+                        "paginationEnabled": false
+                      }
                     }
                   }
                 }
@@ -1703,9 +2695,10 @@
             "name": "cartId",
             "required": true,
             "schema": {
-              "type": "string"
+              "type": "integer"
             },
-            "description": "Cart item ID to delete"
+            "description": "Cart item ID to delete",
+            "example": 15
           }
         ],
         "responses": {
@@ -1727,6 +2720,10 @@
                     "success": {
                       "type": "boolean",
                       "example": true
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "successfully deleted"
                     }
                   }
                 }
@@ -1734,14 +2731,54 @@
             }
           },
           "400": {
-            "description": "Error deleting cart item"
+            "description": "Validation error or cart item not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": false
+                    },
+                    "errors": {
+                      "type": "object",
+                      "properties": {
+                        "message": {
+                          "type": "string",
+                          "example": "Parameter: cartId is required in query"
+                        }
+                      }
+                    }
+                  }
+                },
+                "examples": {
+                  "success": {
+                    "summary": "Item deleted successfully",
+                    "value": {
+                      "success": true,
+                      "message": "successfully deleted"
+                    }
+                  },
+                  "validationError": {
+                    "summary": "Validation error",
+                    "value": {
+                      "success": false,
+                      "errors": {
+                        "message": "Parameter: cartId is required in query"
+                      }
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       }
     },
     "/api/update-cart/{id}": {
       "patch": {
-        "summary": "Update cart item quantity",
+        "summary": "Update cart item quantity, price, or combo status",
         "tags": [
           "Cart"
         ],
@@ -1758,15 +2795,18 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Cart item ID"
+            "description": "Cart item ID",
+            "example": 15
           },
           {
             "in": "header",
             "name": "x-concurrencystamp",
+            "required": true,
             "schema": {
-              "type": "string"
+              "type": "string",
+              "format": "uuid"
             },
-            "description": "Concurrency stamp for optimistic locking"
+            "description": "Concurrency stamp for optimistic locking (required)"
           }
         ],
         "requestBody": {
@@ -1775,11 +2815,68 @@
             "application/json": {
               "schema": {
                 "type": "object",
+                "required": [
+                  "updatedBy",
+                  "concurrencyStamp"
+                ],
                 "properties": {
                   "quantity": {
                     "type": "integer",
                     "minimum": 0,
-                    "example": 3
+                    "example": 3,
+                    "description": "New quantity (optional - if 0, item is removed from cart)"
+                  },
+                  "price": {
+                    "type": "number",
+                    "example": 240,
+                    "description": "New total price (optional - for regular items: quantity × unit_price; for combo items: (quantity × unit_price) - combo_discount)"
+                  },
+                  "isCombo": {
+                    "type": "boolean",
+                    "example": false,
+                    "description": "Whether this is a combo purchase (optional - if true, price must be the total combo price for the specified quantity and quantity must match combo_quantity)"
+                  },
+                  "updatedBy": {
+                    "type": "integer",
+                    "example": 1,
+                    "description": "User ID who is updating the cart item (required)"
+                  },
+                  "concurrencyStamp": {
+                    "type": "string",
+                    "format": "uuid",
+                    "example": "550e8400-e29b-41d4-a716-446655440000",
+                    "description": "Concurrency stamp from previous response (required)"
+                  }
+                }
+              },
+              "examples": {
+                "updateQuantity": {
+                  "summary": "Update quantity only",
+                  "description": "Example: Updating quantity to 5, total price = 5 × ₹120 = ₹600",
+                  "value": {
+                    "quantity": 5,
+                    "price": 600,
+                    "updatedBy": 1,
+                    "concurrencyStamp": "550e8400-e29b-41d4-a716-446655440000"
+                  }
+                },
+                "updatePriceAndCombo": {
+                  "summary": "Update price and combo status",
+                  "description": "Example: Updating to combo with 3 items, total combo price ₹340 (FLATOFF discount)",
+                  "value": {
+                    "price": 340,
+                    "isCombo": true,
+                    "quantity": 3,
+                    "updatedBy": 1,
+                    "concurrencyStamp": "550e8400-e29b-41d4-a716-446655440000"
+                  }
+                },
+                "removeItem": {
+                  "summary": "Remove item (set quantity to 0)",
+                  "value": {
+                    "quantity": 0,
+                    "updatedBy": 1,
+                    "concurrencyStamp": "550e8400-e29b-41d4-a716-446655440000"
                   }
                 }
               }
@@ -1788,12 +2885,14 @@
         },
         "responses": {
           "200": {
-            "description": "Cart item updated successfully",
+            "description": "Cart item updated successfully or removed (if quantity is 0)",
             "headers": {
               "x-concurrencystamp": {
                 "schema": {
-                  "type": "string"
-                }
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "description": "New concurrency stamp for optimistic locking"
               },
               "message": {
                 "schema": {
@@ -1805,22 +2904,141 @@
             "content": {
               "application/json": {
                 "schema": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "message": {
+                          "type": "string",
+                          "example": "item removed from cart"
+                        }
+                      }
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "success": {
+                          "type": "boolean",
+                          "example": true
+                        },
+                        "message": {
+                          "type": "string",
+                          "example": "successfully updated"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error (price mismatch, combo validation failed, etc.)",
+            "content": {
+              "application/json": {
+                "schema": {
                   "type": "object",
                   "properties": {
                     "success": {
                       "type": "boolean",
-                      "example": true
+                      "example": false
+                    },
+                    "errors": {
+                      "type": "object",
+                      "properties": {
+                        "message": {
+                          "type": "string",
+                          "example": "Price must be ₹240 for regular pricing (2 × ₹120)"
+                        }
+                      }
+                    }
+                  }
+                },
+                "examples": {
+                  "success": {
+                    "summary": "Cart item updated successfully",
+                    "value": {
+                      "success": true,
+                      "message": "successfully updated"
+                    }
+                  },
+                  "itemRemoved": {
+                    "summary": "Item removed (quantity set to 0)",
+                    "value": {
+                      "message": "item removed from cart"
+                    }
+                  },
+                  "concurrencyError": {
+                    "summary": "Concurrency conflict",
+                    "value": {
+                      "success": false,
+                      "errors": {
+                        "message": "Concurrency error"
+                      }
+                    }
+                  },
+                  "priceMismatch": {
+                    "summary": "Price validation error",
+                    "value": {
+                      "success": false,
+                      "errors": {
+                        "message": "Price must be ₹240 for regular pricing (2 × ₹120)"
+                      }
                     }
                   }
                 }
               }
             }
           },
-          "400": {
-            "description": "Validation error"
+          "404": {
+            "description": "Cart item not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": false
+                    },
+                    "errors": {
+                      "type": "object",
+                      "properties": {
+                        "message": {
+                          "type": "string",
+                          "example": "Cart item not found"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
           },
           "409": {
-            "description": "Concurrency conflict"
+            "description": "Concurrency conflict - cart item was modified by another request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": false
+                    },
+                    "errors": {
+                      "type": "object",
+                      "properties": {
+                        "message": {
+                          "type": "string",
+                          "example": "Concurrency error"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       }
@@ -2283,6 +3501,429 @@
           },
           "404": {
             "description": "Category not found"
+          }
+        }
+      }
+    },
+    "/api/get-dashboard-kpis": {
+      "post": {
+        "summary": "Get dashboard KPIs (Total Users, Orders, Revenue, Returns) with trends",
+        "tags": [
+          "Dashboard"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "vendorId": {
+                    "type": "integer",
+                    "example": 1,
+                    "description": "Filter by vendor ID (optional)"
+                  },
+                  "branchId": {
+                    "type": "integer",
+                    "example": 1,
+                    "description": "Filter by branch ID (optional)"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Dashboard KPIs retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "doc": {
+                      "type": "object",
+                      "properties": {
+                        "total_users": {
+                          "type": "object",
+                          "properties": {
+                            "value": {
+                              "type": "integer",
+                              "example": 40689
+                            },
+                            "change": {
+                              "type": "number",
+                              "example": 8.5
+                            },
+                            "change_type": {
+                              "type": "string",
+                              "enum": [
+                                "up",
+                                "down"
+                              ]
+                            },
+                            "period": {
+                              "type": "string",
+                              "example": "yesterday"
+                            }
+                          }
+                        },
+                        "total_orders": {
+                          "type": "object"
+                        },
+                        "revenue": {
+                          "type": "object"
+                        },
+                        "total_returns": {
+                          "type": "object"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/get-top-products": {
+      "post": {
+        "summary": "Get top products with revenue, orders, and trend",
+        "tags": [
+          "Dashboard"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "vendorId": {
+                    "type": "integer"
+                  },
+                  "branchId": {
+                    "type": "integer"
+                  },
+                  "limit": {
+                    "type": "integer",
+                    "default": 5,
+                    "example": 5
+                  },
+                  "startDate": {
+                    "type": "string",
+                    "format": "date",
+                    "example": "2025-12-01",
+                    "description": "Start date for filtering (optional, ISO format)"
+                  },
+                  "endDate": {
+                    "type": "string",
+                    "format": "date",
+                    "example": "2026-01-31",
+                    "description": "End date for filtering (optional, ISO format)"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Top products retrieved successfully"
+          }
+        }
+      }
+    },
+    "/api/get-recent-orders": {
+      "post": {
+        "summary": "Get recent orders with status, customer, time, price",
+        "tags": [
+          "Dashboard"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "vendorId": {
+                    "type": "integer"
+                  },
+                  "branchId": {
+                    "type": "integer"
+                  },
+                  "limit": {
+                    "type": "integer",
+                    "default": 5,
+                    "example": 5
+                  },
+                  "startDate": {
+                    "type": "string",
+                    "format": "date",
+                    "example": "2025-12-01",
+                    "description": "Start date for filtering (optional, ISO format)"
+                  },
+                  "endDate": {
+                    "type": "string",
+                    "format": "date",
+                    "example": "2026-01-31",
+                    "description": "End date for filtering (optional, ISO format)"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Recent orders retrieved successfully"
+          }
+        }
+      }
+    },
+    "/api/get-expiring-products": {
+      "post": {
+        "summary": "Get expiring products/variants with pagination",
+        "tags": [
+          "Dashboard"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "pageSize": {
+                    "type": "integer",
+                    "enum": [
+                      1,
+                      5,
+                      10,
+                      20,
+                      30,
+                      40,
+                      50,
+                      100,
+                      500
+                    ],
+                    "default": 10,
+                    "description": "Number of results per page"
+                  },
+                  "pageNumber": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "default": 1,
+                    "description": "Page number"
+                  },
+                  "vendorId": {
+                    "type": "integer",
+                    "example": 1,
+                    "description": "Filter by vendor ID (optional)"
+                  },
+                  "branchId": {
+                    "type": "integer",
+                    "example": 1,
+                    "description": "Filter by branch ID (optional)"
+                  },
+                  "daysAhead": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "default": 30,
+                    "example": 30,
+                    "description": "Number of days ahead to check for expiring products (default: 30)"
+                  },
+                  "filters": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "key": {
+                          "type": "string"
+                        },
+                        "eq": {
+                          "type": "string"
+                        },
+                        "in": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "neq": {
+                          "type": "string"
+                        },
+                        "gt": {
+                          "type": "string"
+                        },
+                        "gte": {
+                          "type": "string"
+                        },
+                        "lt": {
+                          "type": "string"
+                        },
+                        "lte": {
+                          "type": "string"
+                        },
+                        "like": {
+                          "type": "string"
+                        },
+                        "iLike": {
+                          "type": "string"
+                        }
+                      }
+                    },
+                    "description": "Array of filter objects"
+                  },
+                  "sorting": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "key": {
+                          "type": "string"
+                        },
+                        "direction": {
+                          "type": "string",
+                          "enum": [
+                            "ASC",
+                            "DESC"
+                          ]
+                        }
+                      }
+                    },
+                    "description": "Array of sorting objects"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Expiring products retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "doc": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "variant_id": {
+                            "type": "integer",
+                            "example": 1
+                          },
+                          "variant_name": {
+                            "type": "string",
+                            "example": "200g"
+                          },
+                          "product_id": {
+                            "type": "integer",
+                            "example": 10
+                          },
+                          "product_name": {
+                            "type": "string",
+                            "example": "Cheese"
+                          },
+                          "category_id": {
+                            "type": "integer",
+                            "example": 1
+                          },
+                          "category_name": {
+                            "type": "string",
+                            "example": "Dairy"
+                          },
+                          "stock": {
+                            "type": "integer",
+                            "example": 8
+                          },
+                          "price": {
+                            "type": "number",
+                            "example": 120
+                          },
+                          "expiry_date": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "expiry_date_formatted": {
+                            "type": "string",
+                            "example": "Jan 17, 2026"
+                          },
+                          "expiry_status": {
+                            "type": "string",
+                            "example": "Expired 2 days ago"
+                          },
+                          "expiry_status_type": {
+                            "type": "string",
+                            "enum": [
+                              "expired",
+                              "expiring_today",
+                              "expiring_soon"
+                            ],
+                            "example": "expired"
+                          },
+                          "days_until_expiry": {
+                            "type": "integer",
+                            "example": -2,
+                            "description": "Negative for expired, 0 for today, positive for future"
+                          }
+                        }
+                      }
+                    },
+                    "pagination": {
+                      "type": "object",
+                      "properties": {
+                        "pageSize": {
+                          "type": "integer"
+                        },
+                        "pageNumber": {
+                          "type": "integer"
+                        },
+                        "totalCount": {
+                          "type": "integer"
+                        },
+                        "totalPages": {
+                          "type": "integer"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       }
@@ -4490,9 +6131,6 @@
                           },
                           "price": {
                             "type": "number"
-                          },
-                          "description": {
-                            "type": "string"
                           }
                         }
                       }
@@ -4904,6 +6542,93 @@
         }
       }
     },
+    "/api/get-product-stats": {
+      "post": {
+        "summary": "Get product statistics",
+        "tags": [
+          "Products"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "productId"
+                ],
+                "properties": {
+                  "productId": {
+                    "type": "integer",
+                    "example": 1,
+                    "description": "Product ID"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Product statistics retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "doc": {
+                      "type": "object",
+                      "properties": {
+                        "product_id": {
+                          "type": "integer",
+                          "example": 1
+                        },
+                        "product_title": {
+                          "type": "string",
+                          "example": "Wireless Headphones"
+                        },
+                        "total_orders": {
+                          "type": "integer",
+                          "example": 156,
+                          "description": "Total number of orders for this product"
+                        },
+                        "units_sold": {
+                          "type": "integer",
+                          "example": 234,
+                          "description": "Total units sold"
+                        },
+                        "revenue_generated": {
+                          "type": "number",
+                          "example": 23400000,
+                          "description": "Total revenue generated in base currency"
+                        },
+                        "current_stock": {
+                          "type": "integer",
+                          "example": 0,
+                          "description": "Current stock available (sum of all variant quantities)"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Product not found"
+          }
+        }
+      }
+    },
     "/api/save-product-images": {
       "post": {
         "summary": "Upload multiple product images",
@@ -5143,16 +6868,6 @@
                     "type": "string",
                     "example": "500g"
                   },
-                  "description": {
-                    "type": "string",
-                    "example": "Fresh product description",
-                    "description": "Variant description (optional)"
-                  },
-                  "nutritional": {
-                    "type": "string",
-                    "example": "Calories: 100, Protein: 5g",
-                    "description": "Nutritional information (optional)"
-                  },
                   "price": {
                     "type": "number",
                     "example": 500
@@ -5331,14 +7046,6 @@
                 "properties": {
                   "variantName": {
                     "type": "string"
-                  },
-                  "description": {
-                    "type": "string",
-                    "description": "Variant description (optional)"
-                  },
-                  "nutritional": {
-                    "type": "string",
-                    "description": "Nutritional information (optional)"
                   },
                   "price": {
                     "type": "number"
@@ -5798,11 +7505,44 @@
         }
       }
     },
-    "/api/register-rider-fcm-token": {
-      "post": {
-        "summary": "Register or update FCM token for rider",
+    "/api/rider-stats": {
+      "get": {
+        "summary": "Get rider statistics",
         "tags": [
-          "Rider FCM"
+          "Rider Stats"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "vendorId",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            },
+            "description": "Vendor ID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Rider statistics retrieved successfully"
+          },
+          "400": {
+            "description": "Validation error"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      },
+      "put": {
+        "summary": "Update rider statistics",
+        "tags": [
+          "Rider Stats"
         ],
         "security": [
           {
@@ -5816,37 +7556,39 @@
               "schema": {
                 "type": "object",
                 "required": [
-                  "fcmToken",
                   "vendorId"
                 ],
                 "properties": {
-                  "fcmToken": {
-                    "type": "string",
-                    "example": "fcm_token_string_here"
-                  },
                   "vendorId": {
                     "type": "integer",
                     "example": 1
                   },
-                  "branchId": {
+                  "totalOrders": {
                     "type": "integer",
-                    "nullable": true,
+                    "minimum": 0,
+                    "example": 10
+                  },
+                  "totalDeliveries": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "example": 8
+                  },
+                  "completedOrders": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "example": 7
+                  },
+                  "cancelledOrders": {
+                    "type": "integer",
+                    "minimum": 0,
                     "example": 1
                   },
-                  "deviceType": {
-                    "type": "string",
-                    "enum": [
-                      "android",
-                      "ios",
-                      "web"
-                    ],
+                  "rating": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 5,
                     "nullable": true,
-                    "example": "android"
-                  },
-                  "deviceId": {
-                    "type": "string",
-                    "nullable": true,
-                    "example": "device_unique_id"
+                    "example": 4.5
                   }
                 }
               }
@@ -5855,78 +7597,10 @@
         },
         "responses": {
           "200": {
-            "description": "FCM token registered successfully"
+            "description": "Rider statistics updated successfully"
           },
           "400": {
             "description": "Validation error"
-          },
-          "401": {
-            "description": "Unauthorized"
-          }
-        }
-      }
-    },
-    "/api/remove-rider-fcm-token": {
-      "delete": {
-        "summary": "Remove FCM token for rider",
-        "tags": [
-          "Rider FCM"
-        ],
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "tokenId": {
-                    "type": "integer",
-                    "example": 1
-                  },
-                  "fcmToken": {
-                    "type": "string",
-                    "example": "fcm_token_string_here"
-                  }
-                }
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "FCM token removed successfully"
-          },
-          "400": {
-            "description": "Validation error"
-          },
-          "401": {
-            "description": "Unauthorized"
-          },
-          "404": {
-            "description": "Token not found"
-          }
-        }
-      }
-    },
-    "/api/rider-fcm-token": {
-      "get": {
-        "summary": "Get current rider's FCM token information",
-        "tags": [
-          "Rider FCM"
-        ],
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "FCM token information retrieved successfully"
           },
           "401": {
             "description": "Unauthorized"
@@ -6233,7 +7907,7 @@
     },
     "/api/save-branch-shipping-config": {
       "post": {
-        "summary": "Save or update branch shipping configuration (VENDOR_ADMIN only)",
+        "summary": "Save or update vendor shipping configuration (VENDOR_ADMIN only)",
         "tags": [
           "Shipping"
         ],
@@ -6249,10 +7923,10 @@
               "schema": {
                 "type": "object",
                 "required": [
-                  "branchId"
+                  "vendorId"
                 ],
                 "properties": {
-                  "branchId": {
+                  "vendorId": {
                     "type": "integer",
                     "example": 1
                   },
@@ -6303,7 +7977,7 @@
         },
         "responses": {
           "201": {
-            "description": "Branch shipping config saved successfully"
+            "description": "Vendor shipping config saved successfully"
           },
           "400": {
             "description": "Validation error"
@@ -6311,9 +7985,9 @@
         }
       }
     },
-    "/api/get-branch-shipping-config/{branchId}": {
+    "/api/get-branch-shipping-config/{vendorId}": {
       "get": {
-        "summary": "Get branch shipping configuration",
+        "summary": "Get vendor shipping configuration",
         "tags": [
           "Shipping"
         ],
@@ -6325,7 +7999,7 @@
         "parameters": [
           {
             "in": "path",
-            "name": "branchId",
+            "name": "vendorId",
             "required": true,
             "schema": {
               "type": "integer"
@@ -6334,7 +8008,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Branch shipping config retrieved successfully"
+            "description": "Vendor shipping config retrieved successfully"
           },
           "404": {
             "description": "Config not found (returns defaults)"
@@ -6996,6 +8670,151 @@
                 }
               }
             }
+          },
+          "404": {
+            "description": "SubCategory not found"
+          }
+        }
+      }
+    },
+    "/api/get-sub-category-stats": {
+      "post": {
+        "summary": "Get sub-category statistics and reports",
+        "tags": [
+          "SubCategories"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "subCategoryId"
+                ],
+                "properties": {
+                  "subCategoryId": {
+                    "type": "integer",
+                    "example": 1,
+                    "description": "SubCategory ID (required)"
+                  },
+                  "startDate": {
+                    "type": "string",
+                    "format": "date",
+                    "example": "2025-12-01",
+                    "description": "Start date for revenue calculation (optional, ISO format)"
+                  },
+                  "endDate": {
+                    "type": "string",
+                    "format": "date",
+                    "example": "2026-01-31",
+                    "description": "End date for revenue calculation (optional, ISO format)"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Sub-category statistics retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "doc": {
+                      "type": "object",
+                      "properties": {
+                        "sub_category_id": {
+                          "type": "integer",
+                          "example": 1
+                        },
+                        "sub_category_title": {
+                          "type": "string",
+                          "example": "Smartphones"
+                        },
+                        "total_products": {
+                          "type": "integer",
+                          "example": 45,
+                          "description": "Total number of products in this sub-category"
+                        },
+                        "active_products": {
+                          "type": "integer",
+                          "example": 38,
+                          "description": "Number of active products in this sub-category"
+                        },
+                        "total_revenue": {
+                          "type": "number",
+                          "example": 8500000,
+                          "description": "Total revenue from delivered orders (in paise/cents)"
+                        },
+                        "out_of_stock": {
+                          "type": "integer",
+                          "example": 7,
+                          "description": "Number of out-of-stock product variants"
+                        },
+                        "charts": {
+                          "type": "object",
+                          "description": "Chart data for visual analytics",
+                          "properties": {
+                            "product_status_distribution": {
+                              "type": "object",
+                              "description": "Product Status Distribution (Pie Chart data)",
+                              "properties": {
+                                "active": {
+                                  "type": "integer",
+                                  "example": 38,
+                                  "description": "Number of active products"
+                                },
+                                "inactive": {
+                                  "type": "integer",
+                                  "example": 7,
+                                  "description": "Number of inactive products"
+                                }
+                              }
+                            },
+                            "stock_status_distribution": {
+                              "type": "object",
+                              "description": "Stock Status Distribution (Bar Chart data)",
+                              "properties": {
+                                "in_stock": {
+                                  "type": "integer",
+                                  "example": 32,
+                                  "description": "Number of products/variants in stock"
+                                },
+                                "low_stock": {
+                                  "type": "integer",
+                                  "example": 6,
+                                  "description": "Number of products/variants with low stock (quantity <= 10)"
+                                },
+                                "out_of_stock": {
+                                  "type": "integer",
+                                  "example": 7,
+                                  "description": "Number of products/variants out of stock"
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error"
           },
           "404": {
             "description": "SubCategory not found"
@@ -7831,6 +9650,132 @@
           },
           "401": {
             "description": "Unauthorized - Invalid or missing token"
+          }
+        }
+      }
+    },
+    "/api/register-user-fcm-token": {
+      "post": {
+        "summary": "Register or update FCM token for user",
+        "tags": [
+          "User FCM"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "fcmToken"
+                ],
+                "properties": {
+                  "fcmToken": {
+                    "type": "string",
+                    "example": "fcm_token_string_here"
+                  },
+                  "deviceType": {
+                    "type": "string",
+                    "enum": [
+                      "android",
+                      "ios",
+                      "web"
+                    ],
+                    "nullable": true,
+                    "example": "android"
+                  },
+                  "deviceId": {
+                    "type": "string",
+                    "nullable": true,
+                    "example": "device_unique_id"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "FCM token registered successfully"
+          },
+          "400": {
+            "description": "Validation error"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/api/remove-user-fcm-token": {
+      "delete": {
+        "summary": "Remove FCM token for user",
+        "tags": [
+          "User FCM"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "tokenId": {
+                    "type": "integer",
+                    "example": 1
+                  },
+                  "fcmToken": {
+                    "type": "string",
+                    "example": "fcm_token_string_here"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "FCM token removed successfully"
+          },
+          "400": {
+            "description": "Validation error"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "404": {
+            "description": "Token not found"
+          }
+        }
+      }
+    },
+    "/api/user-fcm-token": {
+      "get": {
+        "summary": "Get current user's FCM token information",
+        "tags": [
+          "User FCM"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "FCM token information retrieved successfully"
+          },
+          "401": {
+            "description": "Unauthorized"
           }
         }
       }
