@@ -17,7 +17,7 @@ module.exports = (router) => {
    * /save-address:
    *   post:
    *     summary: Add a new address
-   *     tags: [Addresses]
+   *     tags: [Addresses, CLIENT]
    *     security:
    *       - bearerAuth: []
    *     requestBody:
@@ -165,7 +165,7 @@ module.exports = (router) => {
    * /get-address:
    *   post:
    *     summary: Get user addresses
-   *     tags: [Addresses]
+   *     tags: [Addresses, CLIENT]
    *     security:
    *       - bearerAuth: []
    *     requestBody:
@@ -299,7 +299,7 @@ module.exports = (router) => {
    * /update-address/{id}:
    *   patch:
    *     summary: Update an address
-   *     tags: [Addresses]
+   *     tags: [Addresses, CLIENT]
    *     security:
    *       - bearerAuth: []
    *     parameters:

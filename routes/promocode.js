@@ -17,7 +17,7 @@ module.exports = (router) => {
    * /save-Promocode:
    *   post:
    *     summary: Create a new promocode
-   *     tags: [Promocodes]
+   *     tags: [Promocodes, ADMIN]
    *     security:
    *       - bearerAuth: []
    *     requestBody:
@@ -91,7 +91,7 @@ module.exports = (router) => {
    * /get-Promocode:
    *   post:
    *     summary: Get promocodes with pagination
-   *     tags: [Promocodes]
+   *     tags: [Promocodes, ADMIN]
    *     security:
    *       - bearerAuth: []
    *     requestBody:
@@ -191,7 +191,7 @@ module.exports = (router) => {
    * /update-Promocode/{id}:
    *   patch:
    *     summary: Update a promocode
-   *     tags: [Promocodes]
+   *     tags: [Promocodes, ADMIN]
    *     security:
    *       - bearerAuth: []
    *     parameters:

@@ -20,6 +20,7 @@ const shipping = require('./shipping');
 const inventory = require('./inventory');
 const dashboard = require('./dashboard');
 const banner = require('./banner');
+const productType = require('./productType');
 
 module.exports = {
   ...user,
@@ -44,4 +45,5 @@ module.exports = {
   ...inventory,
   ...dashboard,
   ...banner,
+  ...productType,
 };

@@ -30,7 +30,7 @@ module.exports = (router) => {
    * /create-super-admin:
    *   post:
    *     summary: Create super admin user
-   *     tags: [Authentication]
+   *     tags: [Authentication, ADMIN]
    *     security:
    *       - bearerAuth: []
    *     requestBody:
@@ -86,7 +86,7 @@ module.exports = (router) => {
    * /auth-login:
    *   post:
    *     summary: Authentication login with email and password (similar to OTP verification)
-   *     tags: [Authentication]
+   *     tags: [Authentication, ADMIN]
    *     requestBody:
    *       required: true
    *       content:
@@ -118,7 +118,7 @@ module.exports = (router) => {
    * /user-profile:
    *   get:
    *     summary: Get current user profile
-   *     tags: [Users]
+   *     tags: [Users, BOTH]
    *     security:
    *       - bearerAuth: []
    *     responses:
@@ -192,7 +192,7 @@ module.exports = (router) => {
    * /create-vendor-admin:
    *   post:
    *     summary: Create a vendor admin user
-   *     tags: [Users]
+   *     tags: [Users, ADMIN]
    *     security:
    *       - bearerAuth: []
    *     requestBody:
@@ -263,7 +263,7 @@ module.exports = (router) => {
    * /update-user/{id}:
    *   patch:
    *     summary: Update user information
-   *     tags: [Users]
+   *     tags: [Users, BOTH]
    *     security:
    *       - bearerAuth: []
    *     parameters:
@@ -318,7 +318,7 @@ module.exports = (router) => {
    * /convert-user-to-rider:
    *   post:
    *     summary: Convert a user to rider role (Vendor Admin only)
-   *     tags: [Users]
+   *     tags: [Users, ADMIN]
    *     security:
    *       - bearerAuth: []
    *     requestBody:
@@ -357,7 +357,7 @@ module.exports = (router) => {
    * /refresh-token:
    *   post:
    *     summary: Refresh access token using old token
-   *     tags: [Authentication]
+   *     tags: [Authentication, BOTH]
    *     requestBody:
    *       required: true
    *       content:
@@ -420,7 +420,7 @@ module.exports = (router) => {
    *   post:
    *     summary: Get users filtered by vendor and role
    *     description: Vendor ID is automatically extracted from the JWT token. Only users belonging to the vendor in the token will be returned.
-   *     tags: [Users]
+   *     tags: [Users, ADMIN]
    *     security:
    *       - bearerAuth: []
    *     parameters:
@@ -604,7 +604,7 @@ module.exports = (router) => {
    * /logout:
    *   post:
    *     summary: Logout user and close all socket connections
-   *     tags: [Authentication]
+   *     tags: [Authentication, BOTH]
    *     security:
    *       - bearerAuth: []
    *     responses:

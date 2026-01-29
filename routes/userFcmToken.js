@@ -16,7 +16,7 @@ module.exports = (router) => {
    * /register-user-fcm-token:
    *   post:
    *     summary: Register or update FCM token for user
-   *     tags: [User FCM]
+   *     tags: [User FCM, CLIENT]
    *     security:
    *       - bearerAuth: []
    *     requestBody:
@@ -60,7 +60,7 @@ module.exports = (router) => {
    * /remove-user-fcm-token:
    *   delete:
    *     summary: Remove FCM token for user
-   *     tags: [User FCM]
+   *     tags: [User FCM, CLIENT]
    *     security:
    *       - bearerAuth: []
    *     requestBody:
@@ -98,7 +98,7 @@ module.exports = (router) => {
    * /user-fcm-token:
    *   get:
    *     summary: Get current user's FCM token information
-   *     tags: [User FCM]
+   *     tags: [User FCM, CLIENT]
    *     security:
    *       - bearerAuth: []
    *     responses:

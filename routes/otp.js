@@ -14,7 +14,7 @@ module.exports = (router) => {
    * /send-otp-sms-for-user:
    *   post:
    *     summary: Send OTP to SMS for user (creates user if new mobile number)
-   *     tags: [OTP]
+   *     tags: [OTP, CLIENT]
    *     requestBody:
    *       required: true
    *       content:
@@ -58,7 +58,7 @@ module.exports = (router) => {
    * /verify-otp-sms-for-user:
    *   post:
    *     summary: Verify OTP sent via SMS and login user
-   *     tags: [OTP]
+   *     tags: [OTP, CLIENT]
    *     requestBody:
    *       required: true
    *       content:

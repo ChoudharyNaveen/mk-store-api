@@ -17,7 +17,7 @@ module.exports = (router) => {
    * /save-branch:
    *   post:
    *     summary: Create a new branch
-   *     tags: [Branches]
+   *     tags: [Branches, ADMIN]
    *     security:
    *       - bearerAuth: []
    *     requestBody:
@@ -149,7 +149,7 @@ module.exports = (router) => {
    * /get-branch:
    *   post:
    *     summary: Get branches with pagination
-   *     tags: [Branches]
+   *     tags: [Branches, BOTH]
    *     security:
    *       - bearerAuth: []
    *     requestBody:
@@ -219,7 +219,7 @@ module.exports = (router) => {
    * /update-branch/{id}:
    *   patch:
    *     summary: Update a branch
-   *     tags: [Branches]
+   *     tags: [Branches, ADMIN]
    *     security:
    *       - bearerAuth: []
    *     parameters:

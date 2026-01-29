@@ -11,6 +11,10 @@ const updateProduct = Joi.object({
     .messages({
       'number.base': 'Parameter: brandId must be a number',
     }),
+  productTypeId: Joi.number().integer().allow(null).optional()
+    .messages({
+      'number.base': 'Parameter: productTypeId must be a number',
+    }),
   status: Joi.string().valid('ACTIVE', 'INACTIVE').optional(),
   updatedBy: Joi.number().integer().required(),
   concurrencyStamp: Joi.string().required(),

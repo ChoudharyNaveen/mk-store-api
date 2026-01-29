@@ -19,7 +19,7 @@ module.exports = (router) => {
    * /save-vendor:
    *   post:
    *     summary: Create a new vendor with branch
-   *     tags: [Vendors]
+   *     tags: [Vendors, ADMIN]
    *     security:
    *       - bearerAuth: []
    *     requestBody:
@@ -186,7 +186,7 @@ module.exports = (router) => {
    * /get-vendor:
    *   post:
    *     summary: Get vendors with pagination
-   *     tags: [Vendors]
+   *     tags: [Vendors, ADMIN]
    *     security:
    *       - bearerAuth: []
    *     requestBody:
@@ -256,7 +256,7 @@ module.exports = (router) => {
    * /update-vendor/{id}:
    *   patch:
    *     summary: Update a vendor
-   *     tags: [Vendors]
+   *     tags: [Vendors, ADMIN]
    *     security:
    *       - bearerAuth: []
    *     parameters:
@@ -296,7 +296,7 @@ module.exports = (router) => {
    * /get-vendor-by-code:
    *   get:
    *     summary: Get vendor details by code (Public API)
-   *     tags: [Vendors]
+   *     tags: [Vendors, CLIENT]
    *     parameters:
    *       - in: query
    *         name: code

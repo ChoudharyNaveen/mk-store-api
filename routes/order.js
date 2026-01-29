@@ -21,7 +21,7 @@ module.exports = (router) => {
    * /place-order:
    *   post:
    *     summary: Place a new order from cart items
-   *     tags: [Orders]
+   *     tags: [Orders, CLIENT]
    *     security:
    *       - bearerAuth: []
    *     requestBody:
@@ -157,7 +157,7 @@ module.exports = (router) => {
    * /get-order:
    *   post:
    *     summary: Get user orders with pagination, filters, and sorting
-   *     tags: [Orders]
+   *     tags: [Orders, CLIENT]
    *     security:
    *       - bearerAuth: []
    *     requestBody:
@@ -267,7 +267,7 @@ module.exports = (router) => {
    * /get-stats-of-orders-completed:
    *   get:
    *     summary: Get statistics of completed orders
-   *     tags: [Orders]
+   *     tags: [Orders, ADMIN]
    *     security:
    *       - bearerAuth: []
    *     responses:
@@ -300,7 +300,7 @@ module.exports = (router) => {
    * /update-order/{id}:
    *   patch:
    *     summary: Update order status and/or payment status
-   *     tags: [Orders]
+   *     tags: [Orders, ADMIN]
    *     security:
    *       - bearerAuth: []
    *     parameters:
@@ -418,7 +418,7 @@ module.exports = (router) => {
    * /get-total-returns-of-today:
    *   get:
    *     summary: Get total returns for today
-   *     tags: [Orders]
+   *     tags: [Orders, ADMIN]
    *     security:
    *       - bearerAuth: []
    *     responses:
@@ -443,7 +443,7 @@ module.exports = (router) => {
    * /get-order-details:
    *   post:
    *     summary: Get detailed order information including items, discounts, customer, and address
-   *     tags: [Orders]
+   *     tags: [Orders, BOTH]
    *     security:
    *       - bearerAuth: []
    *     requestBody:

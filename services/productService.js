@@ -14,6 +14,7 @@ const {
   productVariant: ProductVariantModel,
   productImage: ProductImageModel,
   variantComboDiscount: VariantComboDiscountModel,
+  productType: ProductTypeModel,
   sequelize,
   Sequelize: { Op },
 } = require('../database');
@@ -229,10 +230,10 @@ const deleteComboDiscount = async (comboDiscountId, updatedBy, transaction) => {
 
 const saveProduct = async ({ data, imageFiles }) => withTransaction(sequelize, async (transaction) => {
   const {
-    createdBy, branchId, brandId, variants: variantsData, ...datas
+    createdBy, branchId, brandId, productTypeId, variants: variantsData, ...datas
   } = data;
 
-  // Parallel validation: branch and brand checks (if needed)
+  // Parallel validation: branch, brand, and product type checks (if needed)
   const validationPromises = [];
 
   if (branchId) {
@@ -259,7 +260,19 @@ const saveProduct = async ({ data, imageFiles }) => withTransaction(sequelize, a
     validationPromises.push(Promise.resolve(null));
   }
 
-  const [ branch, brand ] = await Promise.all(validationPromises);
+  if (productTypeId) {
+    validationPromises.push(
+      ProductTypeModel.findOne({
+        where: { id: productTypeId },
+        attributes: [ 'id', 'sub_category_id', 'status' ],
+        transaction,
+      }),
+    );
+  } else {
+    validationPromises.push(Promise.resolve(null));
+  }
+
+  const [ branch, brand, productType ] = await Promise.all(validationPromises);
 
   // Validate branch
   if (branchId) {
@@ -286,6 +299,29 @@ const saveProduct = async ({ data, imageFiles }) => withTransaction(sequelize, a
     }
 
     datas.brandId = brandId;
+  }
+
+  // Validate product type: must exist and belong to same subcategory as product
+  if (productTypeId) {
+    if (!productType) {
+      throw new NotFoundError('Product type not found');
+    }
+
+    if (productType.status !== 'ACTIVE') {
+      throw new ValidationError('Product type is not active');
+    }
+
+    const productSubCategoryId = datas.subCategoryId;
+
+    if (!productSubCategoryId) {
+      throw new ValidationError('subCategoryId is required when productTypeId is provided');
+    }
+
+    if (productType.sub_category_id !== parseInt(productSubCategoryId)) {
+      throw new ValidationError('Product type does not belong to the selected subcategory');
+    }
+
+    datas.productTypeId = productTypeId;
   }
 
   const concurrencyStamp = uuidV4();
@@ -479,12 +515,12 @@ const saveProduct = async ({ data, imageFiles }) => withTransaction(sequelize, a
 const updateProduct = async ({ data, imageFiles }) => withTransaction(sequelize, async (transaction) => {
   const { id, ...datas } = data;
   const {
-    concurrencyStamp, updatedBy, brandId, vendorId, variants: variantsData, imagesData, variantIdsToDelete, imageIdsToDelete,
+    concurrencyStamp, updatedBy, brandId, vendorId, productTypeId, variants: variantsData, imagesData, variantIdsToDelete, imageIdsToDelete,
   } = datas;
 
   const response = await ProductModel.findOne({
     where: { id },
-    attributes: [ 'id', 'concurrency_stamp', 'vendor_id', 'branch_id' ],
+    attributes: [ 'id', 'concurrency_stamp', 'vendor_id', 'branch_id', 'sub_category_id' ],
     transaction,
   });
 
@@ -525,6 +561,33 @@ const updateProduct = async ({ data, imageFiles }) => withTransaction(sequelize,
       // Verify brand is active
       if (brand.status !== 'ACTIVE') {
         throw new ValidationError('Brand is not active');
+      }
+    }
+  }
+
+  // Validate product type: must exist and belong to same subcategory as product
+  if (productTypeId !== undefined) {
+    const finalSubCategoryId = datas.subCategoryId !== undefined ? datas.subCategoryId : response.sub_category_id;
+
+    if (productTypeId === null) {
+      datas.productTypeId = null;
+    } else {
+      const productType = await ProductTypeModel.findOne({
+        where: { id: productTypeId },
+        attributes: [ 'id', 'sub_category_id', 'status' ],
+        transaction,
+      });
+
+      if (!productType) {
+        throw new NotFoundError('Product type not found');
+      }
+
+      if (productType.status !== 'ACTIVE') {
+        throw new ValidationError('Product type is not active');
+      }
+
+      if (productType.sub_category_id !== finalSubCategoryId) {
+        throw new ValidationError('Product type does not belong to the product subcategory');
       }
     }
   }
@@ -1638,6 +1701,12 @@ const getProductDetails = async (productId) => {
           required: false,
           attributes: [ 'id', 'image_url', 'is_default', 'display_order', 'variant_id', 'status' ],
           order: [ [ 'display_order', 'ASC' ], [ 'is_default', 'DESC' ] ],
+        },
+        {
+          model: ProductTypeModel,
+          as: 'productType',
+          attributes: [ 'id', 'title' ],
+          required: false,
         },
       ],
     });

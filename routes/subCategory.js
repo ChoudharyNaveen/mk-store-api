@@ -25,7 +25,7 @@ module.exports = (router) => {
    * /save-sub-category:
    *   post:
    *     summary: Create a new subcategory
-   *     tags: [SubCategories]
+   *     tags: [SubCategories, ADMIN]
    *     security:
    *       - bearerAuth: []
    *     requestBody:
@@ -103,7 +103,7 @@ module.exports = (router) => {
    * /get-sub-category:
    *   post:
    *     summary: Get subcategories with pagination
-   *     tags: [SubCategories]
+   *     tags: [SubCategories, BOTH]
    *     security:
    *       - bearerAuth: []
    *     requestBody:
@@ -196,7 +196,7 @@ module.exports = (router) => {
    * /get-sub-categories-by-category-id:
    *   post:
    *     summary: Get subcategories by category ID with pagination
-   *     tags: [SubCategories]
+   *     tags: [SubCategories, BOTH]
    *     security:
    *       - bearerAuth: []
    *     requestBody:
@@ -328,7 +328,7 @@ module.exports = (router) => {
    * /update-sub-category/{id}:
    *   patch:
    *     summary: Update a subcategory
-   *     tags: [SubCategories]
+   *     tags: [SubCategories, ADMIN]
    *     security:
    *       - bearerAuth: []
    *     parameters:
@@ -417,7 +417,7 @@ module.exports = (router) => {
    * /get-sub-category-details/{subCategoryId}:
    *   get:
    *     summary: Get detailed subcategory information
-   *     tags: [SubCategories]
+   *     tags: [SubCategories, BOTH]
    *     security:
    *       - bearerAuth: []
    *     parameters:
@@ -470,7 +470,7 @@ module.exports = (router) => {
    * /get-sub-category-stats:
    *   post:
    *     summary: Get sub-category statistics and reports
-   *     tags: [SubCategories]
+   *     tags: [SubCategories, ADMIN]
    *     security:
    *       - bearerAuth: []
    *     requestBody:

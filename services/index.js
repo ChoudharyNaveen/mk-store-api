@@ -2,6 +2,7 @@ const User = require('./userService');
 const Category = require('./categoryService');
 const SubCategory = require('./subCategoryService');
 const Product = require('./productService');
+const ProductType = require('./productTypeService');
 const ProductVariant = require('./productVariantService');
 const ProductImage = require('./productImageService');
 const Promocode = require('./promocodeService');
@@ -26,6 +27,7 @@ module.exports = {
   Category,
   SubCategory,
   Product,
+  ProductType,
   ProductVariant,
   ProductImage,
   Promocode,

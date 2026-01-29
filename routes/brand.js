@@ -4,6 +4,7 @@ const {
   getBrand,
   updateBrand,
   deleteBrand,
+  getRelatedBrands,
 } = require('../controllers/brandController');
 const { isAuthenticated, isVendorAdmin } = require('../middleware/auth');
 const validate = require('../middleware/validation');
@@ -12,6 +13,7 @@ const {
   getBrand: getBrandSchema,
   updateBrand: updateBrandSchema,
   deleteBrand: deleteBrandSchema,
+  getRelatedBrands: getRelatedBrandsSchema,
 } = require('../schemas');
 
 const upload = multer();
@@ -22,7 +24,7 @@ module.exports = (router) => {
    * /save-brand:
    *   post:
    *     summary: Create a new brand
-   *     tags: [Brands]
+   *     tags: [Brands, ADMIN]
    *     security:
    *       - bearerAuth: []
    *     requestBody:
@@ -92,7 +94,7 @@ module.exports = (router) => {
    * /get-brand:
    *   post:
    *     summary: Get brands with pagination and filters
-   *     tags: [Brands]
+   *     tags: [Brands, BOTH]
    *     security:
    *       - bearerAuth: []
    *     requestBody:
@@ -189,7 +191,7 @@ module.exports = (router) => {
    * /update-brand/{id}:
    *   patch:
    *     summary: Update a brand
-   *     tags: [Brands]
+   *     tags: [Brands, ADMIN]
    *     security:
    *       - bearerAuth: []
    *     parameters:
@@ -283,7 +285,7 @@ module.exports = (router) => {
    * /delete-brand:
    *   delete:
    *     summary: Delete a brand
-   *     tags: [Brands]
+   *     tags: [Brands, ADMIN]
    *     security:
    *       - bearerAuth: []
    *     parameters:
@@ -313,4 +315,73 @@ module.exports = (router) => {
    *         description: Error deleting brand
    */
   router.delete('/delete-brand', isAuthenticated, validate(deleteBrandSchema), deleteBrand);
+
+  /**
+   * @swagger
+   * /get-related-brands:
+   *   get:
+   *     summary: Get related brands by productId, subCategoryId, or productTypeId
+   *     description: |
+   *       At least one of productId, subCategoryId or productTypeId is required.
+   *       1. By productId - returns brands that have ACTIVE products of the same product type in the same subcategory (and vendor) as the given product.
+   *       2. By subCategoryId - returns brands that have ACTIVE products in that subcategory; optionally filter by productTypeId and vendorId.
+   *       3. By productTypeId - subcategory is resolved from product_type; returns brands that have ACTIVE products of that type; optionally filter by vendorId.
+   *       Example - for type "Groundnut Oil" in subcategory "Oil and ghee", returns all brands selling that type.
+   *     tags: [Brands, BOTH]
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: query
+   *         name: productId
+   *         schema:
+   *           type: integer
+   *         description: Product ID (use one of productId, subCategoryId, productTypeId)
+   *       - in: query
+   *         name: subCategoryId
+   *         schema:
+   *           type: integer
+   *         description: Subcategory ID (use one of productId, subCategoryId, productTypeId)
+   *       - in: query
+   *         name: productTypeId
+   *         schema:
+   *           type: integer
+   *         description: Product type ID; when used alone, subcategory is resolved from product_type (use one of productId, subCategoryId, productTypeId)
+   *       - in: query
+   *         name: vendorId
+   *         schema:
+   *           type: integer
+   *         description: Optional vendor filter (when using subCategoryId or productTypeId)
+   *     responses:
+   *       200:
+   *         description: Related brands list (empty if product has no type or no brands match)
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 success:
+   *                   type: boolean
+   *                   example: true
+   *                 doc:
+   *                   type: array
+   *                   items:
+   *                     type: object
+   *                     properties:
+   *                       id:
+   *                         type: integer
+   *                       name:
+   *                         type: string
+   *                       description:
+   *                         type: string
+   *                       logo:
+   *                         type: string
+   *                       status:
+   *                         type: string
+   *                 message:
+   *                   type: string
+   *                   description: Present when product has no type (e.g. "Product has no type.")
+   *       404:
+   *         description: Product or product type not found (when productId or productTypeId is used)
+   */
+  router.get('/get-related-brands', isAuthenticated, validate(getRelatedBrandsSchema), getRelatedBrands);
 };

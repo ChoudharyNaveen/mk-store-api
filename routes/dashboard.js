@@ -16,7 +16,7 @@ module.exports = (router) => {
    * /get-dashboard-kpis:
    *   post:
    *     summary: Get dashboard KPIs (Total Users, Orders, Revenue, Returns) with trends
-   *     tags: [Dashboard]
+   *     tags: [Dashboard, ADMIN]
    *     security:
    *       - bearerAuth: []
    *     requestBody:
@@ -77,7 +77,7 @@ module.exports = (router) => {
    * /get-top-products:
    *   post:
    *     summary: Get top products with revenue, orders, and trend
-   *     tags: [Dashboard]
+   *     tags: [Dashboard, ADMIN]
    *     security:
    *       - bearerAuth: []
    *     requestBody:
@@ -116,7 +116,7 @@ module.exports = (router) => {
    * /get-recent-orders:
    *   post:
    *     summary: Get recent orders with status, customer, time, price
-   *     tags: [Dashboard]
+   *     tags: [Dashboard, ADMIN]
    *     security:
    *       - bearerAuth: []
    *     requestBody:
@@ -155,7 +155,7 @@ module.exports = (router) => {
    * /get-expiring-products:
    *   post:
    *     summary: Get expiring products/variants with pagination
-   *     tags: [Dashboard]
+   *     tags: [Dashboard, ADMIN]
    *     security:
    *       - bearerAuth: []
    *     requestBody:

@@ -17,7 +17,7 @@ module.exports = (router) => {
    * /save-wishlist:
    *   post:
    *     summary: Add item to wishlist
-   *     tags: [Wishlist]
+   *     tags: [Wishlist, CLIENT]
    *     security:
    *       - bearerAuth: []
    *     requestBody:
@@ -69,7 +69,7 @@ module.exports = (router) => {
    * /get-wishlist:
    *   post:
    *     summary: Get user wishlist items
-   *     tags: [Wishlist]
+   *     tags: [Wishlist, CLIENT]
    *     security:
    *       - bearerAuth: []
    *     requestBody:
@@ -134,7 +134,7 @@ module.exports = (router) => {
    * /delete-wishlist:
    *   delete:
    *     summary: Remove item from wishlist
-   *     tags: [Wishlist]
+   *     tags: [Wishlist, CLIENT]
    *     security:
    *       - bearerAuth: []
    *     parameters:

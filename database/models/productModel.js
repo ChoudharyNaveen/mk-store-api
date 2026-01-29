@@ -35,6 +35,11 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.INTEGER,
         allowNull: false,
       },
+      product_type_id: {
+        type: DataTypes.INTEGER,
+        allowNull: true,
+        index: true,
+      },
       status: {
         type: DataTypes.STRING,
         enum: [ 'ACTIVE', 'INACTIVE' ],
@@ -70,6 +75,11 @@ module.exports = (sequelize, DataTypes) => {
       foreignKey: 'sub_category_id',
       targetKey: 'id',
       as: 'subCategory',
+    });
+    product.belongsTo(models.productType, {
+      foreignKey: 'product_type_id',
+      targetKey: 'id',
+      as: 'productType',
     });
     product.belongsTo(models.branch, {
       foreignKey: 'branch_id',

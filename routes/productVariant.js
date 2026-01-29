@@ -20,7 +20,7 @@ module.exports = (router) => {
    * /save-product-variant:
    *   post:
    *     summary: Create a new product variant
-   *     tags: [Product Variants]
+   *     tags: [Product Variants, ADMIN]
    *     security:
    *       - bearerAuth: []
    *     requestBody:
@@ -82,7 +82,7 @@ module.exports = (router) => {
    * /get-product-variants:
    *   post:
    *     summary: Get product variants with pagination and filtering
-   *     tags: [Product Variants]
+   *     tags: [Product Variants, BOTH]
    *     security:
    *       - bearerAuth: []
    *     requestBody:
@@ -127,7 +127,7 @@ module.exports = (router) => {
    * /get-variant-by-id/{variantId}:
    *   get:
    *     summary: Get product variant by ID
-   *     tags: [Product Variants]
+   *     tags: [Product Variants, BOTH]
    *     security:
    *       - bearerAuth: []
    *     parameters:
@@ -153,7 +153,7 @@ module.exports = (router) => {
    * /update-product-variant/{id}:
    *   post:
    *     summary: Update product variant
-   *     tags: [Product Variants]
+   *     tags: [Product Variants, ADMIN]
    *     security:
    *       - bearerAuth: []
    *     parameters:
@@ -207,7 +207,7 @@ module.exports = (router) => {
    * /delete-product-variant/{id}:
    *   post:
    *     summary: Delete product variant (soft delete)
-   *     tags: [Product Variants]
+   *     tags: [Product Variants, ADMIN]
    *     security:
    *       - bearerAuth: []
    *     parameters:
@@ -234,7 +234,7 @@ module.exports = (router) => {
    * /get-variants-by-type/{productId}:
    *   get:
    *     summary: Get product variants grouped by type
-   *     tags: [Product Variants]
+   *     tags: [Product Variants, BOTH]
    *     security:
    *       - bearerAuth: []
    *     parameters:
@@ -254,7 +254,7 @@ module.exports = (router) => {
    * /get-variants-by-type/{productId}:
    *   get:
    *     summary: Get product variants grouped by type
-   *     tags: [Product Variants]
+   *     tags: [Product Variants, BOTH]
    *     security:
    *       - bearerAuth: []
    *     parameters:

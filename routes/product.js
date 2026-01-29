@@ -28,7 +28,7 @@ module.exports = (router) => {
    * /save-product:
    *   post:
    *     summary: Create a new product
-   *     tags: [Products]
+   *     tags: [Products, ADMIN]
    *     security:
    *       - bearerAuth: []
    *     requestBody:
@@ -127,7 +127,7 @@ module.exports = (router) => {
    * /get-product:
    *   post:
    *     summary: Get products with pagination and filters
-   *     tags: [Products]
+   *     tags: [Products, BOTH]
    *     security:
    *       - bearerAuth: []
    *     requestBody:
@@ -220,7 +220,7 @@ module.exports = (router) => {
    * /update-product/{id}:
    *   patch:
    *     summary: Update a product
-   *     tags: [Products]
+   *     tags: [Products, ADMIN]
    *     security:
    *       - bearerAuth: []
    *     parameters:
@@ -343,7 +343,7 @@ module.exports = (router) => {
    * /get-products-by-category:
    *   post:
    *     summary: Get products grouped by category
-   *     tags: [Products]
+   *     tags: [Products, BOTH]
    *     security:
    *       - bearerAuth: []
    *     requestBody:
@@ -401,7 +401,7 @@ module.exports = (router) => {
    * /delete-product:
    *   delete:
    *     summary: Delete a product
-   *     tags: [Products]
+   *     tags: [Products, ADMIN]
    *     security:
    *       - bearerAuth: []
    *     parameters:
@@ -435,7 +435,7 @@ module.exports = (router) => {
    * /get-product-details/{productId}:
    *   get:
    *     summary: Get detailed product information
-   *     tags: [Products]
+   *     tags: [Products, BOTH]
    *     security:
    *       - bearerAuth: []
    *     parameters:
@@ -500,7 +500,7 @@ module.exports = (router) => {
    * /get-product-stats:
    *   post:
    *     summary: Get product statistics
-   *     tags: [Products]
+   *     tags: [Products, ADMIN]
    *     security:
    *       - bearerAuth: []
    *     requestBody:

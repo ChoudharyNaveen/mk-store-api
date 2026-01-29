@@ -20,7 +20,7 @@ module.exports = (router) => {
    * /save-offer:
    *   post:
    *     summary: Create a new offer
-   *     tags: [Offers]
+   *     tags: [Offers, ADMIN]
    *     security:
    *       - bearerAuth: []
    *     requestBody:
@@ -94,7 +94,7 @@ module.exports = (router) => {
    * /get-offer:
    *   post:
    *     summary: Get offers with pagination
-   *     tags: [Offers]
+   *     tags: [Offers, BOTH]
    *     security:
    *       - bearerAuth: []
    *     requestBody:
@@ -196,7 +196,7 @@ module.exports = (router) => {
    * /update-offer/{id}:
    *   patch:
    *     summary: Update an offer
-   *     tags: [Offers]
+   *     tags: [Offers, ADMIN]
    *     security:
    *       - bearerAuth: []
    *     parameters:

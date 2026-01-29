@@ -85,9 +85,33 @@ const deleteBrand = async (req, res) => {
   }
 };
 
+const getRelatedBrands = async (req, res) => {
+  try {
+    const {
+      productId, subCategoryId, productTypeId, vendorId,
+    } = req.validatedData;
+
+    const { doc, message } = await BrandService.getRelatedBrandsForProduct({
+      productId: productId != null ? Number(productId) : undefined,
+      subCategoryId: subCategoryId != null ? Number(subCategoryId) : undefined,
+      productTypeId: productTypeId != null ? Number(productTypeId) : undefined,
+      vendorId: vendorId != null ? Number(vendorId) : undefined,
+    });
+
+    return res.status(200).json({
+      success: true,
+      doc,
+      ...(message && { message }),
+    });
+  } catch (error) {
+    return handleServerError(error, req, res);
+  }
+};
+
 module.exports = {
   saveBrand,
   updateBrand,
   getBrand,
   deleteBrand,
+  getRelatedBrands,
 };

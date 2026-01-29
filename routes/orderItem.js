@@ -13,7 +13,7 @@ module.exports = (router) => {
    * /get-order-item:
    *   post:
    *     summary: Get order items
-   *     tags: [OrderItems]
+   *     tags: [OrderItems, BOTH]
    *     security:
    *       - bearerAuth: []
    *     requestBody:

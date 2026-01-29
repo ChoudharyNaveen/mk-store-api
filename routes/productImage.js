@@ -21,7 +21,7 @@ module.exports = (router) => {
    * /save-product-images:
    *   post:
    *     summary: Upload multiple product images
-   *     tags: [Product Images]
+   *     tags: [Product Images, ADMIN]
    *     security:
    *       - bearerAuth: []
    *     requestBody:
@@ -66,7 +66,7 @@ module.exports = (router) => {
    * /get-product-images:
    *   post:
    *     summary: Get product images with pagination
-   *     tags: [Product Images]
+   *     tags: [Product Images, ADMIN]
    *     security:
    *       - bearerAuth: []
    *     requestBody:
@@ -110,7 +110,7 @@ module.exports = (router) => {
    * /update-product-image/{id}:
    *   post:
    *     summary: Update product image (is_default, display_order)
-   *     tags: [Product Images]
+   *     tags: [Product Images, ADMIN]
    *     security:
    *       - bearerAuth: []
    *     parameters:
@@ -155,7 +155,7 @@ module.exports = (router) => {
    * /delete-product-image/{id}:
    *   post:
    *     summary: Delete product image (soft delete)
-   *     tags: [Product Images]
+   *     tags: [Product Images, ADMIN]
    *     security:
    *       - bearerAuth: []
    *     parameters:

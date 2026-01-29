@@ -15,7 +15,7 @@ module.exports = (router) => {
    * /get-inventory-movements:
    *   post:
    *     summary: Get inventory movement history (VENDOR_ADMIN only)
-   *     tags: [Inventory]
+   *     tags: [Inventory, ADMIN]
    *     security:
    *       - bearerAuth: []
    *     requestBody:
@@ -73,7 +73,7 @@ module.exports = (router) => {
    * /adjust-inventory:
    *   post:
    *     summary: Manual inventory adjustment (VENDOR_ADMIN only)
-   *     tags: [Inventory]
+   *     tags: [Inventory, ADMIN]
    *     security:
    *       - bearerAuth: []
    *     requestBody:

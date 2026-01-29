@@ -19,7 +19,7 @@ module.exports = (router) => {
    * /add-to-cart:
    *   post:
    *     summary: Add item to cart
-   *     tags: [Cart]
+   *     tags: [Cart, CLIENT]
    *     security:
    *       - bearerAuth: []
    *     requestBody:
@@ -239,7 +239,7 @@ module.exports = (router) => {
    * /get-cart:
    *   post:
    *     summary: Get user's cart items
-   *     tags: [Cart]
+   *     tags: [Cart, CLIENT]
    *     security:
    *       - bearerAuth: []
    *     requestBody:
@@ -574,7 +574,7 @@ module.exports = (router) => {
    * /delete-cart:
    *   delete:
    *     summary: Remove item from cart
-   *     tags: [Cart]
+   *     tags: [Cart, CLIENT]
    *     security:
    *       - bearerAuth: []
    *     parameters:
@@ -640,7 +640,7 @@ module.exports = (router) => {
    * /update-cart/{id}:
    *   patch:
    *     summary: Update cart item quantity, price, or combo status
-   *     tags: [Cart]
+   *     tags: [Cart, CLIENT]
    *     security:
    *       - bearerAuth: []
    *     parameters:

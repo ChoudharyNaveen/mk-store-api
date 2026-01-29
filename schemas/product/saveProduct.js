@@ -9,6 +9,10 @@ const saveProduct = Joi.object({
     'any.required': 'Parameter: categoryId is required',
   }),
   subCategoryId: Joi.number().integer().optional(),
+  productTypeId: Joi.number().integer().allow(null).optional()
+    .messages({
+      'number.base': 'Parameter: productTypeId must be a number',
+    }),
   brandId: Joi.number().integer().optional().messages({
     'number.base': 'Parameter: brandId must be a number',
   }),

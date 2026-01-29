@@ -17,7 +17,7 @@ module.exports = (router) => {
    * /get-notifications:
    *   post:
    *     summary: Get notifications with pagination
-   *     tags: [Notifications]
+   *     tags: [Notifications, CLIENT]
    *     security:
    *       - bearerAuth: []
    *     requestBody:
@@ -85,7 +85,7 @@ module.exports = (router) => {
    * /get-unread-notification-count:
    *   get:
    *     summary: Get unread notification count
-   *     tags: [Notifications]
+   *     tags: [Notifications, CLIENT]
    *     security:
    *       - bearerAuth: []
    *     parameters:
@@ -121,7 +121,7 @@ module.exports = (router) => {
    * /mark-notification-read/{notificationId}:
    *   patch:
    *     summary: Mark notification as read
-   *     tags: [Notifications]
+   *     tags: [Notifications, CLIENT]
    *     security:
    *       - bearerAuth: []
    *     parameters:
@@ -144,7 +144,7 @@ module.exports = (router) => {
    * /mark-all-notifications-read:
    *   patch:
    *     summary: Mark all notifications as read
-   *     tags: [Notifications]
+   *     tags: [Notifications, CLIENT]
    *     security:
    *       - bearerAuth: []
    *     responses:
@@ -158,7 +158,7 @@ module.exports = (router) => {
    * /delete-notification/{notificationId}:
    *   delete:
    *     summary: Delete notification
-   *     tags: [Notifications]
+   *     tags: [Notifications, CLIENT]
    *     security:
    *       - bearerAuth: []
    *     parameters:

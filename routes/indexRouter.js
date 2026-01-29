@@ -6,7 +6,7 @@ module.exports = (router) => {
    * /test:
    *   get:
    *     summary: Test endpoint
-   *     tags: [Test]
+   *     tags: [Test, BOTH]
    *     description: Simple test endpoint to verify API is working
    *     responses:
    *       200:

@@ -22,7 +22,7 @@ module.exports = (router) => {
    * /save-banner:
    *   post:
    *     summary: Create a new banner
-   *     tags: [Banners]
+   *     tags: [Banners, ADMIN]
    *     security:
    *       - bearerAuth: []
    *     requestBody:
@@ -86,7 +86,7 @@ module.exports = (router) => {
    * /get-banner:
    *   post:
    *     summary: Get list of banners with pagination
-   *     tags: [Banners]
+   *     tags: [Banners, BOTH]
    *     security:
    *       - bearerAuth: []
    *     requestBody:
@@ -123,7 +123,7 @@ module.exports = (router) => {
    * /get-banner-by-id/{id}:
    *   get:
    *     summary: Get banner by ID
-   *     tags: [Banners]
+   *     tags: [Banners, BOTH]
    *     security:
    *       - bearerAuth: []
    *     parameters:
@@ -146,7 +146,7 @@ module.exports = (router) => {
    * /update-banner/{id}:
    *   put:
    *     summary: Update a banner
-   *     tags: [Banners]
+   *     tags: [Banners, ADMIN]
    *     security:
    *       - bearerAuth: []
    *     parameters:
@@ -209,7 +209,7 @@ module.exports = (router) => {
    * /delete-banner/{id}:
    *   delete:
    *     summary: Delete a banner
-   *     tags: [Banners]
+   *     tags: [Banners, ADMIN]
    *     security:
    *       - bearerAuth: []
    *     parameters:

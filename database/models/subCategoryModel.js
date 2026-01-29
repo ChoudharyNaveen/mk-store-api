@@ -80,6 +80,11 @@ module.exports = (sequelize, DataTypes) => {
       sourceKey: 'id',
       as: 'products',
     });
+    subCategory.hasMany(models.productType, {
+      foreignKey: 'sub_category_id',
+      sourceKey: 'id',
+      as: 'productTypes',
+    });
   };
 
   return subCategory;

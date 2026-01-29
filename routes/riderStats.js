@@ -15,7 +15,7 @@ module.exports = (router) => {
    * /rider-stats:
    *   get:
    *     summary: Get rider statistics
-   *     tags: [Rider Stats]
+   *     tags: [Rider Stats, ADMIN]
    *     security:
    *       - bearerAuth: []
    *     parameters:
@@ -45,7 +45,7 @@ module.exports = (router) => {
    * /rider-stats:
    *   put:
    *     summary: Update rider statistics
-   *     tags: [Rider Stats]
+   *     tags: [Rider Stats, ADMIN]
    *     security:
    *       - bearerAuth: []
    *     requestBody:

@@ -20,7 +20,7 @@ module.exports = (router) => {
    * /check-serviceability:
    *   post:
    *     summary: Fast serviceability check using Haversine distance
-   *     tags: [Shipping]
+   *     tags: [Shipping, CLIENT]
    *     security:
    *       - bearerAuth: []
    *     requestBody:
@@ -79,7 +79,7 @@ module.exports = (router) => {
    * /find-nearby-branches:
    *   post:
    *     summary: Find nearby branches using Haversine distance
-   *     tags: [Shipping]
+   *     tags: [Shipping, CLIENT]
    *     security:
    *       - bearerAuth: []
    *     requestBody:
@@ -140,7 +140,7 @@ module.exports = (router) => {
    *   post:
    *     summary: Calculate shipping charges using road-distance API (cached) with Haversine fallback.
    *     description: Use this endpoint to show shipping charges to customers before they place an order.
-   *     tags: [Shipping]
+   *     tags: [Shipping, CLIENT]
    *     security:
    *       - bearerAuth: []
    *     requestBody:
@@ -243,7 +243,7 @@ module.exports = (router) => {
    * /save-branch-shipping-config:
    *   post:
    *     summary: Save or update vendor shipping configuration (VENDOR_ADMIN only)
-   *     tags: [Shipping]
+   *     tags: [Shipping, ADMIN]
    *     security:
    *       - bearerAuth: []
    *     requestBody:
@@ -309,7 +309,7 @@ module.exports = (router) => {
    * /get-branch-shipping-config/{vendorId}:
    *   get:
    *     summary: Get vendor shipping configuration
-   *     tags: [Shipping]
+   *     tags: [Shipping, ADMIN]
    *     security:
    *       - bearerAuth: []
    *     parameters:

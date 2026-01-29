@@ -21,7 +21,7 @@ module.exports = (router) => {
    * /save-category:
    *   post:
    *     summary: Create a new category
-   *     tags: [Categories]
+   *     tags: [Categories, ADMIN]
    *     security:
    *       - bearerAuth: []
    *     requestBody:
@@ -100,7 +100,7 @@ module.exports = (router) => {
    * /get-category:
    *   post:
    *     summary: Get categories with pagination
-   *     tags: [Categories]
+   *     tags: [Categories, BOTH]
    *     security:
    *       - bearerAuth: []
    *     requestBody:
@@ -194,7 +194,7 @@ module.exports = (router) => {
    * /update-category/{id}:
    *   patch:
    *     summary: Update a category
-   *     tags: [Categories]
+   *     tags: [Categories, ADMIN]
    *     security:
    *       - bearerAuth: []
    *     parameters:
@@ -279,7 +279,7 @@ module.exports = (router) => {
    * /get-category-details/{categoryId}:
    *   get:
    *     summary: Get detailed category information
-   *     tags: [Categories]
+   *     tags: [Categories, BOTH]
    *     security:
    *       - bearerAuth: []
    *     parameters:
