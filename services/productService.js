@@ -1428,7 +1428,6 @@ const getProduct = async (payload) => {
             'expiry_date',
             'product_status',
             'status',
-            'concurrency_stamp',
           ],
           include: [
             {
@@ -1444,7 +1443,6 @@ const getProduct = async (payload) => {
                 'start_date',
                 'end_date',
                 'status',
-                'concurrency_stamp',
               ],
             },
           ],
@@ -1454,8 +1452,14 @@ const getProduct = async (payload) => {
           as: 'images',
           where: { status: 'ACTIVE' },
           required: false,
-          attributes: [ 'id', 'image_url', 'is_default', 'display_order', 'variant_id', 'concurrency_stamp' ],
+          attributes: [ 'id', 'image_url', 'is_default', 'display_order', 'variant_id' ],
           order: [ [ 'is_default', 'DESC' ] ],
+        },
+        {
+          model: ProductTypeModel,
+          as: 'productType',
+          attributes: [ 'id', 'title' ],
+          required: false,
         },
       ],
       order,
@@ -1478,6 +1482,177 @@ const getProduct = async (payload) => {
     );
 
     // Add discount_price to comboDiscounts (price for ONE combo set)
+    for (let p = 0; p < doc.length; p += 1) {
+      const variants = doc[p].variants || [];
+
+      for (let v = 0; v < variants.length; v += 1) {
+        const sellingPrice = variants[v].selling_price;
+        const cds = variants[v].comboDiscounts || [];
+
+        variants[v].comboDiscounts = cds.map((cd) => ({
+          ...cd,
+          discount_price: calculateComboDiscountPricePerSet({
+            sellingPrice,
+            comboQuantity: cd.combo_quantity,
+            discountType: cd.discount_type,
+            discountValue: cd.discount_value,
+          }),
+        }));
+      }
+    }
+
+    return { count, totalCount, doc };
+  }
+
+  return { count: 0, totalCount: 0, doc: [] };
+};
+
+/**
+ * Escape special characters for SQL LIKE (%, _) so user input is treated literally
+ * @param {string} str - Raw search string
+ * @returns {string}
+ */
+const escapeLikePattern = (str) => {
+  if (typeof str !== 'string') return '';
+
+  return str
+    .replace(/\\/g, '\\\\')
+    .replace(/%/g, '\\%')
+    .replace(/_/g, '\\_');
+};
+
+/**
+ * Fuzzy search products by title (case-insensitive LIKE %query%).
+ * Optional filters: branchId, vendorId, categoryId, subCategoryId.
+ * @param {Object} payload
+ * @param {string} payload.searchQuery - Search term (matched against product title)
+ * @param {number} [payload.pageSize]
+ * @param {number} [payload.pageNumber]
+ * @param {number} [payload.branchId]
+ * @param {number} [payload.vendorId]
+ * @param {number} [payload.categoryId]
+ * @param {number} [payload.subCategoryId]
+ * @returns {Promise<{ count, totalCount, doc }>}
+ */
+const searchProducts = async (payload) => {
+  const {
+    searchQuery, pageSize, pageNumber, branchId, vendorId, categoryId, subCategoryId,
+  } = payload;
+
+  const { limit, offset } = calculatePagination(pageSize || 10, pageNumber || 1);
+
+  const escaped = escapeLikePattern((searchQuery || '').trim());
+
+  if (!escaped) {
+    return { count: 0, totalCount: 0, doc: [] };
+  }
+
+  const likePattern = `%${escaped}%`;
+
+  const where = {
+    status: 'ACTIVE',
+    title: { [Op.like]: likePattern },
+  };
+
+  if (branchId != null) where.branch_id = branchId;
+  if (vendorId != null) where.vendor_id = vendorId;
+  if (categoryId != null) where.category_id = categoryId;
+  if (subCategoryId != null) where.sub_category_id = subCategoryId;
+
+  const order = [ [ 'createdAt', 'DESC' ] ];
+
+  const response = await findAndCountAllWithTotal(
+    ProductModel,
+    {
+      where: { ...where },
+      attributes: [
+        'id',
+        'title',
+        'status',
+        'concurrency_stamp',
+        'created_at',
+      ],
+      include: [
+        {
+          model: CategoryModel,
+          as: 'category',
+          attributes: [ 'id', 'title' ],
+        },
+        {
+          model: SubCategoryModel,
+          as: 'subCategory',
+          attributes: [ 'id', 'title' ],
+        },
+        {
+          model: BrandModel,
+          as: 'brand',
+          attributes: [ 'id', 'name' ],
+          required: false,
+        },
+        {
+          model: ProductVariantModel,
+          as: 'variants',
+          where: { status: 'ACTIVE' },
+          required: false,
+          attributes: [
+            'id',
+            'variant_name',
+            'price',
+            'selling_price',
+            'quantity',
+            'item_quantity',
+            'item_unit',
+            'items_per_unit',
+            'units',
+            'expiry_date',
+            'product_status',
+            'status',
+          ],
+          include: [
+            {
+              model: VariantComboDiscountModel,
+              as: 'comboDiscounts',
+              where: { status: 'ACTIVE' },
+              required: false,
+              attributes: [
+                'id',
+                'combo_quantity',
+                'discount_type',
+                'discount_value',
+                'start_date',
+                'end_date',
+                'status',
+              ],
+            },
+          ],
+        },
+        {
+          model: ProductImageModel,
+          as: 'images',
+          where: { status: 'ACTIVE' },
+          required: false,
+          attributes: [ 'id', 'image_url', 'is_default', 'display_order', 'variant_id' ],
+          order: [ [ 'is_default', 'DESC' ] ],
+        },
+      ],
+      order,
+      limit,
+      offset,
+    },
+  );
+
+  let doc = [];
+
+  if (response) {
+    const { count, totalCount, rows } = response;
+
+    const dataValues = rows.map((element) => element.dataValues);
+
+    doc = convertImageFieldsToCloudFront(
+      JSON.parse(JSON.stringify(dataValues)),
+      [ 'image', 'logo', 'image_url' ],
+    );
+
     for (let p = 0; p < doc.length; p += 1) {
       const variants = doc[p].variants || [];
 
@@ -1824,6 +1999,7 @@ module.exports = {
   saveProduct,
   updateProduct,
   getProduct,
+  searchProducts,
   getProductsGroupedByCategory,
   getProductDetails,
   deleteProduct,

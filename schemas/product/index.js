@@ -5,6 +5,7 @@ const deleteProduct = require('./deleteProduct');
 const getProductsGroupedByCategory = require('./getProductsGroupedByCategory');
 const getProductStats = require('./getProductStats');
 const getRelatedBrands = require('./getRelatedBrands');
+const searchProduct = require('./searchProduct');
 
 module.exports = {
   getProduct,
@@ -14,4 +15,5 @@ module.exports = {
   getProductsGroupedByCategory,
   getProductStats,
   getRelatedBrands,
+  searchProduct,
 };

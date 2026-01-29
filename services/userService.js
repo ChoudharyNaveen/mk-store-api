@@ -177,7 +177,7 @@ const getUserProfile = async (payload) => {
 
   const user = await UserModel.findOne({
     where: { id },
-    attributes: [ 'id', 'name', 'mobile_number', 'email', 'date_of_birth', 'gender', 'status', 'profile_status', 'image', 'created_at', 'updated_at' ],
+    attributes: [ 'id', 'name', 'mobile_number', 'email', 'date_of_birth', 'gender', 'status', 'profile_status', 'image', 'created_at', 'updated_at', 'concurrency_stamp' ],
   });
 
   if (!user) {

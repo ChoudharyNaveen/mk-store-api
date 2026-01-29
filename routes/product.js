@@ -4,6 +4,7 @@ const {
   saveProduct,
   getProduct,
   updateProduct,
+  searchProducts,
   getProductsGroupedByCategory,
   getProductDetails,
   deleteProduct,
@@ -15,6 +16,7 @@ const {
   saveProduct: saveProductSchema,
   getProduct: getProductSchema,
   updateProduct: updateProductSchema,
+  searchProduct: searchProductSchema,
   getProductsGroupedByCategory: getProductsGroupedByCategorySchema,
   deleteProduct: deleteProductSchema,
   getProductStats: getProductStatsSchema,
@@ -214,6 +216,90 @@ module.exports = (router) => {
    *                   example: 50
    */
   router.post('/get-product', isAuthenticated, validate(getProductSchema), getProduct);
+
+  /**
+   * @swagger
+   * /search-product:
+   *   post:
+   *     summary: Fuzzy search products by title
+   *     description: |
+   *       Searches ACTIVE products by title using case-insensitive partial match (LIKE %query%).
+   *       Optional filters narrow results by branchId, vendorId, categoryId, subCategoryId.
+   *       Response shape matches get-product (product list with category, subCategory, brand, variants, images, comboDiscounts with discount_price).
+   *     tags: [Products, BOTH]
+   *     security:
+   *       - bearerAuth: []
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             required:
+   *               - searchQuery
+   *             properties:
+   *               searchQuery:
+   *                 type: string
+   *                 minLength: 1
+   *                 maxLength: 200
+   *                 example: "oil"
+   *                 description: Search term (matched against product title)
+   *               pageSize:
+   *                 type: integer
+   *                 enum: [1, 5, 10, 20, 30, 40, 50, 100, 500]
+   *                 default: 10
+   *               pageNumber:
+   *                 type: integer
+   *                 minimum: 1
+   *                 default: 1
+   *               branchId:
+   *                 type: integer
+   *                 description: Optional filter by branch
+   *               vendorId:
+   *                 type: integer
+   *                 description: Optional filter by vendor
+   *               categoryId:
+   *                 type: integer
+   *                 description: Optional filter by category
+   *               subCategoryId:
+   *                 type: integer
+   *                 description: Optional filter by subcategory
+   *     responses:
+   *       200:
+   *         description: Paginated search results (same structure as get-product)
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 success:
+   *                   type: boolean
+   *                   example: true
+   *                 doc:
+   *                   type: array
+   *                   items:
+   *                     type: object
+   *                     properties:
+   *                       id:
+   *                         type: integer
+   *                       title:
+   *                         type: string
+   *                       category:
+   *                         type: object
+   *                       subCategory:
+   *                         type: object
+   *                       brand:
+   *                         type: object
+   *                       variants:
+   *                         type: array
+   *                       images:
+   *                         type: array
+   *                 pagination:
+   *                   type: object
+   *       400:
+   *         description: Validation error (e.g. searchQuery missing or empty)
+   */
+  router.post('/search-product', isAuthenticated, validate(searchProductSchema), searchProducts);
 
   /**
    * @swagger
