@@ -55,9 +55,10 @@ const updateAddress = async (req, res) => {
 const getAddress = async (req, res) => {
   try {
     const data = req.validatedData;
+    const { user } = req;
     const { pageSize, pageNumber } = data;
 
-    const { totalCount, doc } = await AddressService.getAddress(data);
+    const { totalCount, doc } = await AddressService.getAddress({ ...data, userId: user.id });
 
     const pagination = createPaginationObject(pageSize, pageNumber, totalCount);
 

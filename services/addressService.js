@@ -72,7 +72,7 @@ const updateAddress = async (data) => withTransaction(sequelize, async (transact
 
 const getAddress = async (payload) => {
   const {
-    pageSize, pageNumber, filters, sorting,
+    pageSize, pageNumber, filters, sorting, userId,
   } = payload;
   const { limit, offset } = calculatePagination(pageSize, pageNumber);
 
@@ -84,7 +84,7 @@ const getAddress = async (payload) => {
   const response = await findAndCountAllWithTotal(
     AddressModel,
     {
-      where: { ...where },
+      where: { ...where, created_by: userId },
       attributes: [ 'id', 'address_line_1', 'address_line_2', 'street',
         'landmark', 'city', 'state', 'country', 'pincode', 'latitude', 'longitude', 'name',
         'mobile_number', 'phone', 'email', 'status', 'created_by', 'created_at', 'updated_at', 'concurrency_stamp' ],
