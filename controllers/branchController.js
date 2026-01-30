@@ -54,9 +54,10 @@ const updateBranch = async (req, res) => {
 const getBranch = async (req, res) => {
   try {
     const data = req.validatedData;
+    const { vendorId } = req.user;
     const { pageSize, pageNumber } = data;
 
-    const { totalCount, doc } = await BranchService.getBranch(data);
+    const { totalCount, doc } = await BranchService.getBranch({ ...data, vendorId });
 
     const pagination = createPaginationObject(pageSize, pageNumber, totalCount);
 

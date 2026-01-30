@@ -159,6 +159,7 @@ const updateBranch = async ({ data }) => withTransaction(sequelize, async (trans
 const getBranch = async (payload) => {
   const {
     pageSize, pageNumber, filters, sorting,
+    vendorId,
   } = payload;
   const { limit, offset } = calculatePagination(pageSize, pageNumber);
 
@@ -170,7 +171,7 @@ const getBranch = async (payload) => {
   const response = await findAndCountAllWithTotal(
     BranchModel,
     {
-      where: { ...where },
+      where: { ...where, vendor_id: vendorId },
       order,
       limit,
       offset,
