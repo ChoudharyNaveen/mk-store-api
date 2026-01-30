@@ -2,6 +2,7 @@ const { Notification: NotificationService } = require('../services');
 const {
   handleServerError, sendErrorResponse, extractErrorMessage, createPaginationObject,
 } = require('../utils/helper');
+const { ROLE } = require('../utils/constants/roleConstants');
 
 /**
  * Get notifications with pagination
@@ -24,7 +25,7 @@ const getNotifications = async (req, res) => {
       vendorId,
       branchId,
       recipientId: data.recipientId || userId,
-      recipientType: data.recipientType,
+      recipientType: userRole === ROLE.VENDOR_ADMIN ? ROLE.VENDOR_ADMIN : ROLE.USER,
     });
 
     const pagination = createPaginationObject(pageSize, pageNumber, totalCount);
