@@ -28,6 +28,9 @@ const getDashboardKPIs = async (payload = {}) => {
 
     // Build where conditions for vendor/branch filtering
     const orderWhere = {};
+
+    if (vendorId) orderWhere.vendor_id = vendorId;
+    if (branchId) orderWhere.branch_id = branchId;
     // Get current stats and previous period stats in parallel
     const [ currentStats, yesterdayStats, lastWeekStats ] = await Promise.all([
       // Current stats
@@ -72,12 +75,13 @@ const getDashboardKPIs = async (payload = {}) => {
         OrderModel.count({ where: orderWhere }),
         // Total Revenue (from delivered orders)
         (async () => {
+          const orderTable = '`order`';
           const revenueQuery = `
-            SELECT COALESCE(SUM(\`order\`.final_amount), 0) as total_revenue
-            FROM \`order\`
-            WHERE \`order\`.status = ?
-              ${vendorId ? 'AND \`order\`.vendor_id = ?' : ''}
-              ${branchId ? 'AND \`order\`.branch_id = ?' : ''}
+            SELECT COALESCE(SUM(${orderTable}.final_amount), 0) as total_revenue
+            FROM ${orderTable}
+            WHERE ${orderTable}.status = ?
+              ${vendorId ? `AND ${orderTable}.vendor_id = ?` : ''}
+              ${branchId ? `AND ${orderTable}.branch_id = ?` : ''}
           `;
           const replacements = [ ORDER_STATUS.DELIVERED ];
 
@@ -157,13 +161,14 @@ const getDashboardKPIs = async (payload = {}) => {
 
           yesterdayEnd.setHours(23, 59, 59, 999);
 
+          const orderTable = '`order`';
           const revenueQuery = `
-            SELECT COALESCE(SUM(\`order\`.final_amount), 0) as total_revenue
-            FROM \`order\`
-            WHERE \`order\`.status = ?
-              AND \`order\`.created_at >= ? AND \`order\`.created_at <= ?
-              ${vendorId ? 'AND \`order\`.vendor_id = ?' : ''}
-              ${branchId ? 'AND \`order\`.branch_id = ?' : ''}
+            SELECT COALESCE(SUM(${orderTable}.final_amount), 0) as total_revenue
+            FROM ${orderTable}
+            WHERE ${orderTable}.status = ?
+              AND ${orderTable}.created_at >= ? AND ${orderTable}.created_at <= ?
+              ${vendorId ? `AND ${orderTable}.vendor_id = ?` : ''}
+              ${branchId ? `AND ${orderTable}.branch_id = ?` : ''}
           `;
           const replacements = [ ORDER_STATUS.DELIVERED, yesterdayStart, yesterdayEnd ];
 
@@ -200,7 +205,7 @@ const getDashboardKPIs = async (payload = {}) => {
     ]);
 
     const [ totalUsers, totalOrders, totalRevenue, totalReturns ] = currentStats;
-    const [ yesterdayUsers, yesterdayOrders, yesterdayRevenue, yesterdayReturns ] = yesterdayStats;
+    const [ yesterdayUsers, yesterdayRevenue, yesterdayReturns ] = yesterdayStats;
     const lastWeekOrders = lastWeekStats;
 
     // Calculate percentage changes
@@ -490,7 +495,6 @@ const getExpiringProducts = async (payload = {}) => {
     // Extract iLike conditions from filters
     const { processedFilters, iLikeConditions } = extractILikeConditions(filters || []);
 
-    const where = generateWhereCondition(processedFilters);
     const order = sorting
       ? generateOrderCondition(sorting)
       : [ [ 'expiry_date', 'ASC' ] ]; // Default: sort by expiry date ascending
@@ -695,11 +699,7 @@ const getExpiringProducts = async (payload = {}) => {
     if (response) {
       const { count, totalCount, rows } = response;
 
-      // Calculate expiry status for each variant
-      const today = new Date();
-
-      today.setHours(0, 0, 0, 0);
-
+      // Calculate expiry status for each variant (reuse today from start of function)
       const items = rows.map((row) => {
         const expiryDate = new Date(row.expiry_date);
 

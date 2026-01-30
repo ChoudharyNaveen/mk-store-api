@@ -8,6 +8,8 @@ const { isAuthenticated } = require('../middleware/auth');
 const validate = require('../middleware/validation');
 const {
   getExpiringProducts: getExpiringProductsSchema,
+  getDashboardKPIs: getDashboardKPIsSchema,
+  getRecentOrders: getRecentOrdersSchema,
 } = require('../schemas');
 
 module.exports = (router) => {
@@ -70,7 +72,7 @@ module.exports = (router) => {
    *                     total_returns:
    *                       type: object
    */
-  router.post('/get-dashboard-kpis', isAuthenticated, getDashboardKPIs);
+  router.post('/get-dashboard-kpis', isAuthenticated, validate(getDashboardKPIsSchema), getDashboardKPIs);
 
   /**
    * @swagger
@@ -148,7 +150,7 @@ module.exports = (router) => {
    *       200:
    *         description: Recent orders retrieved successfully
    */
-  router.post('/get-recent-orders', isAuthenticated, getRecentOrders);
+  router.post('/get-recent-orders', isAuthenticated, validate(getRecentOrdersSchema), getRecentOrders);
 
   /**
    * @swagger
