@@ -39,6 +39,14 @@ const sendOtpSMSForUser = async (mobileNumber, vendorId) => {
         where: {
           mobile_number: mobileNumber,
         },
+        include: [ {
+          model: UserRolesMappingModel,
+          as: 'roleMappings',
+          where: {
+            vendor_id: vendorId,
+            status: 'ACTIVE',
+          },
+        } ],
         attributes: [ 'id', 'mobile_number' ],
         transaction,
       }),
