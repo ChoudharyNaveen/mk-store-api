@@ -244,7 +244,7 @@ const verifyOtpSMSForUser = async (payload) => {
     // Use password if available, otherwise use concurrency_stamp for token secret
     const tokenSecret = config.jwt.token_secret;
 
-    const token = jwt.sign(userData, tokenSecret, {
+    const token = jwt.sign(userResponse, tokenSecret, {
       expiresIn: config.jwt.token_life,
     });
 

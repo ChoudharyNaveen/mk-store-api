@@ -228,7 +228,7 @@ const createVendorAdmin = async ({ data, imageFile }) => {
 
   try {
     const {
-      vendorId, name, mobileNumber, email, password, ...otherData
+      vendorId, name, mobile_number: mobileNumber, email, password, ...otherData
     } = data;
 
     transaction = await sequelize.transaction();

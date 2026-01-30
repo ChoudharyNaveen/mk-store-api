@@ -4,7 +4,7 @@ const {
   updateVendor,
   getVendorByCode,
 } = require('../controllers/vendorController');
-const { isAuthenticated } = require('../middleware/auth');
+const { isAuthenticated, isVendorAdmin } = require('../middleware/auth');
 const validate = require('../middleware/validation');
 const {
   saveVendor: saveVendorSchema,
@@ -179,7 +179,7 @@ module.exports = (router) => {
    *       400:
    *         description: Bad request - validation error or duplicate code
    */
-  router.post('/save-vendor', isAuthenticated, validate(saveVendorSchema), saveVendor);
+  router.post('/save-vendor', isAuthenticated, isVendorAdmin, validate(saveVendorSchema), saveVendor);
 
   /**
    * @swagger
