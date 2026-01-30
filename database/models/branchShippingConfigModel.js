@@ -8,7 +8,7 @@ module.exports = (sequelize, DataTypes) => {
         primaryKey: true,
         type: DataTypes.INTEGER,
       },
-      vendor_id: {
+      branch_id: {
         type: DataTypes.INTEGER,
         allowNull: false,
         unique: true,
@@ -69,7 +69,7 @@ module.exports = (sequelize, DataTypes) => {
         index: true,
       },
       concurrency_stamp: {
-        type: DataTypes.UUID,
+        type: DataTypes.CHAR(36),
         unique: true,
         allowNull: false,
       },
@@ -89,10 +89,10 @@ module.exports = (sequelize, DataTypes) => {
   );
 
   branchShippingConfig.associate = (models) => {
-    branchShippingConfig.belongsTo(models.vendor, {
-      foreignKey: 'vendor_id',
+    branchShippingConfig.belongsTo(models.branch, {
+      foreignKey: 'branch_id',
       targetKey: 'id',
-      as: 'vendor',
+      as: 'branch',
     });
     branchShippingConfig.belongsTo(models.user, {
       foreignKey: 'created_by',

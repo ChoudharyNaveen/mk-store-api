@@ -40,18 +40,6 @@ const BANNER_ATTRIBUTES = [
 // Common include configuration for banner queries
 const BANNER_INCLUDES = [
   {
-    model: VendorModel,
-    as: 'vendor',
-    attributes: [ 'id', 'name', 'code' ],
-    required: false,
-  },
-  {
-    model: BranchModel,
-    as: 'branch',
-    attributes: [ 'id', 'name', 'code' ],
-    required: false,
-  },
-  {
     model: SubCategoryModel,
     as: 'subCategory',
     attributes: [ 'id', 'title' ],
@@ -137,10 +125,7 @@ const saveBanner = async ({ data, imageFile }) => withTransaction(sequelize, asy
   await validateBranch(branchId, vendorId, transaction);
 
   // Validate subcategory and upload image in parallel (they don't depend on each other)
-  const [ , uploadedImageUrl ] = await Promise.all([
-    validateSubCategory(subCategoryId, transaction),
-    imageFile ? uploadBannerImage(imageFile, vendorId, branchId) : Promise.resolve(null),
-  ]);
+  const uploadedImageUrl = imageFile ? await uploadBannerImage(imageFile, vendorId, branchId) : null;
 
   const finalImageUrl = uploadedImageUrl || imageUrl;
   const concurrencyStamp = uuidV4();
@@ -298,7 +283,7 @@ const getBanner = async (payload) => {
 
     // Convert rows to plain objects and image URLs to CloudFront URLs
     const doc = rows.map((element) => element.dataValues);
-    const convertedDoc = convertImageFieldsToCloudFront(doc, [ 'image_url' ]);
+    const convertedDoc = convertImageFieldsToCloudFront(JSON.parse(JSON.stringify(doc)), [ 'image_url' ]);
 
     return { count, totalCount, doc: convertedDoc };
   }

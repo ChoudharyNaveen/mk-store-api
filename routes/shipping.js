@@ -242,7 +242,7 @@ module.exports = (router) => {
    * @swagger
    * /save-branch-shipping-config:
    *   post:
-   *     summary: Save or update vendor shipping configuration (VENDOR_ADMIN only)
+   *     summary: Save or update branch shipping configuration (VENDOR_ADMIN only)
    *     tags: [Shipping, ADMIN]
    *     security:
    *       - bearerAuth: []
@@ -253,11 +253,12 @@ module.exports = (router) => {
    *           schema:
    *             type: object
    *             required:
-   *               - vendorId
+   *               - branchId
    *             properties:
-   *               vendorId:
+   *               branchId:
    *                 type: integer
    *                 example: 1
+   *                 description: Branch ID (one config per branch)
    *               distanceThresholdKm:
    *                 type: number
    *                 default: 3.0
@@ -292,7 +293,7 @@ module.exports = (router) => {
    *                 description: Order amount above which next-day shipping is free above threshold distance
    *     responses:
    *       201:
-   *         description: Vendor shipping config saved successfully
+   *         description: Branch shipping config saved successfully
    *       400:
    *         description: Validation error
    */
@@ -306,26 +307,27 @@ module.exports = (router) => {
 
   /**
    * @swagger
-   * /get-branch-shipping-config/{vendorId}:
+   * /get-branch-shipping-config/{branchId}:
    *   get:
-   *     summary: Get vendor shipping configuration
+   *     summary: Get branch shipping configuration
    *     tags: [Shipping, ADMIN]
    *     security:
    *       - bearerAuth: []
    *     parameters:
    *       - in: path
-   *         name: vendorId
+   *         name: branchId
    *         required: true
    *         schema:
    *           type: integer
+   *         description: Branch ID
    *     responses:
    *       200:
-   *         description: Vendor shipping config retrieved successfully
+   *         description: Branch shipping config retrieved successfully
    *       404:
    *         description: Config not found (returns defaults)
    */
   router.get(
-    '/get-branch-shipping-config/:vendorId',
+    '/get-branch-shipping-config/:branchId',
     isAuthenticated,
     getBranchShippingConfig,
   );

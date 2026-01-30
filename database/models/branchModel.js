@@ -123,6 +123,11 @@ module.exports = (sequelize, DataTypes) => {
       sourceKey: 'id',
       as: 'distanceCache',
     });
+    branch.hasOne(models.branchShippingConfig, {
+      foreignKey: 'branch_id',
+      sourceKey: 'id',
+      as: 'shippingConfig',
+    });
   };
 
   return branch;

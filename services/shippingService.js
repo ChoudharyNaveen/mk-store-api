@@ -3,7 +3,6 @@ const { v4: uuidV4 } = require('uuid');
 const {
   branchShippingConfig: BranchShippingConfigModel,
   branch: BranchModel,
-  vendor: VendorModel,
   sequelize,
   Sequelize: { Op },
 } = require('../database');
@@ -149,9 +148,9 @@ const calculateShippingCharges = async (branchId, addressLat, addressLng, orderA
       throw new ValidationError('Address coordinates are required');
     }
 
-    // Get shipping config by vendor_id
+    // Get shipping config by branch_id
     const shippingConfigRecord = await BranchShippingConfigModel.findOne({
-      where: { vendor_id: branch.vendor_id, status: 'ACTIVE' },
+      where: { branch_id: branchId, status: 'ACTIVE' },
       attributes: [
         'distance_threshold_km',
         'within_threshold_base_charge',
@@ -301,25 +300,25 @@ const saveBranchShippingConfig = async ({ data }) => {
 
   try {
     const {
-      createdBy, vendorId, ...datas
+      createdBy, branchId, ...datas
     } = data;
 
     transaction = await sequelize.transaction();
 
-    // Verify vendor exists
-    const vendor = await VendorModel.findOne({
-      where: { id: vendorId },
+    // Verify branch exists
+    const branch = await BranchModel.findOne({
+      where: { id: branchId },
       attributes: [ 'id' ],
       transaction,
     });
 
-    if (!vendor) {
-      throw new NotFoundError('Vendor not found');
+    if (!branch) {
+      throw new NotFoundError('Branch not found');
     }
 
     // Check if config already exists
     const existingConfig = await BranchShippingConfigModel.findOne({
-      where: { vendor_id: vendorId },
+      where: { branch_id: branchId },
       transaction,
     });
 
@@ -334,7 +333,7 @@ const saveBranchShippingConfig = async ({ data }) => {
           concurrencyStamp,
         }),
         {
-          where: { vendor_id: vendorId },
+          where: { branch_id: branchId },
           transaction,
         },
       );
@@ -343,7 +342,7 @@ const saveBranchShippingConfig = async ({ data }) => {
       await BranchShippingConfigModel.create(
         convertCamelToSnake({
           ...datas,
-          vendorId,
+          branchId,
           concurrencyStamp,
           createdBy,
         }),
@@ -354,7 +353,7 @@ const saveBranchShippingConfig = async ({ data }) => {
     }
 
     const updated = await BranchShippingConfigModel.findOne({
-      where: { vendor_id: vendorId },
+      where: { branch_id: branchId },
       transaction,
     });
 
@@ -368,24 +367,24 @@ const saveBranchShippingConfig = async ({ data }) => {
       await transaction.rollback();
     }
 
-    return handleServiceError(error, 'Failed to save vendor shipping config');
+    return handleServiceError(error, 'Failed to save branch shipping config');
   }
 };
 
 /**
- * Get vendor shipping configuration
- * @param {number} vendorId - Vendor ID
+ * Get branch shipping configuration
+ * @param {number} branchId - Branch ID
  * @returns {Promise<{doc: object}>}
  */
-const getBranchShippingConfig = async (vendorId) => {
+const getBranchShippingConfig = async (branchId) => {
   try {
     const shippingConfig = await BranchShippingConfigModel.findOne({
-      where: { vendor_id: vendorId, status: 'ACTIVE' },
+      where: { branch_id: branchId, status: 'ACTIVE' },
       include: [
         {
-          model: VendorModel,
-          as: 'vendor',
-          attributes: [ 'id', 'name' ],
+          model: BranchModel,
+          as: 'branch',
+          attributes: [ 'id', 'name', 'vendor_id' ],
         },
       ],
     });
@@ -394,7 +393,7 @@ const getBranchShippingConfig = async (vendorId) => {
       // Return default config if not found (all configurable)
       return {
         doc: {
-          vendor_id: vendorId,
+          branch_id: branchId,
           distance_threshold_km: 3.0,
           within_threshold_base_charge: 20.0,
           within_threshold_free_above: 199.0,

@@ -72,6 +72,18 @@
   },
   "tags": [
     {
+      "name": "ADMIN",
+      "description": "Admin / vendor-only routes"
+    },
+    {
+      "name": "CLIENT",
+      "description": "Client / app-user routes"
+    },
+    {
+      "name": "BOTH",
+      "description": "Routes available to both admin and client"
+    },
+    {
       "name": "Authentication",
       "description": "User authentication endpoints"
     },
@@ -98,6 +110,10 @@
     {
       "name": "Products",
       "description": "Product management endpoints"
+    },
+    {
+      "name": "Product Types",
+      "description": "Product type management (e.g. Groundnut Oil under subcategory)"
     },
     {
       "name": "Cart",
@@ -140,6 +156,10 @@
       "description": "Rider statistics management endpoints"
     },
     {
+      "name": "Banners",
+      "description": "Banner management endpoints"
+    },
+    {
       "name": "Test",
       "description": "Test endpoints"
     }
@@ -149,7 +169,8 @@
       "post": {
         "summary": "Add a new address",
         "tags": [
-          "Addresses"
+          "Addresses",
+          "CLIENT"
         ],
         "security": [
           {
@@ -345,7 +366,8 @@
       "post": {
         "summary": "Get user addresses",
         "tags": [
-          "Addresses"
+          "Addresses",
+          "CLIENT"
         ],
         "security": [
           {
@@ -550,7 +572,8 @@
       "patch": {
         "summary": "Update an address",
         "tags": [
-          "Addresses"
+          "Addresses",
+          "CLIENT"
         ],
         "security": [
           {
@@ -717,7 +740,8 @@
       "post": {
         "summary": "Create a new banner",
         "tags": [
-          "Banners"
+          "Banners",
+          "ADMIN"
         ],
         "security": [
           {
@@ -796,7 +820,8 @@
       "post": {
         "summary": "Get list of banners with pagination",
         "tags": [
-          "Banners"
+          "Banners",
+          "BOTH"
         ],
         "security": [
           {
@@ -858,7 +883,8 @@
       "get": {
         "summary": "Get banner by ID",
         "tags": [
-          "Banners"
+          "Banners",
+          "BOTH"
         ],
         "security": [
           {
@@ -890,7 +916,8 @@
       "put": {
         "summary": "Update a banner",
         "tags": [
-          "Banners"
+          "Banners",
+          "ADMIN"
         ],
         "security": [
           {
@@ -975,7 +1002,8 @@
       "delete": {
         "summary": "Delete a banner",
         "tags": [
-          "Banners"
+          "Banners",
+          "ADMIN"
         ],
         "security": [
           {
@@ -1019,7 +1047,8 @@
       "post": {
         "summary": "Create a new branch",
         "tags": [
-          "Branches"
+          "Branches",
+          "ADMIN"
         ],
         "security": [
           {
@@ -1207,7 +1236,8 @@
       "post": {
         "summary": "Get branches with pagination",
         "tags": [
-          "Branches"
+          "Branches",
+          "BOTH"
         ],
         "security": [
           {
@@ -1320,7 +1350,8 @@
       "patch": {
         "summary": "Update a branch",
         "tags": [
-          "Branches"
+          "Branches",
+          "ADMIN"
         ],
         "security": [
           {
@@ -1464,7 +1495,8 @@
       "post": {
         "summary": "Create a new brand",
         "tags": [
-          "Brands"
+          "Brands",
+          "ADMIN"
         ],
         "security": [
           {
@@ -1553,7 +1585,8 @@
       "post": {
         "summary": "Get brands with pagination and filters",
         "tags": [
-          "Brands"
+          "Brands",
+          "BOTH"
         ],
         "security": [
           {
@@ -1707,7 +1740,8 @@
       "patch": {
         "summary": "Update a brand",
         "tags": [
-          "Brands"
+          "Brands",
+          "ADMIN"
         ],
         "security": [
           {
@@ -1832,7 +1866,8 @@
       "delete": {
         "summary": "Delete a brand",
         "tags": [
-          "Brands"
+          "Brands",
+          "ADMIN"
         ],
         "security": [
           {
@@ -1881,11 +1916,109 @@
         }
       }
     },
+    "/api/get-related-brands": {
+      "get": {
+        "summary": "Get related brands by productId, subCategoryId, or productTypeId",
+        "description": "At least one of productId, subCategoryId or productTypeId is required.\n1. By productId - returns brands that have ACTIVE products of the same product type in the same subcategory (and vendor) as the given product.\n2. By subCategoryId - returns brands that have ACTIVE products in that subcategory; optionally filter by productTypeId and vendorId.\n3. By productTypeId - subcategory is resolved from product_type; returns brands that have ACTIVE products of that type; optionally filter by vendorId.\nExample - for type \"Groundnut Oil\" in subcategory \"Oil and ghee\", returns all brands selling that type.\n",
+        "tags": [
+          "Brands",
+          "BOTH"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "productId",
+            "schema": {
+              "type": "integer"
+            },
+            "description": "Product ID (use one of productId, subCategoryId, productTypeId)"
+          },
+          {
+            "in": "query",
+            "name": "subCategoryId",
+            "schema": {
+              "type": "integer"
+            },
+            "description": "Subcategory ID (use one of productId, subCategoryId, productTypeId)"
+          },
+          {
+            "in": "query",
+            "name": "productTypeId",
+            "schema": {
+              "type": "integer"
+            },
+            "description": "Product type ID; when used alone, subcategory is resolved from product_type (use one of productId, subCategoryId, productTypeId)"
+          },
+          {
+            "in": "query",
+            "name": "vendorId",
+            "schema": {
+              "type": "integer"
+            },
+            "description": "Optional vendor filter (when using subCategoryId or productTypeId)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Related brands list (empty if product has no type or no brands match)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "doc": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "integer"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "description": {
+                            "type": "string"
+                          },
+                          "logo": {
+                            "type": "string"
+                          },
+                          "status": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "Present when product has no type (e.g. \"Product has no type.\")"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Product or product type not found (when productId or productTypeId is used)"
+          }
+        }
+      }
+    },
     "/api/add-to-cart": {
       "post": {
         "summary": "Add item to cart",
         "tags": [
-          "Cart"
+          "Cart",
+          "CLIENT"
         ],
         "security": [
           {
@@ -2190,7 +2323,8 @@
       "post": {
         "summary": "Get user's cart items",
         "tags": [
-          "Cart"
+          "Cart",
+          "CLIENT"
         ],
         "security": [
           {
@@ -2672,7 +2806,8 @@
       "delete": {
         "summary": "Remove item from cart",
         "tags": [
-          "Cart"
+          "Cart",
+          "CLIENT"
         ],
         "security": [
           {
@@ -2770,7 +2905,8 @@
       "patch": {
         "summary": "Update cart item quantity, price, or combo status",
         "tags": [
-          "Cart"
+          "Cart",
+          "CLIENT"
         ],
         "security": [
           {
@@ -3031,7 +3167,8 @@
       "post": {
         "summary": "Create a new category",
         "tags": [
-          "Categories"
+          "Categories",
+          "ADMIN"
         ],
         "security": [
           {
@@ -3133,7 +3270,8 @@
       "post": {
         "summary": "Get categories with pagination",
         "tags": [
-          "Categories"
+          "Categories",
+          "BOTH"
         ],
         "security": [
           {
@@ -3283,7 +3421,8 @@
       "patch": {
         "summary": "Update a category",
         "tags": [
-          "Categories"
+          "Categories",
+          "ADMIN"
         ],
         "security": [
           {
@@ -3408,7 +3547,8 @@
       "get": {
         "summary": "Get detailed category information",
         "tags": [
-          "Categories"
+          "Categories",
+          "BOTH"
         ],
         "security": [
           {
@@ -3493,7 +3633,8 @@
       "post": {
         "summary": "Get dashboard KPIs (Total Users, Orders, Revenue, Returns) with trends",
         "tags": [
-          "Dashboard"
+          "Dashboard",
+          "ADMIN"
         ],
         "security": [
           {
@@ -3584,7 +3725,8 @@
       "post": {
         "summary": "Get top products with revenue, orders, and trend",
         "tags": [
-          "Dashboard"
+          "Dashboard",
+          "ADMIN"
         ],
         "security": [
           {
@@ -3637,7 +3779,8 @@
       "post": {
         "summary": "Get recent orders with status, customer, time, price",
         "tags": [
-          "Dashboard"
+          "Dashboard",
+          "ADMIN"
         ],
         "security": [
           {
@@ -3690,7 +3833,8 @@
       "post": {
         "summary": "Get expiring products/variants with pagination",
         "tags": [
-          "Dashboard"
+          "Dashboard",
+          "ADMIN"
         ],
         "security": [
           {
@@ -3916,7 +4060,8 @@
       "get": {
         "summary": "Test endpoint",
         "tags": [
-          "Test"
+          "Test",
+          "BOTH"
         ],
         "description": "Simple test endpoint to verify API is working",
         "responses": {
@@ -3938,7 +4083,8 @@
       "post": {
         "summary": "Get inventory movement history (VENDOR_ADMIN only)",
         "tags": [
-          "Inventory"
+          "Inventory",
+          "ADMIN"
         ],
         "security": [
           {
@@ -4026,7 +4172,8 @@
       "post": {
         "summary": "Manual inventory adjustment (VENDOR_ADMIN only)",
         "tags": [
-          "Inventory"
+          "Inventory",
+          "ADMIN"
         ],
         "security": [
           {
@@ -4080,7 +4227,8 @@
       "post": {
         "summary": "Get notifications with pagination",
         "tags": [
-          "Notifications"
+          "Notifications",
+          "CLIENT"
         ],
         "security": [
           {
@@ -4191,7 +4339,8 @@
       "get": {
         "summary": "Get unread notification count",
         "tags": [
-          "Notifications"
+          "Notifications",
+          "CLIENT"
         ],
         "security": [
           {
@@ -4244,7 +4393,8 @@
       "patch": {
         "summary": "Mark notification as read",
         "tags": [
-          "Notifications"
+          "Notifications",
+          "CLIENT"
         ],
         "security": [
           {
@@ -4276,7 +4426,8 @@
       "patch": {
         "summary": "Mark all notifications as read",
         "tags": [
-          "Notifications"
+          "Notifications",
+          "CLIENT"
         ],
         "security": [
           {
@@ -4294,7 +4445,8 @@
       "delete": {
         "summary": "Delete notification",
         "tags": [
-          "Notifications"
+          "Notifications",
+          "CLIENT"
         ],
         "security": [
           {
@@ -4326,7 +4478,8 @@
       "post": {
         "summary": "Create a new offer",
         "tags": [
-          "Offers"
+          "Offers",
+          "ADMIN"
         ],
         "security": [
           {
@@ -4426,7 +4579,8 @@
       "post": {
         "summary": "Get offers with pagination",
         "tags": [
-          "Offers"
+          "Offers",
+          "BOTH"
         ],
         "security": [
           {
@@ -4587,7 +4741,8 @@
       "patch": {
         "summary": "Update an offer",
         "tags": [
-          "Offers"
+          "Offers",
+          "ADMIN"
         ],
         "security": [
           {
@@ -4681,7 +4836,8 @@
       "post": {
         "summary": "Place a new order from cart items",
         "tags": [
-          "Orders"
+          "Orders",
+          "CLIENT"
         ],
         "security": [
           {
@@ -4862,7 +5018,8 @@
       "post": {
         "summary": "Get user orders with pagination, filters, and sorting",
         "tags": [
-          "Orders"
+          "Orders",
+          "CLIENT"
         ],
         "security": [
           {
@@ -5043,7 +5200,8 @@
       "get": {
         "summary": "Get statistics of completed orders",
         "tags": [
-          "Orders"
+          "Orders",
+          "ADMIN"
         ],
         "security": [
           {
@@ -5090,7 +5248,8 @@
       "patch": {
         "summary": "Update order status and/or payment status",
         "tags": [
-          "Orders"
+          "Orders",
+          "ADMIN"
         ],
         "security": [
           {
@@ -5264,7 +5423,8 @@
       "get": {
         "summary": "Get total returns for today",
         "tags": [
-          "Orders"
+          "Orders",
+          "ADMIN"
         ],
         "security": [
           {
@@ -5299,7 +5459,8 @@
       "post": {
         "summary": "Get detailed order information including items, discounts, customer, and address",
         "tags": [
-          "Orders"
+          "Orders",
+          "BOTH"
         ],
         "security": [
           {
@@ -5526,7 +5687,8 @@
       "post": {
         "summary": "Get order items",
         "tags": [
-          "OrderItems"
+          "OrderItems",
+          "BOTH"
         ],
         "security": [
           {
@@ -5693,7 +5855,8 @@
       "post": {
         "summary": "Send OTP to SMS for user (creates user if new mobile number)",
         "tags": [
-          "OTP"
+          "OTP",
+          "CLIENT"
         ],
         "requestBody": {
           "required": true,
@@ -5753,7 +5916,8 @@
       "post": {
         "summary": "Verify OTP sent via SMS and login user",
         "tags": [
-          "OTP"
+          "OTP",
+          "CLIENT"
         ],
         "requestBody": {
           "required": true,
@@ -5862,7 +6026,8 @@
       "post": {
         "summary": "Create a new product",
         "tags": [
-          "Products"
+          "Products",
+          "ADMIN"
         ],
         "security": [
           {
@@ -5987,7 +6152,8 @@
       "post": {
         "summary": "Get products with pagination and filters",
         "tags": [
-          "Products"
+          "Products",
+          "BOTH"
         ],
         "security": [
           {
@@ -6131,11 +6297,138 @@
         }
       }
     },
+    "/api/search-product": {
+      "post": {
+        "summary": "Fuzzy search products by title",
+        "description": "Searches ACTIVE products by title using case-insensitive partial match (LIKE %query%).\nOptional filters narrow results by branchId, vendorId, categoryId, subCategoryId.\nResponse shape matches get-product (product list with category, subCategory, brand, variants, images, comboDiscounts with discount_price).\n",
+        "tags": [
+          "Products",
+          "BOTH"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "searchQuery"
+                ],
+                "properties": {
+                  "searchQuery": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200,
+                    "example": "oil",
+                    "description": "Search term (matched against product title)"
+                  },
+                  "pageSize": {
+                    "type": "integer",
+                    "enum": [
+                      1,
+                      5,
+                      10,
+                      20,
+                      30,
+                      40,
+                      50,
+                      100,
+                      500
+                    ],
+                    "default": 10
+                  },
+                  "pageNumber": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "default": 1
+                  },
+                  "branchId": {
+                    "type": "integer",
+                    "description": "Optional filter by branch"
+                  },
+                  "vendorId": {
+                    "type": "integer",
+                    "description": "Optional filter by vendor"
+                  },
+                  "categoryId": {
+                    "type": "integer",
+                    "description": "Optional filter by category"
+                  },
+                  "subCategoryId": {
+                    "type": "integer",
+                    "description": "Optional filter by subcategory"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Paginated search results (same structure as get-product)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "doc": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "integer"
+                          },
+                          "title": {
+                            "type": "string"
+                          },
+                          "category": {
+                            "type": "object"
+                          },
+                          "subCategory": {
+                            "type": "object"
+                          },
+                          "brand": {
+                            "type": "object"
+                          },
+                          "variants": {
+                            "type": "array"
+                          },
+                          "images": {
+                            "type": "array"
+                          }
+                        }
+                      }
+                    },
+                    "pagination": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error (e.g. searchQuery missing or empty)"
+          }
+        }
+      }
+    },
     "/api/update-product/{id}": {
       "patch": {
         "summary": "Update a product",
         "tags": [
-          "Products"
+          "Products",
+          "ADMIN"
         ],
         "security": [
           {
@@ -6294,7 +6587,8 @@
       "post": {
         "summary": "Get products grouped by category",
         "tags": [
-          "Products"
+          "Products",
+          "BOTH"
         ],
         "security": [
           {
@@ -6380,7 +6674,8 @@
       "delete": {
         "summary": "Delete a product",
         "tags": [
-          "Products"
+          "Products",
+          "ADMIN"
         ],
         "security": [
           {
@@ -6433,7 +6728,8 @@
       "get": {
         "summary": "Get detailed product information",
         "tags": [
-          "Products"
+          "Products",
+          "BOTH"
         ],
         "security": [
           {
@@ -6530,7 +6826,8 @@
       "post": {
         "summary": "Get product statistics",
         "tags": [
-          "Products"
+          "Products",
+          "ADMIN"
         ],
         "security": [
           {
@@ -6617,7 +6914,8 @@
       "post": {
         "summary": "Upload multiple product images",
         "tags": [
-          "Product Images"
+          "Product Images",
+          "ADMIN"
         ],
         "security": [
           {
@@ -6670,7 +6968,8 @@
       "post": {
         "summary": "Get product images with pagination",
         "tags": [
-          "Product Images"
+          "Product Images",
+          "ADMIN"
         ],
         "security": [
           {
@@ -6734,7 +7033,8 @@
       "post": {
         "summary": "Update product image (is_default, display_order)",
         "tags": [
-          "Product Images"
+          "Product Images",
+          "ADMIN"
         ],
         "security": [
           {
@@ -6792,7 +7092,8 @@
       "post": {
         "summary": "Delete product image (soft delete)",
         "tags": [
-          "Product Images"
+          "Product Images",
+          "ADMIN"
         ],
         "security": [
           {
@@ -6819,11 +7120,232 @@
         }
       }
     },
+    "/api/save-product-type": {
+      "post": {
+        "summary": "Create a new product type (e.g. Groundnut Oil under Oil and ghee subcategory)",
+        "tags": [
+          "Product Types",
+          "ADMIN"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "subCategoryId",
+                  "title"
+                ],
+                "properties": {
+                  "subCategoryId": {
+                    "type": "integer",
+                    "example": 1,
+                    "description": "Subcategory ID"
+                  },
+                  "title": {
+                    "type": "string",
+                    "example": "Groundnut Oil",
+                    "description": "Product type title (unique per subcategory)"
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "ACTIVE",
+                      "INACTIVE"
+                    ],
+                    "default": "ACTIVE"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Product type created successfully"
+          },
+          "400": {
+            "description": "Validation error or duplicate title for subcategory"
+          }
+        }
+      }
+    },
+    "/api/get-product-type": {
+      "post": {
+        "summary": "Get product types with pagination and filters",
+        "tags": [
+          "Product Types",
+          "ADMIN"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "pageSize": {
+                    "type": "integer",
+                    "enum": [
+                      1,
+                      5,
+                      10,
+                      20,
+                      30,
+                      40,
+                      50,
+                      100,
+                      500
+                    ],
+                    "default": 10
+                  },
+                  "pageNumber": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "default": 1
+                  },
+                  "filters": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "key": {
+                          "type": "string"
+                        },
+                        "eq": {
+                          "type": "string"
+                        },
+                        "in": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "sorting": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "key": {
+                          "type": "string"
+                        },
+                        "direction": {
+                          "type": "string",
+                          "enum": [
+                            "ASC",
+                            "DESC"
+                          ]
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Product types retrieved successfully"
+          }
+        }
+      }
+    },
+    "/api/update-product-type/{id}": {
+      "patch": {
+        "summary": "Update a product type",
+        "tags": [
+          "Product Types",
+          "ADMIN"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-concurrencystamp",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "updatedBy",
+                  "concurrencyStamp"
+                ],
+                "properties": {
+                  "title": {
+                    "type": "string",
+                    "example": "Groundnut Oil"
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "ACTIVE",
+                      "INACTIVE"
+                    ]
+                  },
+                  "updatedBy": {
+                    "type": "integer"
+                  },
+                  "concurrencyStamp": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Product type updated successfully"
+          },
+          "409": {
+            "description": "Concurrency conflict"
+          }
+        }
+      }
+    },
     "/api/save-product-variant": {
       "post": {
         "summary": "Create a new product variant",
         "tags": [
-          "Product Variants"
+          "Product Variants",
+          "ADMIN"
         ],
         "security": [
           {
@@ -6904,7 +7426,8 @@
       "post": {
         "summary": "Get product variants with pagination and filtering",
         "tags": [
-          "Product Variants"
+          "Product Variants",
+          "BOTH"
         ],
         "security": [
           {
@@ -6970,7 +7493,8 @@
       "get": {
         "summary": "Get product variant by ID",
         "tags": [
-          "Product Variants"
+          "Product Variants",
+          "BOTH"
         ],
         "security": [
           {
@@ -7001,7 +7525,8 @@
       "post": {
         "summary": "Update product variant",
         "tags": [
-          "Product Variants"
+          "Product Variants",
+          "ADMIN"
         ],
         "security": [
           {
@@ -7071,7 +7596,8 @@
       "post": {
         "summary": "Delete product variant (soft delete)",
         "tags": [
-          "Product Variants"
+          "Product Variants",
+          "ADMIN"
         ],
         "security": [
           {
@@ -7102,7 +7628,8 @@
       "get": {
         "summary": "Get product variants grouped by type",
         "tags": [
-          "Product Variants"
+          "Product Variants",
+          "BOTH"
         ],
         "security": [
           {
@@ -7133,7 +7660,8 @@
       "post": {
         "summary": "Create a new promocode",
         "tags": [
-          "Promocodes"
+          "Promocodes",
+          "ADMIN"
         ],
         "security": [
           {
@@ -7241,7 +7769,8 @@
       "post": {
         "summary": "Get promocodes with pagination",
         "tags": [
-          "Promocodes"
+          "Promocodes",
+          "ADMIN"
         ],
         "security": [
           {
@@ -7399,7 +7928,8 @@
       "patch": {
         "summary": "Update a promocode",
         "tags": [
-          "Promocodes"
+          "Promocodes",
+          "ADMIN"
         ],
         "security": [
           {
@@ -7493,7 +8023,8 @@
       "get": {
         "summary": "Get rider statistics",
         "tags": [
-          "Rider Stats"
+          "Rider Stats",
+          "ADMIN"
         ],
         "security": [
           {
@@ -7526,7 +8057,8 @@
       "put": {
         "summary": "Update rider statistics",
         "tags": [
-          "Rider Stats"
+          "Rider Stats",
+          "ADMIN"
         ],
         "security": [
           {
@@ -7596,7 +8128,8 @@
       "post": {
         "summary": "Fast serviceability check using Haversine distance",
         "tags": [
-          "Shipping"
+          "Shipping",
+          "CLIENT"
         ],
         "security": [
           {
@@ -7674,7 +8207,8 @@
       "post": {
         "summary": "Find nearby branches using Haversine distance",
         "tags": [
-          "Shipping"
+          "Shipping",
+          "CLIENT"
         ],
         "security": [
           {
@@ -7755,7 +8289,8 @@
         "summary": "Calculate shipping charges using road-distance API (cached) with Haversine fallback.",
         "description": "Use this endpoint to show shipping charges to customers before they place an order.",
         "tags": [
-          "Shipping"
+          "Shipping",
+          "CLIENT"
         ],
         "security": [
           {
@@ -7891,9 +8426,10 @@
     },
     "/api/save-branch-shipping-config": {
       "post": {
-        "summary": "Save or update vendor shipping configuration (VENDOR_ADMIN only)",
+        "summary": "Save or update branch shipping configuration (VENDOR_ADMIN only)",
         "tags": [
-          "Shipping"
+          "Shipping",
+          "ADMIN"
         ],
         "security": [
           {
@@ -7907,12 +8443,13 @@
               "schema": {
                 "type": "object",
                 "required": [
-                  "vendorId"
+                  "branchId"
                 ],
                 "properties": {
-                  "vendorId": {
+                  "branchId": {
                     "type": "integer",
-                    "example": 1
+                    "example": 1,
+                    "description": "Branch ID (one config per branch)"
                   },
                   "distanceThresholdKm": {
                     "type": "number",
@@ -7961,7 +8498,7 @@
         },
         "responses": {
           "201": {
-            "description": "Vendor shipping config saved successfully"
+            "description": "Branch shipping config saved successfully"
           },
           "400": {
             "description": "Validation error"
@@ -7969,11 +8506,12 @@
         }
       }
     },
-    "/api/get-branch-shipping-config/{vendorId}": {
+    "/api/get-branch-shipping-config/{branchId}": {
       "get": {
-        "summary": "Get vendor shipping configuration",
+        "summary": "Get branch shipping configuration",
         "tags": [
-          "Shipping"
+          "Shipping",
+          "ADMIN"
         ],
         "security": [
           {
@@ -7983,16 +8521,17 @@
         "parameters": [
           {
             "in": "path",
-            "name": "vendorId",
+            "name": "branchId",
             "required": true,
             "schema": {
               "type": "integer"
-            }
+            },
+            "description": "Branch ID"
           }
         ],
         "responses": {
           "200": {
-            "description": "Vendor shipping config retrieved successfully"
+            "description": "Branch shipping config retrieved successfully"
           },
           "404": {
             "description": "Config not found (returns defaults)"
@@ -8004,7 +8543,8 @@
       "post": {
         "summary": "Create a new subcategory",
         "tags": [
-          "SubCategories"
+          "SubCategories",
+          "ADMIN"
         ],
         "security": [
           {
@@ -8103,7 +8643,8 @@
       "post": {
         "summary": "Get subcategories with pagination",
         "tags": [
-          "SubCategories"
+          "SubCategories",
+          "BOTH"
         ],
         "security": [
           {
@@ -8251,7 +8792,8 @@
       "post": {
         "summary": "Get subcategories by category ID with pagination",
         "tags": [
-          "SubCategories"
+          "SubCategories",
+          "BOTH"
         ],
         "security": [
           {
@@ -8456,7 +8998,8 @@
       "patch": {
         "summary": "Update a subcategory",
         "tags": [
-          "SubCategories"
+          "SubCategories",
+          "ADMIN"
         ],
         "security": [
           {
@@ -8586,7 +9129,8 @@
       "get": {
         "summary": "Get detailed subcategory information",
         "tags": [
-          "SubCategories"
+          "SubCategories",
+          "BOTH"
         ],
         "security": [
           {
@@ -8665,7 +9209,8 @@
       "post": {
         "summary": "Get sub-category statistics and reports",
         "tags": [
-          "SubCategories"
+          "SubCategories",
+          "ADMIN"
         ],
         "security": [
           {
@@ -8810,7 +9355,8 @@
       "post": {
         "summary": "Create super admin user",
         "tags": [
-          "Authentication"
+          "Authentication",
+          "ADMIN"
         ],
         "security": [
           {
@@ -8878,7 +9424,8 @@
       "post": {
         "summary": "Authentication login with email and password (similar to OTP verification)",
         "tags": [
-          "Authentication"
+          "Authentication",
+          "ADMIN"
         ],
         "requestBody": {
           "required": true,
@@ -8920,7 +9467,8 @@
       "get": {
         "summary": "Get current user profile",
         "tags": [
-          "Users"
+          "Users",
+          "BOTH"
         ],
         "security": [
           {
@@ -9029,7 +9577,8 @@
       "post": {
         "summary": "Create a vendor admin user",
         "tags": [
-          "Users"
+          "Users",
+          "ADMIN"
         ],
         "security": [
           {
@@ -9119,7 +9668,8 @@
       "patch": {
         "summary": "Update user information",
         "tags": [
-          "Users"
+          "Users",
+          "BOTH"
         ],
         "security": [
           {
@@ -9187,7 +9737,8 @@
       "post": {
         "summary": "Convert a user to rider role (Vendor Admin only)",
         "tags": [
-          "Users"
+          "Users",
+          "ADMIN"
         ],
         "security": [
           {
@@ -9234,7 +9785,8 @@
       "post": {
         "summary": "Refresh access token using old token",
         "tags": [
-          "Authentication"
+          "Authentication",
+          "BOTH"
         ],
         "requestBody": {
           "required": true,
@@ -9325,7 +9877,8 @@
         "summary": "Get users filtered by vendor and role",
         "description": "Vendor ID is automatically extracted from the JWT token. Only users belonging to the vendor in the token will be returned.",
         "tags": [
-          "Users"
+          "Users",
+          "ADMIN"
         ],
         "security": [
           {
@@ -9594,7 +10147,8 @@
       "post": {
         "summary": "Logout user and close all socket connections",
         "tags": [
-          "Authentication"
+          "Authentication",
+          "BOTH"
         ],
         "security": [
           {
@@ -9642,7 +10196,8 @@
       "post": {
         "summary": "Register or update FCM token for user",
         "tags": [
-          "User FCM"
+          "User FCM",
+          "CLIENT"
         ],
         "security": [
           {
@@ -9700,7 +10255,8 @@
       "delete": {
         "summary": "Remove FCM token for user",
         "tags": [
-          "User FCM"
+          "User FCM",
+          "CLIENT"
         ],
         "security": [
           {
@@ -9747,7 +10303,8 @@
       "get": {
         "summary": "Get current user's FCM token information",
         "tags": [
-          "User FCM"
+          "User FCM",
+          "CLIENT"
         ],
         "security": [
           {
@@ -9768,7 +10325,8 @@
       "post": {
         "summary": "Create a new vendor with branch",
         "tags": [
-          "Vendors"
+          "Vendors",
+          "ADMIN"
         ],
         "security": [
           {
@@ -10010,7 +10568,8 @@
       "post": {
         "summary": "Get vendors with pagination",
         "tags": [
-          "Vendors"
+          "Vendors",
+          "ADMIN"
         ],
         "security": [
           {
@@ -10123,7 +10682,8 @@
       "patch": {
         "summary": "Update a vendor",
         "tags": [
-          "Vendors"
+          "Vendors",
+          "ADMIN"
         ],
         "security": [
           {
@@ -10184,7 +10744,8 @@
       "get": {
         "summary": "Get vendor details by code (Public API)",
         "tags": [
-          "Vendors"
+          "Vendors",
+          "CLIENT"
         ],
         "parameters": [
           {
@@ -10270,7 +10831,8 @@
       "post": {
         "summary": "Add item to wishlist",
         "tags": [
-          "Wishlist"
+          "Wishlist",
+          "CLIENT"
         ],
         "security": [
           {
@@ -10339,7 +10901,8 @@
       "post": {
         "summary": "Get user wishlist items",
         "tags": [
-          "Wishlist"
+          "Wishlist",
+          "CLIENT"
         ],
         "security": [
           {
@@ -10443,7 +11006,8 @@
       "delete": {
         "summary": "Remove item from wishlist",
         "tags": [
-          "Wishlist"
+          "Wishlist",
+          "CLIENT"
         ],
         "security": [
           {
