@@ -188,6 +188,10 @@ module.exports = (router) => {
    *                       type: string
    *                       enum: [ASC, DESC]
    *                 description: Array of sorting objects
+   *               hasActiveComboDiscounts:
+   *                 type: boolean
+   *                 default: false
+   *                 description: When true, only products with at least one variant having a currently valid active combo discount (status ACTIVE and current date between start_date and end_date) are returned
    *     responses:
    *       200:
    *         description: Products retrieved successfully

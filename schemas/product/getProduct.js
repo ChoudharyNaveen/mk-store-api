@@ -31,6 +31,8 @@ const getProduct = Joi.object({
     }),
   filters: Joi.array().items(filterSchema).optional(),
   sorting: Joi.array().items(sortingSchema).optional(),
+  hasActiveComboDiscounts: Joi.boolean().optional().default(false)
+    .description('When true, only products with at least one variant having a currently valid active combo discount'),
 }).unknown(false);
 
 module.exports = getProduct;

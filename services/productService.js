@@ -1371,13 +1371,51 @@ const updateProduct = async ({ data, imageFiles }) => withTransaction(sequelize,
   };
 }).catch((error) => handleServiceError(error, 'Failed to update product'));
 
+/**
+ * Get product IDs that have at least one variant with an active (status + date-valid) combo discount.
+ * @returns {Promise<number[]>}
+ */
+const getProductIdsWithActiveComboDiscount = async () => {
+  const now = new Date();
+  const rows = await VariantComboDiscountModel.findAll({
+    where: {
+      status: 'ACTIVE',
+      start_date: { [Op.lte]: now },
+      end_date: { [Op.gte]: now },
+    },
+    include: [
+      {
+        model: ProductVariantModel,
+        as: 'variant',
+        attributes: [ 'product_id' ],
+      },
+    ],
+    attributes: [],
+  });
+
+  const productIds = [ ...new Set(rows.map((r) => r.variant && r.variant.product_id).filter(Boolean)) ];
+
+  return productIds;
+};
+
 const getProduct = async (payload) => {
   const {
-    pageSize, pageNumber, filters, sorting,
+    pageSize, pageNumber, filters, sorting, hasActiveComboDiscounts,
   } = payload;
+
   const { limit, offset } = calculatePagination(pageSize, pageNumber);
 
-  const where = generateWhereCondition(filters);
+  let where = generateWhereCondition(filters);
+
+  if (hasActiveComboDiscounts) {
+    const productIds = await getProductIdsWithActiveComboDiscount();
+
+    if (productIds.length === 0) {
+      return { count: 0, totalCount: 0, doc: [] };
+    }
+    where = { ...where, id: { [Op.in]: productIds } };
+  }
+
   const order = sorting
     ? generateOrderCondition(sorting)
     : [ [ 'createdAt', 'DESC' ] ];
