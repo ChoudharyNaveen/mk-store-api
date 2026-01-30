@@ -2,6 +2,7 @@ const {
   getNotifications,
   getUnreadCount,
   markAsRead,
+  markAsUnread,
   markAllAsRead,
   deleteNotification,
 } = require('../controllers/notificationController');
@@ -138,6 +139,29 @@ module.exports = (router) => {
    *         description: Notification not found
    */
   router.patch('/mark-notification-read/:notificationId', isAuthenticated, markAsRead);
+
+  /**
+   * @swagger
+   * /mark-notification-unread/{notificationId}:
+   *   patch:
+   *     summary: Mark notification as unread
+   *     tags: [Notifications, CLIENT]
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: path
+   *         name: notificationId
+   *         required: true
+   *         schema:
+   *           type: integer
+   *         description: Notification ID
+   *     responses:
+   *       200:
+   *         description: Notification marked as unread
+   *       404:
+   *         description: Notification not found
+   */
+  router.patch('/mark-notification-unread/:notificationId', isAuthenticated, markAsUnread);
 
   /**
    * @swagger

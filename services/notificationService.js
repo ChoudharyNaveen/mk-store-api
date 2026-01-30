@@ -590,6 +590,39 @@ const markAsRead = async (notificationId, userId) => {
 };
 
 /**
+ * Mark notification as unread
+ * @param {number} notificationId - Notification ID
+ * @param {number} userId - User ID (for API consistency)
+ * @returns {Promise<Object>} Updated notification
+ */
+const markAsUnread = async (notificationId, userId) => {
+  // userId parameter kept for API consistency
+  // eslint-disable-next-line no-unused-vars
+  const unusedUserId = userId;
+
+  try {
+    const notification = await NotificationModel.findOne({
+      where: { id: notificationId },
+    });
+
+    if (!notification) {
+      return { errors: { message: 'Notification not found' } };
+    }
+
+    await notification.update({
+      is_read: false,
+      read_at: null,
+    });
+
+    return { doc: notification };
+  } catch (error) {
+    console.error('Error marking notification as unread:', error);
+
+    return { errors: { message: 'Failed to mark notification as unread' } };
+  }
+};
+
+/**
  * Mark all notifications as read for a user
  * @param {Object} payload - Parameters including userId, userRole, vendorId, branchId
  * @returns {Promise<Object>} Update result
@@ -738,6 +771,7 @@ module.exports = {
   createUserRegistrationNotification,
   getNotifications,
   markAsRead,
+  markAsUnread,
   markAllAsRead,
   getUnreadCount,
   deleteNotification,
