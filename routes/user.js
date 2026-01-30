@@ -601,7 +601,7 @@ module.exports = (router) => {
 
   /**
    * @swagger
-   * /logout:
+   * /auth-logout:
    *   post:
    *     summary: Logout user and close all socket connections
    *     tags: [Authentication, BOTH]
