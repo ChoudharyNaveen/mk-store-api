@@ -586,7 +586,7 @@ const updateProduct = async ({ data, imageFiles }) => withTransaction(sequelize,
         throw new ValidationError('Product type is not active');
       }
 
-      if (productType.sub_category_id !== finalSubCategoryId) {
+      if (productType.sub_category_id !== parseInt(finalSubCategoryId)) {
         throw new ValidationError('Product type does not belong to the product subcategory');
       }
     }
@@ -1466,6 +1466,7 @@ const getProduct = async (payload) => {
             'expiry_date',
             'product_status',
             'status',
+            'concurrency_stamp',
           ],
           include: [
             {
@@ -1481,6 +1482,7 @@ const getProduct = async (payload) => {
                 'start_date',
                 'end_date',
                 'status',
+                'concurrency_stamp',
               ],
             },
           ],
@@ -1490,7 +1492,7 @@ const getProduct = async (payload) => {
           as: 'images',
           where: { status: 'ACTIVE' },
           required: false,
-          attributes: [ 'id', 'image_url', 'is_default', 'display_order', 'variant_id' ],
+          attributes: [ 'id', 'image_url', 'is_default', 'display_order', 'variant_id', 'concurrency_stamp' ],
           order: [ [ 'is_default', 'DESC' ] ],
         },
         {
