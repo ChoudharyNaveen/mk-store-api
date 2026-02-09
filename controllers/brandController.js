@@ -85,6 +85,18 @@ const deleteBrand = async (req, res) => {
   }
 };
 
+const getBrandSummary = async (req, res) => {
+  try {
+    const { id } = req.validatedData;
+
+    const { doc } = await BrandService.getBrandSummary({ id: Number(id) });
+
+    return res.status(200).json({ success: true, doc });
+  } catch (error) {
+    return handleServerError(error, req, res);
+  }
+};
+
 const getRelatedBrands = async (req, res) => {
   try {
     const {
@@ -112,6 +124,7 @@ module.exports = {
   saveBrand,
   updateBrand,
   getBrand,
+  getBrandSummary,
   deleteBrand,
   getRelatedBrands,
 };

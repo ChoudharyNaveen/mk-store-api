@@ -1,5 +1,10 @@
 const { v4: uuidV4 } = require('uuid');
-const { promocode: PromocodeModel, sequelize } = require('../database');
+const {
+  promocode: PromocodeModel,
+  orderDiscount: OrderDiscountModel,
+  sequelize,
+  Sequelize,
+} = require('../database');
 const {
   withTransaction,
   convertCamelToSnake,
@@ -113,8 +118,39 @@ const getPromocode = async (payload) => {
   return { count: 0, totalCount: 0, doc: [] };
 };
 
+/**
+ * Get promocode summary: total redemptions and total discounts given for a promocode.
+ * @param {Object} params
+ * @param {number} params.id - Promocode ID
+ * @returns {Promise<{ doc: { totalRedemptions: number, totalDiscountsGiven: number } }>}
+ */
+const getPromocodeSummary = async ({ id }) => {
+  const where = { promocode_id: id, discount_type: 'PROMOCODE' };
+
+  const [ totalRedemptions, sumResult ] = await Promise.all([
+    OrderDiscountModel.count({ where }),
+    OrderDiscountModel.findOne({
+      where,
+      attributes: [ [ Sequelize.fn('SUM', Sequelize.col('discount_amount')), 'totalDiscountsGiven' ] ],
+      raw: true,
+    }),
+  ]);
+
+  const totalDiscountsGiven = sumResult?.totalDiscountsGiven != null
+    ? parseFloat(sumResult.totalDiscountsGiven)
+    : 0;
+
+  return {
+    doc: {
+      totalRedemptions,
+      totalDiscountsGiven,
+    },
+  };
+};
+
 module.exports = {
   savePromocode,
   updatePromocode,
   getPromocode,
+  getPromocodeSummary,
 };

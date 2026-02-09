@@ -851,7 +851,7 @@ const getOrder = async (payload) => {
   } = payload;
   const { limit, offset } = calculatePagination(pageSize, pageNumber);
 
-  const where = generateWhereCondition(filters);
+  const where = generateWhereCondition(filters, OrderModel);
   const order = sorting
     ? generateOrderCondition(sorting)
     : [ [ 'createdAt', 'DESC' ] ];

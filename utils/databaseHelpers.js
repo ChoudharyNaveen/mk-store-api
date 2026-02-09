@@ -6,17 +6,29 @@ const {
 } = require('../database');
 const { convertSnakeCase } = require('./utility');
 
-const generateWhereCondition = (data) => {
+/**
+ * Generate Sequelize where conditions from filters array.
+ * When baseTableOrModel is provided, base-model keys (no dot in filter key) are qualified
+ * with the table name (e.g. product.status) to avoid ambiguous column errors in joins.
+ * @param {Array} data - Array of filter objects { key, eq|in|neq|gt|gte|lt|lte|like|iLike }
+ * @param {string|Object} [baseTableOrModel] - Base table name (string) or Sequelize Model (uses getTableName())
+ */
+const generateWhereCondition = (data, baseTableOrModel) => {
   const where = {};
+
+  const baseTableName = baseTableOrModel == null
+    ? null
+    : (typeof baseTableOrModel === 'string'
+      ? baseTableOrModel
+      : (typeof baseTableOrModel.getTableName === 'function' ? baseTableOrModel.getTableName() : null));
 
   (data || []).forEach((element) => {
     const { key: KeyCamelCase, ...values } = element;
 
     const [key1, key2] = KeyCamelCase.split('.');
 
-    const key = key2
-      ? `${key1}.${convertSnakeCase(key2)}`
-      : convertSnakeCase(key1);
+    const snakeKey = convertSnakeCase(key2 || key1);
+    const key = key2 ? `${key1}.${snakeKey}` : snakeKey;
 
     const [secondKey] = Object.keys(values);
 
@@ -51,17 +63,15 @@ const generateWhereCondition = (data) => {
     }
 
     if (secondKey === 'iLike') {
-      if (secondKey === 'iLike') {
-        const searchValue = `%${values[secondKey].toLowerCase()}%`;
-        const condition = sequelizeWhere(fn('LOWER', col(key)), {
-          [Op.like]: searchValue,
-        });
+      const colKey = (!key2 && baseTableName) ? `${baseTableName}.${snakeKey}` : key;
+      const condition = sequelizeWhere(fn('LOWER', col(colKey)), {
+        [Op.like]: `%${values[secondKey].toLowerCase()}%`,
+      });
 
-        if (!where[Op.and]) where[Op.and] = [];
-        where[Op.and].push(condition);
+      if (!where[Op.and]) where[Op.and] = [];
+      where[Op.and].push(condition);
 
-        return;
-      }
+      return;
     }
     let KeyValue;
 
@@ -73,11 +83,17 @@ const generateWhereCondition = (data) => {
         KeyValue = where[key1][key];
       }
       where[key1][key] = { ...KeyValue, ...value };
+    } else if (baseTableName) {
+      // Use Op.and with sequelizeWhere so qualified column is not used as object key (avoids [object Object] in SQL)
+      const qualifiedCol = col(`${baseTableName}.${snakeKey}`);
+      const condition = sequelizeWhere(qualifiedCol, value);
+      if (!where[Op.and]) where[Op.and] = [];
+      where[Op.and].push(condition);
     } else {
-      if (where[key]) {
-        KeyValue = where[key];
+      if (where[snakeKey]) {
+        KeyValue = where[snakeKey];
       }
-      where[key] = { ...KeyValue, ...value };
+      where[snakeKey] = { ...KeyValue, ...value };
     }
   });
 

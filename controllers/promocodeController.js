@@ -66,8 +66,21 @@ const getPromocode = async (req, res) => {
   }
 };
 
+const getPromocodeSummary = async (req, res) => {
+  try {
+    const { id } = req.validatedData;
+
+    const { doc } = await PromocodeService.getPromocodeSummary({ id: Number(id) });
+
+    return res.status(200).json({ success: true, doc });
+  } catch (error) {
+    return handleServerError(error, req, res);
+  }
+};
+
 module.exports = {
   savePromocode,
   updatePromocode,
   getPromocode,
+  getPromocodeSummary,
 };

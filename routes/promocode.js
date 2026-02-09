@@ -1,6 +1,7 @@
 const {
   savePromocode,
   getPromocode,
+  getPromocodeSummary,
   updatePromocode,
 } = require('../controllers/promocodeController');
 const { isAuthenticated } = require('../middleware/auth');
@@ -8,6 +9,7 @@ const validate = require('../middleware/validation');
 const {
   savePromocode: savePromocodeSchema,
   getPromocode: getPromocodeSchema,
+  getPromocodeSummary: getPromocodeSummarySchema,
   updatePromocode: updatePromocodeSchema,
 } = require('../schemas');
 
@@ -185,6 +187,52 @@ module.exports = (router) => {
    *                   type: integer
    */
   router.post('/get-Promocode', isAuthenticated, validate(getPromocodeSchema), getPromocode);
+
+  /**
+   * @swagger
+   * /get-Promocode-summary:
+   *   post:
+   *     summary: Get promocode summary (total redemptions and total discounts given)
+   *     tags: [Promocodes, ADMIN]
+   *     security:
+   *       - bearerAuth: []
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             required:
+   *               - id
+   *             properties:
+   *               id:
+   *                 type: integer
+   *                 example: 1
+   *                 description: Promocode ID
+   *     responses:
+   *       200:
+   *         description: Promocode summary retrieved successfully
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 success:
+   *                   type: boolean
+   *                   example: true
+   *                 doc:
+   *                   type: object
+   *                   properties:
+   *                     totalRedemptions:
+   *                       type: integer
+   *                       example: 42
+   *                       description: Total number of times the promocode was redeemed
+   *                     totalDiscountsGiven:
+   *                       type: number
+   *                       example: 1250.50
+   *                       description: Total discount amount given (sum of discount_amount)
+   */
+  router.post('/get-Promocode-summary', isAuthenticated, validate(getPromocodeSummarySchema), getPromocodeSummary);
 
   /**
    * @swagger

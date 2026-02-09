@@ -1405,7 +1405,7 @@ const getProduct = async (payload) => {
 
   const { limit, offset } = calculatePagination(pageSize, pageNumber);
 
-  let where = generateWhereCondition(filters);
+  let where = generateWhereCondition(filters, ProductModel);
 
   if (hasActiveComboDiscounts) {
     const productIds = await getProductIdsWithActiveComboDiscount();
@@ -1727,7 +1727,7 @@ const getProductsGroupedByCategory = async (payload) => {
   const allFilters = filters || [];
   const productFilters = allFilters.filter((f) => (f.key || '').startsWith('products.'));
 
-  const productWhere = generateWhereCondition(productFilters);
+  const productWhere = generateWhereCondition(productFilters, ProductModel);
 
   const order = sorting
     ? generateOrderCondition(sorting)

@@ -1,7 +1,12 @@
 const { v4: uuidV4 } = require('uuid');
 const cron = require('node-cron');
 const { Op } = require('sequelize');
-const { offer: OfferModel, sequelize } = require('../database');
+const {
+  offer: OfferModel,
+  orderDiscount: OrderDiscountModel,
+  sequelize,
+  Sequelize,
+} = require('../database');
 const {
   withTransaction,
   convertCamelToSnake,
@@ -144,6 +149,36 @@ const getOffer = async (payload) => {
   return { count: 0, totalCount: 0, doc: [] };
 };
 
+/**
+ * Get offer summary: total redemptions and total discounts given for an offer.
+ * @param {Object} params
+ * @param {number} params.id - Offer ID
+ * @returns {Promise<{ doc: { totalRedemptions: number, totalDiscountsGiven: number } }>}
+ */
+const getOfferSummary = async ({ id }) => {
+  const where = { offer_id: id, discount_type: 'OFFER' };
+
+  const [ totalRedemptions, sumResult ] = await Promise.all([
+    OrderDiscountModel.count({ where }),
+    OrderDiscountModel.findOne({
+      where,
+      attributes: [ [ Sequelize.fn('SUM', Sequelize.col('discount_amount')), 'totalDiscountsGiven' ] ],
+      raw: true,
+    }),
+  ]);
+
+  const totalDiscountsGiven = sumResult?.totalDiscountsGiven != null
+    ? parseFloat(sumResult.totalDiscountsGiven)
+    : 0;
+
+  return {
+    doc: {
+      totalRedemptions,
+      totalDiscountsGiven,
+    },
+  };
+};
+
 async function cronJobForUpdatingOfferStatus() {
   cron.schedule('0 0 * * *', async () => {
     try {
@@ -186,5 +221,6 @@ module.exports = {
   saveOffer,
   updateOffer,
   getOffer,
+  getOfferSummary,
   cronJobForUpdatingOfferStatus,
 };

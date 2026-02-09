@@ -74,8 +74,21 @@ const getOffer = async (req, res) => {
   }
 };
 
+const getOfferSummary = async (req, res) => {
+  try {
+    const { id } = req.validatedData;
+
+    const { doc } = await OfferService.getOfferSummary({ id: Number(id) });
+
+    return res.status(200).json({ success: true, doc });
+  } catch (error) {
+    return handleServerError(error, req, res);
+  }
+};
+
 module.exports = {
   saveOffer,
   updateOffer,
   getOffer,
+  getOfferSummary,
 };

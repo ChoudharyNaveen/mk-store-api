@@ -48,10 +48,11 @@ const saveAddress = Joi.object({
   phone: Joi.string().optional().allow('').messages({
     'string.empty': 'Parameter: phone cannot be empty',
   }),
-  email: Joi.string().email().optional().allow('').messages({
-    'string.email': 'Parameter: email must be a valid email address',
-    'string.empty': 'Parameter: email cannot be empty',
-  }),
+  email: Joi.string().email().optional().allow('')
+    .messages({
+      'string.email': 'Parameter: email must be a valid email address',
+      'string.empty': 'Parameter: email cannot be empty',
+    }),
   status: Joi.string().valid('ACTIVE', 'INACTIVE').optional(),
   createdBy: Joi.number().integer().optional(),
 }).unknown(false);

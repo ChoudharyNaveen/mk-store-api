@@ -2,6 +2,7 @@ const multer = require('multer');
 const {
   saveOffer,
   getOffer,
+  getOfferSummary,
   updateOffer,
 } = require('../controllers/offerController');
 const { isAuthenticated } = require('../middleware/auth');
@@ -9,6 +10,7 @@ const validate = require('../middleware/validation');
 const {
   saveOffer: saveOfferSchema,
   getOffer: getOfferSchema,
+  getOfferSummary: getOfferSummarySchema,
   updateOffer: updateOfferSchema,
 } = require('../schemas');
 
@@ -190,6 +192,52 @@ module.exports = (router) => {
    *                   type: integer
    */
   router.post('/get-offer', isAuthenticated, validate(getOfferSchema), getOffer);
+
+  /**
+   * @swagger
+   * /get-offer-summary:
+   *   post:
+   *     summary: Get offer summary (total redemptions and total discounts given)
+   *     tags: [Offers, BOTH]
+   *     security:
+   *       - bearerAuth: []
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             required:
+   *               - id
+   *             properties:
+   *               id:
+   *                 type: integer
+   *                 example: 1
+   *                 description: Offer ID
+   *     responses:
+   *       200:
+   *         description: Offer summary retrieved successfully
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 success:
+   *                   type: boolean
+   *                   example: true
+   *                 doc:
+   *                   type: object
+   *                   properties:
+   *                     totalRedemptions:
+   *                       type: integer
+   *                       example: 28
+   *                       description: Total number of times the offer was redeemed
+   *                     totalDiscountsGiven:
+   *                       type: number
+   *                       example: 840.00
+   *                       description: Total discount amount given (sum of discount_amount)
+   */
+  router.post('/get-offer-summary', isAuthenticated, validate(getOfferSummarySchema), getOfferSummary);
 
   /**
    * @swagger

@@ -2,6 +2,7 @@ const multer = require('multer');
 const {
   saveBrand,
   getBrand,
+  getBrandSummary,
   updateBrand,
   deleteBrand,
   getRelatedBrands,
@@ -11,6 +12,7 @@ const validate = require('../middleware/validation');
 const {
   saveBrand: saveBrandSchema,
   getBrand: getBrandSchema,
+  getBrandSummary: getBrandSummarySchema,
   updateBrand: updateBrandSchema,
   deleteBrand: deleteBrandSchema,
   getRelatedBrands: getRelatedBrandsSchema,
@@ -185,6 +187,52 @@ module.exports = (router) => {
    *                   example: 50
    */
   router.post('/get-brand', isAuthenticated, validate(getBrandSchema), getBrand);
+
+  /**
+   * @swagger
+   * /get-brand-summary:
+   *   post:
+   *     summary: Get brand summary (total and active product counts for a brand)
+   *     tags: [Brands, BOTH]
+   *     security:
+   *       - bearerAuth: []
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             required:
+   *               - id
+   *             properties:
+   *               id:
+   *                 type: integer
+   *                 example: 1
+   *                 description: Brand ID
+   *     responses:
+   *       200:
+   *         description: Brand summary retrieved successfully
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 success:
+   *                   type: boolean
+   *                   example: true
+   *                 doc:
+   *                   type: object
+   *                   properties:
+   *                     totalProducts:
+   *                       type: integer
+   *                       example: 150
+   *                       description: Total number of products for the brand
+   *                     activeProducts:
+   *                       type: integer
+   *                       example: 120
+   *                       description: Number of products with status ACTIVE
+   */
+  router.post('/get-brand-summary', isAuthenticated, validate(getBrandSummarySchema), getBrandSummary);
 
   /**
    * @swagger

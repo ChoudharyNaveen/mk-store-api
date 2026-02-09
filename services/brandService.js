@@ -331,10 +331,35 @@ const getRelatedBrandsForProduct = async ({
   return { doc };
 };
 
+/**
+ * Get brand summary: total product count and active product count for a brand.
+ * @param {Object} params
+ * @param {number} params.id - Brand ID
+ * @returns {Promise<{ doc: { totalProducts: number, activeProducts: number } }>}
+ */
+const getBrandSummary = async ({ id }) => {
+  const where = { brand_id: id };
+
+  const [ totalProducts, activeProducts ] = await Promise.all([
+    ProductModel.count({ where }),
+    ProductModel.count({
+      where: { ...where, status: 'ACTIVE' },
+    }),
+  ]);
+
+  return {
+    doc: {
+      totalProducts,
+      activeProducts,
+    },
+  };
+};
+
 module.exports = {
   saveBrand,
   updateBrand,
   getBrand,
+  getBrandSummary,
   deleteBrand,
   getRelatedBrandsForProduct,
 };
