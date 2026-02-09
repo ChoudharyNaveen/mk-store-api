@@ -502,7 +502,7 @@ const getSubCategoryStats = async (payload) => {
         const stockQuery = `
           SELECT 
             SUM(CASE 
-              WHEN product_variant.product_status = 'OUT-OF-STOCK' OR product_variant.quantity = 0 
+              WHEN product_variant.product_status = 'OUT_OF_STOCK' OR product_variant.quantity = 0 
               THEN 1 ELSE 0 
             END) as out_of_stock,
             SUM(CASE 

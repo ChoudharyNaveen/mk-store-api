@@ -424,7 +424,7 @@ module.exports = (router) => {
    *                             example: 50
    *                           product_status:
    *                             type: string
-   *                             enum: [INSTOCK, OUT-OF-STOCK]
+   *                             enum: [INSTOCK, LOW_STOCK, OUT_OF_STOCK]
    *                             example: "INSTOCK"
    *                           product:
    *                             type: object

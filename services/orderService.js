@@ -544,7 +544,7 @@ const createOrderItemsAndReduceInventory = async (orderItemsData, orderId, order
         [Op.in]: variantIds,
       },
     },
-    attributes: [ 'id', 'items_per_unit', 'units' ],
+    attributes: [ 'id', 'items_per_unit', 'units', 'threshold_stock' ],
     transaction,
   });
 
@@ -554,9 +554,10 @@ const createOrderItemsAndReduceInventory = async (orderItemsData, orderId, order
   // Batch update variants in parallel (optimized from sequential updates)
   await Promise.all(variantUpdates.map(async (update) => {
     const variant = variantMap.get(update.id);
+    const thresholdStock = variant?.threshold_stock || 0;
     const updateData = {
       quantity: update.quantityRemaining,
-      product_status: getProductStatusFromQuantity(update.quantityRemaining),
+      product_status: getProductStatusFromQuantity(update.quantityRemaining, thresholdStock),
       concurrency_stamp: uuidV4(),
     };
 
@@ -1227,9 +1228,10 @@ const handleOrderCancellation = async (orderId, orderNumber, vendorId, branchId,
 
   // Batch update all variants in parallel (optimized from sequential updates)
   await Promise.all(variantUpdates.map(async (update) => {
+    const thresholdStock = update.thresholdStock || 0;
     const updateData = {
       quantity: update.quantityAfter,
-      product_status: getProductStatusFromQuantity(update.quantityAfter),
+      product_status: getProductStatusFromQuantity(update.quantityAfter, thresholdStock),
       concurrency_stamp: uuidV4(),
     };
 

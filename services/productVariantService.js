@@ -62,14 +62,17 @@ const saveProductVariant = async ({ data }) => {
 
     const concurrencyStamp = uuidV4();
 
+    const initialQuantity = datas.quantity || 0;
+    const thresholdStock = datas.thresholdStock || 0;
+
     const doc = {
       ...datas,
       productId,
       variantName,
       concurrencyStamp,
       createdBy,
-      quantity: datas.quantity || 0,
-      productStatus: getProductStatusFromQuantity(datas.quantity),
+      quantity: initialQuantity,
+      productStatus: getProductStatusFromQuantity(initialQuantity, thresholdStock),
     };
 
     const variant = await ProductVariantModel.create(convertCamelToSnake(doc), {
@@ -137,7 +140,12 @@ const updateProductVariant = async ({ data }) => {
     }
 
     const {
-      concurrency_stamp: stamp, product_id: productId, quantity: oldQuantity, items_per_unit: itemsPerUnit, units,
+      concurrency_stamp: stamp,
+      product_id: productId,
+      quantity: oldQuantity,
+      threshold_stock: oldThresholdStock,
+      items_per_unit: itemsPerUnit,
+      units,
     } = response;
 
     if (concurrencyStamp !== stamp) {
@@ -161,11 +169,12 @@ const updateProductVariant = async ({ data }) => {
       }
     }
 
-    // Update product_status based on quantity
+    // Update product_status based on quantity and threshold_stock
     const newQuantity = datas.quantity !== undefined ? datas.quantity : oldQuantity;
+    const newThresholdStock = datas.thresholdStock !== undefined ? datas.thresholdStock : oldThresholdStock;
 
-    if (datas.quantity !== undefined) {
-      datas.productStatus = getProductStatusFromQuantity(newQuantity);
+    if (datas.quantity !== undefined || datas.thresholdStock !== undefined) {
+      datas.productStatus = getProductStatusFromQuantity(newQuantity, newThresholdStock);
     }
 
     // Calculate and update units if quantity changed and items_per_unit is present

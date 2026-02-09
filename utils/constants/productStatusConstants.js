@@ -1,6 +1,7 @@
 const PRODUCT_STATUS = {
   INSTOCK: 'INSTOCK',
-  OUT_OF_STOCK: 'OUT-OF-STOCK',
+  LOW_STOCK: 'LOW_STOCK',
+  OUT_OF_STOCK: 'OUT_OF_STOCK',
 };
 
 const PRODUCT_STATUS_ENUM = Object.values(PRODUCT_STATUS);
@@ -13,11 +14,28 @@ const PRODUCT_STATUS_ENUM = Object.values(PRODUCT_STATUS);
 const isValidProductStatus = (status) => PRODUCT_STATUS_ENUM.includes(status);
 
 /**
- * Determine product status based on quantity
+ * Determine product status based on quantity and optional threshold stock.
+ * - If quantity <= 0 -> OUT_OF_STOCK
+ * - Else if thresholdStock > 0 and quantity <= thresholdStock -> LOW_STOCK
+ * - Else -> INSTOCK
  * @param {number} quantity
+ * @param {number} [thresholdStock=0]
  * @returns {string}
  */
-const getProductStatusFromQuantity = (quantity) => ((quantity || 0) > 0 ? PRODUCT_STATUS.INSTOCK : PRODUCT_STATUS.OUT_OF_STOCK);
+const getProductStatusFromQuantity = (quantity, thresholdStock = 0) => {
+  const qty = Number.isFinite(quantity) ? quantity : (quantity || 0);
+  const threshold = Number.isFinite(thresholdStock) ? thresholdStock : (thresholdStock || 0);
+
+  if (qty <= 0) {
+    return PRODUCT_STATUS.OUT_OF_STOCK;
+  }
+
+  if (threshold > 0 && qty <= threshold) {
+    return PRODUCT_STATUS.LOW_STOCK;
+  }
+
+  return PRODUCT_STATUS.INSTOCK;
+};
 
 module.exports = {
   PRODUCT_STATUS,

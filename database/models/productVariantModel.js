@@ -38,6 +38,12 @@ module.exports = (sequelize, DataTypes) => {
         allowNull: false,
         defaultValue: 0,
       },
+      threshold_stock: {
+        type: DataTypes.INTEGER,
+        allowNull: true,
+        defaultValue: 0,
+        comment: 'Threshold quantity below which the variant is considered LOW_STOCK',
+      },
       items_per_unit: {
         type: DataTypes.INTEGER,
         allowNull: true,
@@ -68,7 +74,7 @@ module.exports = (sequelize, DataTypes) => {
       },
       product_status: {
         type: DataTypes.STRING,
-        enum: [ 'INSTOCK', 'OUT-OF-STOCK' ],
+        enum: [ 'INSTOCK', 'LOW_STOCK', 'OUT_OF_STOCK' ],
         defaultValue: 'INSTOCK',
         index: true,
       },
