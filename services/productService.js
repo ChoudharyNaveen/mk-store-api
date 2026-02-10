@@ -366,10 +366,13 @@ const saveProduct = async ({ data, imageFiles }) => withTransaction(sequelize, a
       const {
         variantName, description, nutritional, price, sellingPrice, quantity,
         itemsPerUnit, units, itemQuantity, itemUnit, expiryDate, status: variantStatus,
+        thresholdStock,
         comboDiscounts,
       } = variantData;
 
       const variantConcurrencyStamp = uuidV4();
+      const initialQuantity = quantity || 0;
+      const initialThresholdStock = thresholdStock || 0;
 
       const variantDoc = {
         productId: cat.id,
@@ -378,13 +381,14 @@ const saveProduct = async ({ data, imageFiles }) => withTransaction(sequelize, a
         nutritional: nutritional || null,
         price,
         sellingPrice,
-        quantity: quantity || 0,
+        quantity: initialQuantity,
         itemsPerUnit: itemsPerUnit || null,
         units: units || null,
         itemQuantity: itemQuantity || null,
         itemUnit: itemUnit || null,
         expiryDate,
-        productStatus: getProductStatusFromQuantity(quantity),
+        thresholdStock: initialThresholdStock,
+        productStatus: getProductStatusFromQuantity(initialQuantity, initialThresholdStock),
         status: variantStatus || 'ACTIVE',
         concurrencyStamp: variantConcurrencyStamp,
         createdBy,
@@ -611,7 +615,7 @@ const updateProduct = async ({ data, imageFiles }) => withTransaction(sequelize,
     // Get existing variants for this product
     const existingVariants = await ProductVariantModel.findAll({
       where: { product_id: id, status: 'ACTIVE' },
-      attributes: [ 'id', 'variant_name', 'concurrency_stamp', 'quantity' ],
+      attributes: [ 'id', 'variant_name', 'concurrency_stamp', 'quantity', 'threshold_stock' ],
       transaction,
     });
 
@@ -749,7 +753,11 @@ const updateProduct = async ({ data, imageFiles }) => withTransaction(sequelize,
       const existingVariant = existingVariantMap.get(variantId);
       const variantConcurrencyStampNew = uuidV4();
       const oldVariantQuantity = existingVariant.quantity;
+      const oldThresholdStock = existingVariant.threshold_stock || 0;
       const newVariantQuantity = quantity || 0;
+      const newThresholdStock = variantData.thresholdStock !== undefined
+        ? variantData.thresholdStock
+        : oldThresholdStock;
       const quantityChange = newVariantQuantity - oldVariantQuantity;
 
       const variantUpdateDoc = {
@@ -764,7 +772,8 @@ const updateProduct = async ({ data, imageFiles }) => withTransaction(sequelize,
         itemQuantity: itemQuantity || null,
         itemUnit: itemUnit || null,
         expiryDate,
-        productStatus: getProductStatusFromQuantity(newVariantQuantity),
+        thresholdStock: newThresholdStock,
+        productStatus: getProductStatusFromQuantity(newVariantQuantity, newThresholdStock),
         status: variantStatus || 'ACTIVE',
         concurrencyStamp: variantConcurrencyStampNew,
         updatedBy,
@@ -1467,6 +1476,7 @@ const getProduct = async (payload) => {
             'product_status',
             'status',
             'concurrency_stamp',
+            'threshold_stock',
           ],
           include: [
             {

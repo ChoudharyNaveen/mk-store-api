@@ -10,13 +10,8 @@ const { REFUND_STATUS } = require('../utils/constants/refundStatusConstants');
 const { handleServiceError } = require('../utils/serviceErrors');
 const {
   calculatePagination,
-  generateWhereCondition,
-  generateOrderCondition,
-  extractILikeConditions,
-  whereConditionsToSQL,
   findAndCountAllWithTotalQuery,
 } = require('../utils/helper');
-const { convertSnakeCase } = require('../utils/utility');
 
 /**
  * Get Dashboard KPIs with percentage changes
@@ -482,181 +477,56 @@ const getRecentOrders = async (payload = {}) => {
 };
 
 /**
- * Get Expiring Products - Product variants that are expiring soon or expired
- * Follows same pagination logic as getSubCategory
+ * Get Expiring Products - Product variants that are expiring soon or expired.
+ * Supports only vendor_id, branch_id, daysAhead, and optional date range (dateFrom, dateTo) on expiry_date.
  */
 const getExpiringProducts = async (payload = {}) => {
   try {
     const {
-      pageSize, pageNumber, filters, sorting, vendorId, branchId, daysAhead = 30,
+      pageSize, pageNumber, vendorId, branchId, daysAhead = 30, dateFrom, dateTo,
     } = payload;
     const { limit, offset } = calculatePagination(pageSize, pageNumber);
 
-    // Extract iLike conditions from filters
-    const { processedFilters, iLikeConditions } = extractILikeConditions(filters || []);
-
-    const order = sorting
-      ? generateOrderCondition(sorting)
-      : [ [ 'expiry_date', 'ASC' ] ]; // Default: sort by expiry date ascending
-
-    // Build WHERE clause from filters with qualified column names and iLike conditions
     const replacements = [];
     let baseWhereClause = 'WHERE product_variant.status = \'ACTIVE\' AND product.status = \'ACTIVE\'';
 
-    // Add expiry date filter - show products expiring within daysAhead days or already expired
+    // Expiry: within daysAhead days or already expired (unless date range overrides)
     const today = new Date();
 
     today.setHours(0, 0, 0, 0);
-    const futureDate = new Date(today);
+    if (dateFrom != null || dateTo != null) {
+      if (dateFrom != null) {
+        baseWhereClause += ' AND product_variant.expiry_date >= ?';
+        replacements.push(new Date(dateFrom));
+      }
+      if (dateTo != null) {
+        const end = new Date(dateTo);
 
-    futureDate.setDate(futureDate.getDate() + daysAhead);
-    futureDate.setHours(23, 59, 59, 999);
+        end.setHours(23, 59, 59, 999);
+        baseWhereClause += ' AND product_variant.expiry_date <= ?';
+        replacements.push(end);
+      }
+    } else {
+      const futureDate = new Date(today);
 
-    baseWhereClause += ' AND product_variant.expiry_date <= ?';
-    replacements.push(futureDate);
+      futureDate.setDate(futureDate.getDate() + daysAhead);
+      futureDate.setHours(23, 59, 59, 999);
+      baseWhereClause += ' AND product_variant.expiry_date <= ?';
+      replacements.push(futureDate);
+    }
 
-    // Add vendor/branch filters
-    if (vendorId) {
+    if (vendorId != null) {
       baseWhereClause += ' AND product.vendor_id = ?';
       replacements.push(vendorId);
     }
-    if (branchId) {
+    if (branchId != null) {
       baseWhereClause += ' AND product.branch_id = ?';
       replacements.push(branchId);
     }
 
-    // Map column names to their correct table prefixes
-    // Columns that belong to product table
-    const productTableColumns = [ 'vendor_id', 'branch_id', 'product_id', 'product_name', 'productName' ];
-    // Columns that belong to category table
-    const categoryTableColumns = [ 'category_id', 'category_name', 'category' ];
+    const orderClause = 'ORDER BY product_variant.expiry_date ASC';
+    const whereSQL = baseWhereClause;
 
-    // Separate filters by table
-    const variantFilters = [];
-    const productFilters = [];
-    const categoryFilters = [];
-    const variantILikeConditions = [];
-    const productILikeConditions = [];
-    const categoryILikeConditions = [];
-
-    // Process filters and iLike conditions
-    if (processedFilters && processedFilters.length > 0) {
-      processedFilters.forEach((filter) => {
-        const { key } = filter;
-        const snakeKey = convertSnakeCase(key);
-
-        // Check both original and snake_case versions
-        if (productTableColumns.includes(key) || productTableColumns.includes(snakeKey)) {
-          // Map product_name/productName to title for product table
-          const mappedFilter = { ...filter };
-
-          if (key === 'product_name' || key === 'productName' || snakeKey === 'product_name') {
-            mappedFilter.key = 'title';
-          }
-          productFilters.push(mappedFilter);
-        } else if (categoryTableColumns.includes(key) || categoryTableColumns.includes(snakeKey)) {
-          // Map category_name/category to title for category table
-          const mappedFilter = { ...filter };
-
-          if (key === 'category_name' || key === 'category' || snakeKey === 'category_name') {
-            mappedFilter.key = 'title';
-          }
-          categoryFilters.push(mappedFilter);
-        } else {
-          variantFilters.push(filter);
-        }
-      });
-    }
-
-    // Process iLike conditions
-    if (iLikeConditions && iLikeConditions.length > 0) {
-      iLikeConditions.forEach((iLikeCond) => {
-        const key = iLikeCond.column;
-        const snakeKey = convertSnakeCase(key);
-
-        // Check both original and snake_case versions
-        if (productTableColumns.includes(key) || productTableColumns.includes(snakeKey)) {
-          // Map product_name/productName to title for product table
-          const mappedCondition = { ...iLikeCond };
-
-          if (key === 'product_name' || key === 'productName' || snakeKey === 'product_name') {
-            mappedCondition.column = 'title';
-          }
-          productILikeConditions.push(mappedCondition);
-        } else if (categoryTableColumns.includes(key) || categoryTableColumns.includes(snakeKey)) {
-          // Map category_name/category to title for category table
-          const mappedCondition = { ...iLikeCond };
-
-          if (key === 'category_name' || key === 'category' || snakeKey === 'category_name') {
-            mappedCondition.column = 'title';
-          }
-          categoryILikeConditions.push(mappedCondition);
-        } else {
-          variantILikeConditions.push(iLikeCond);
-        }
-      });
-    }
-
-    // Generate WHERE clauses for each table
-    const variantWhere = variantFilters.length > 0 ? generateWhereCondition(variantFilters) : {};
-    const productWhere = productFilters.length > 0 ? generateWhereCondition(productFilters) : {};
-    const categoryWhere = categoryFilters.length > 0 ? generateWhereCondition(categoryFilters) : {};
-
-    const variantWhereClause = Object.keys(variantWhere).length > 0
-      ? whereConditionsToSQL(variantWhere, 'product_variant', replacements, variantILikeConditions)
-      : '';
-    const productWhereClause = Object.keys(productWhere).length > 0
-      ? whereConditionsToSQL(productWhere, 'product', replacements, productILikeConditions)
-      : '';
-    const categoryWhereClause = Object.keys(categoryWhere).length > 0
-      ? whereConditionsToSQL(categoryWhere, 'category', replacements, categoryILikeConditions)
-      : '';
-
-    // Combine all WHERE clauses
-    const additionalConditions = [
-      variantWhereClause,
-      productWhereClause,
-      categoryWhereClause,
-    ].filter(Boolean);
-
-    const whereSQL = additionalConditions.length > 0
-      ? `${baseWhereClause} AND ${additionalConditions.join(' AND ')}`
-      : baseWhereClause;
-
-    // Build ORDER BY clause
-    let orderClause = '';
-
-    if (order && order.length > 0) {
-      const orderParts = order.map(([ col, dir ]) => {
-        // Map common column names
-        if (col === 'expiry_date' || col === 'expiryDate') {
-          return `product_variant.expiry_date ${dir}`;
-        }
-        if (col === 'product_name' || col === 'productName') {
-          return `product.title ${dir}`;
-        }
-        if (col === 'variant_name' || col === 'variantName') {
-          return `product_variant.variant_name ${dir}`;
-        }
-        if (col === 'category' || col === 'category_name') {
-          return `category.title ${dir}`;
-        }
-        if (col === 'stock' || col === 'quantity') {
-          return `product_variant.quantity ${dir}`;
-        }
-        if (col === 'price' || col === 'selling_price') {
-          return `product_variant.selling_price ${dir}`;
-        }
-
-        return `product_variant.${col} ${dir}`;
-      });
-
-      orderClause = `ORDER BY ${orderParts.join(', ')}`;
-    } else {
-      orderClause = 'ORDER BY product_variant.expiry_date ASC';
-    }
-
-    // Build SELECT query with JOINs
     const selectQuery = `
       SELECT 
         product_variant.id as variant_id,
@@ -676,7 +546,6 @@ const getExpiringProducts = async (payload = {}) => {
       LIMIT ? OFFSET ?
     `;
 
-    // Build COUNT query
     const countQuery = `
       SELECT COUNT(*) as count
       FROM product_variant
@@ -699,7 +568,6 @@ const getExpiringProducts = async (payload = {}) => {
     if (response) {
       const { count, totalCount, rows } = response;
 
-      // Calculate expiry status for each variant (reuse today from start of function)
       const items = rows.map((row) => {
         const expiryDate = new Date(row.expiry_date);
 
@@ -711,22 +579,18 @@ const getExpiringProducts = async (payload = {}) => {
         let expiryStatusType = '';
 
         if (diffDays < 0) {
-          // Expired
           const daysAgo = Math.abs(diffDays);
 
           expiryStatus = `Expired ${daysAgo} ${daysAgo === 1 ? 'day' : 'days'} ago`;
           expiryStatusType = 'expired';
         } else if (diffDays === 0) {
-          // Expires today
           expiryStatus = 'Expires today';
           expiryStatusType = 'expiring_today';
         } else {
-          // Expiring soon
           expiryStatus = `Expires in ${diffDays} ${diffDays === 1 ? 'day' : 'days'}`;
           expiryStatusType = 'expiring_soon';
         }
 
-        // Format expiry date
         const formattedExpiryDate = expiryDate.toLocaleDateString('en-US', {
           year: 'numeric',
           month: 'short',
@@ -761,9 +625,111 @@ const getExpiringProducts = async (payload = {}) => {
   }
 };
 
+/**
+ * Get Low Stock Products - Product variants that are in LOW_STOCK status.
+ * Supports only vendor_id, branch_id, and optional date range (dateFrom, dateTo) on product_variant.updated_at.
+ */
+const getLowStockProducts = async (payload = {}) => {
+  try {
+    const {
+      pageSize, pageNumber, vendorId, branchId, dateFrom, dateTo,
+    } = payload;
+    const { limit, offset } = calculatePagination(pageSize, pageNumber);
+
+    const replacements = [];
+    let baseWhereClause = 'WHERE product_variant.status = \'ACTIVE\' AND product.status = \'ACTIVE\' AND product_variant.product_status = \'LOW_STOCK\'';
+
+    if (vendorId != null) {
+      baseWhereClause += ' AND product.vendor_id = ?';
+      replacements.push(vendorId);
+    }
+    if (branchId != null) {
+      baseWhereClause += ' AND product.branch_id = ?';
+      replacements.push(branchId);
+    }
+    if (dateFrom != null) {
+      baseWhereClause += ' AND product_variant.updated_at >= ?';
+      replacements.push(new Date(dateFrom));
+    }
+    if (dateTo != null) {
+      const end = new Date(dateTo);
+
+      end.setHours(23, 59, 59, 999);
+      baseWhereClause += ' AND product_variant.updated_at <= ?';
+      replacements.push(end);
+    }
+
+    const whereSQL = baseWhereClause;
+    const orderClause = 'ORDER BY product_variant.quantity ASC';
+
+    const selectQuery = `
+      SELECT 
+        product_variant.id as variant_id,
+        product_variant.variant_name,
+        product_variant.quantity as stock,
+        product_variant.selling_price as price,
+        product_variant.product_status,
+        product_variant.threshold_stock,
+        product.id as product_id,
+        product.title as product_name,
+        category.id as category_id,
+        category.title as category_name
+      FROM product_variant
+      INNER JOIN product ON product_variant.product_id = product.id
+      INNER JOIN category ON product.category_id = category.id
+      ${whereSQL}
+      ${orderClause}
+      LIMIT ? OFFSET ?
+    `;
+
+    const countQuery = `
+      SELECT COUNT(*) as count
+      FROM product_variant
+      INNER JOIN product ON product_variant.product_id = product.id
+      INNER JOIN category ON product.category_id = category.id
+      ${whereSQL}
+    `;
+
+    replacements.push(limit, offset);
+
+    const response = await findAndCountAllWithTotalQuery(
+      selectQuery,
+      countQuery,
+      pageNumber,
+      replacements,
+    );
+
+    let doc = [];
+
+    if (response) {
+      const { count, totalCount, rows } = response;
+
+      doc = rows.map((row) => ({
+        variant_id: row.variant_id,
+        variant_name: row.variant_name,
+        product_id: row.product_id,
+        product_name: row.product_name,
+        category_id: row.category_id,
+        category_name: row.category_name,
+        stock: parseInt(row.stock) || 0,
+        price: parseFloat(row.price) || 0,
+        product_status: row.product_status,
+        threshold_stock: row.threshold_stock != null ? parseInt(row.threshold_stock) : null,
+      }));
+
+      return { count, totalCount, doc };
+    }
+
+    return { count: 0, totalCount: 0, doc: [] };
+  } catch (error) {
+    return handleServiceError(error, 'Failed to fetch low stock products');
+  }
+};
+
 module.exports = {
   getDashboardKPIs,
   getTopProducts,
   getRecentOrders,
   getExpiringProducts,
+  getLowStockProducts,
 };

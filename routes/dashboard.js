@@ -3,6 +3,7 @@ const {
   getTopProducts,
   getRecentOrders,
   getExpiringProducts,
+  getLowStockProducts,
 } = require('../controllers/dashboardController');
 const { isAuthenticated } = require('../middleware/auth');
 const validate = require('../middleware/validation');
@@ -10,6 +11,7 @@ const {
   getExpiringProducts: getExpiringProductsSchema,
   getDashboardKPIs: getDashboardKPIsSchema,
   getRecentOrders: getRecentOrdersSchema,
+  getLowStockProducts: getLowStockProductsSchema,
 } = require('../schemas');
 
 module.exports = (router) => {
@@ -191,45 +193,14 @@ module.exports = (router) => {
    *                 default: 30
    *                 example: 30
    *                 description: "Number of days ahead to check for expiring products (default: 30)"
-   *               filters:
-   *                 type: array
-   *                 items:
-   *                   type: object
-   *                   properties:
-   *                     key:
-   *                       type: string
-   *                     eq:
-   *                       type: string
-   *                     in:
-   *                       type: array
-   *                       items:
-   *                         type: string
-   *                     neq:
-   *                       type: string
-   *                     gt:
-   *                       type: string
-   *                     gte:
-   *                       type: string
-   *                     lt:
-   *                       type: string
-   *                     lte:
-   *                       type: string
-   *                     like:
-   *                       type: string
-   *                     iLike:
-   *                       type: string
-   *                 description: Array of filter objects
-   *               sorting:
-   *                 type: array
-   *                 items:
-   *                   type: object
-   *                   properties:
-   *                     key:
-   *                       type: string
-   *                     direction:
-   *                       type: string
-   *                       enum: [ASC, DESC]
-   *                 description: Array of sorting objects
+   *               dateFrom:
+   *                 type: string
+   *                 format: date-time
+   *                 description: Start of date range for expiry_date (optional)
+   *               dateTo:
+   *                 type: string
+   *                 format: date-time
+   *                 description: End of date range for expiry_date (optional)
    *     responses:
    *       200:
    *         description: Expiring products retrieved successfully
@@ -300,4 +271,106 @@ module.exports = (router) => {
    *                       type: integer
    */
   router.post('/get-expiring-products', isAuthenticated, validate(getExpiringProductsSchema), getExpiringProducts);
+
+  /**
+   * @swagger
+   * /get-low-stock-products:
+   *   post:
+   *     summary: Get low stock products/variants with pagination
+   *     tags: [Dashboard, ADMIN]
+   *     security:
+   *       - bearerAuth: []
+   *     requestBody:
+   *       required: false
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             properties:
+   *               pageSize:
+   *                 type: integer
+   *                 enum: [1, 5, 10, 20, 30, 40, 50, 100, 500]
+   *                 default: 10
+   *                 description: Number of results per page
+   *               pageNumber:
+   *                 type: integer
+   *                 minimum: 1
+   *                 default: 1
+   *                 description: Page number
+   *               vendorId:
+   *                 type: integer
+   *                 example: 1
+   *                 description: Filter by vendor ID (optional)
+   *               branchId:
+   *                 type: integer
+   *                 example: 1
+   *                 description: Filter by branch ID (optional)
+   *               dateFrom:
+   *                 type: string
+   *                 format: date-time
+   *                 description: Start of date range for updated_at (optional)
+   *               dateTo:
+   *                 type: string
+   *                 format: date-time
+   *                 description: End of date range for updated_at (optional)
+   *     responses:
+   *       200:
+   *         description: Low stock products retrieved successfully
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 success:
+   *                   type: boolean
+   *                   example: true
+   *                 doc:
+   *                   type: array
+   *                   items:
+   *                     type: object
+   *                     properties:
+   *                       variant_id:
+   *                         type: integer
+   *                         example: 1
+   *                       variant_name:
+   *                         type: string
+   *                         example: "200g"
+   *                       product_id:
+   *                         type: integer
+   *                         example: 10
+   *                       product_name:
+   *                         type: string
+   *                         example: "Cheese"
+   *                       category_id:
+   *                         type: integer
+   *                         example: 1
+   *                       category_name:
+   *                         type: string
+   *                         example: "Dairy"
+   *                       stock:
+   *                         type: integer
+   *                         example: 3
+   *                       price:
+   *                         type: number
+   *                         example: 120
+   *                       product_status:
+   *                         type: string
+   *                         enum: [INSTOCK, LOW_STOCK, OUT_OF_STOCK]
+   *                         example: "LOW_STOCK"
+   *                       threshold_stock:
+   *                         type: integer
+   *                         example: 5
+   *                 pagination:
+   *                   type: object
+   *                   properties:
+   *                     pageSize:
+   *                       type: integer
+   *                     pageNumber:
+   *                       type: integer
+   *                     totalCount:
+   *                       type: integer
+   *                     totalPages:
+   *                       type: integer
+   */
+  router.post('/get-low-stock-products', isAuthenticated, validate(getLowStockProductsSchema), getLowStockProducts);
 };

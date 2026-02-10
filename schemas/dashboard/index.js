@@ -1,9 +1,11 @@
 const getExpiringProducts = require('./getExpiringProducts');
+const getLowStockProducts = require('./getLowStockProducts');
 const getDashboardKPIs = require('./getDashboardKPIs');
 const getRecentOrders = require('./getRecentOrders');
 
 module.exports = {
   getExpiringProducts,
+  getLowStockProducts,
   getDashboardKPIs,
   getRecentOrders,
 };

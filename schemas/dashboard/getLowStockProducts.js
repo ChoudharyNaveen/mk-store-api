@@ -1,6 +1,6 @@
 const Joi = require('joi');
 
-const getExpiringProducts = Joi.object({
+const getLowStockProducts = Joi.object({
   pageSize: Joi.number().integer().valid(1, 5, 10, 20, 30, 40, 50, 100, 500).optional()
     .default(10)
     .messages({
@@ -13,16 +13,11 @@ const getExpiringProducts = Joi.object({
     }),
   vendorId: Joi.number().integer().optional(),
   branchId: Joi.number().integer().optional(),
-  daysAhead: Joi.number().integer().min(1).optional()
-    .default(30)
-    .messages({
-      'number.min': 'Parameter: daysAhead must be at least 1',
-    })
-    .description('Number of days ahead to check for expiring products (default: 30)'),
   dateFrom: Joi.date().optional()
-    .description('Start of date range for expiry_date (optional)'),
+    .description('Start of date range for updated_at (optional)'),
   dateTo: Joi.date().optional()
-    .description('End of date range for expiry_date (optional)'),
+    .description('End of date range for updated_at (optional)'),
 }).unknown(false);
 
-module.exports = getExpiringProducts;
+module.exports = getLowStockProducts;
+
