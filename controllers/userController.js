@@ -98,17 +98,17 @@ const updateUser = async (req, res) => {
   }
 };
 
-// Convert User to Rider
+// Convert User to Rider or Rider to User
 const convertUserToRider = async (req, res) => {
   try {
-    const { userId } = req.validatedData || req.body;
+    const { userId, targetRole } = req.validatedData || req.body;
 
-    const { errors: err, doc } = await UserService.convertUserToRider({ userId });
+    const { errors: err, doc } = await UserService.convertUserToRider({ userId, targetRole });
 
     if (doc) {
-      return res.status(201).json({
+      return res.status(200).json({
         success: true,
-        message: 'User successfully converted to rider',
+        message: doc.message,
         doc,
       });
     }

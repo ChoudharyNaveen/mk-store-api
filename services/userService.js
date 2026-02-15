@@ -397,22 +397,24 @@ const updateUser = async ({ data, imageFile }) => withTransaction(sequelize, asy
   return { doc: { concurrencyStamp: newConcurrencyStamp } };
 }).catch((error) => handleServiceError(error, 'Transaction failed'));
 
-// Convert User to Rider
-const convertUserToRider = async ({ userId }) => {
+// Convert User to Rider or Rider to User (bidirectional)
+const convertUserToRider = async ({ userId, targetRole }) => {
   let transaction = null;
 
   try {
     transaction = await sequelize.transaction();
 
-    // Check if user exists, get RIDER role, and check existing mappings in parallel
-    const [ user, riderRole, existingRiderMapping, existingMapping ] = await Promise.all([
+    const isConvertingToRider = targetRole === ROLE.RIDER;
+
+    // Fetch user, target role, current-role mapping, and active mapping in parallel
+    const [ user, targetRoleRecord, existingTargetRoleMapping, existingMapping ] = await Promise.all([
       UserModel.findOne({
         where: { id: userId },
         attributes: [ 'id' ],
         transaction,
       }),
       RoleModel.findOne({
-        where: { name: ROLE.RIDER },
+        where: { name: targetRole },
         attributes: [ 'id', 'name' ],
         transaction,
       }),
@@ -426,7 +428,7 @@ const convertUserToRider = async ({ userId }) => {
           model: RoleModel,
           as: 'role',
           attributes: [ 'id', 'name' ],
-          where: { name: ROLE.RIDER },
+          where: { name: targetRole },
         } ],
         transaction,
       }),
@@ -444,24 +446,38 @@ const convertUserToRider = async ({ userId }) => {
       throw new NotFoundError('User not found');
     }
 
-    if (!riderRole) {
-      throw new NotFoundError(`${ROLE.RIDER} role not found`);
+    if (!targetRoleRecord) {
+      throw new NotFoundError(`Role ${targetRole} not found`);
     }
 
-    if (existingRiderMapping) {
-      throw new ConflictError('User is already a rider');
+    if (existingTargetRoleMapping) {
+      throw new ConflictError(isConvertingToRider ? 'User is already a rider' : 'User is already a user');
     }
 
     if (!existingMapping) {
       throw new ValidationError('No existing role mapping found for user');
     }
 
-    // Update existing mapping to RIDER role
+    if (isConvertingToRider) {
+      // No extra check: any non-rider can be converted to rider
+    } else {
+      // Converting rider to user: ensure current role is RIDER
+      const currentRole = await RoleModel.findOne({
+        where: { id: existingMapping.role_id },
+        attributes: [ 'name' ],
+        transaction,
+      });
+
+      if (!currentRole || currentRole.name !== ROLE.RIDER) {
+        throw new ValidationError('User is not a rider; only riders can be converted back to user');
+      }
+    }
+
     const mappingConcurrencyStamp = uuidV4();
 
     await UserRolesMappingModel.update(
       {
-        role_id: riderRole.id,
+        role_id: targetRoleRecord.id,
         concurrency_stamp: mappingConcurrencyStamp,
       },
       {
@@ -470,7 +486,6 @@ const convertUserToRider = async ({ userId }) => {
       },
     );
 
-    // Fetch updated mapping
     const updatedMapping = await UserRolesMappingModel.findOne({
       where: { id: existingMapping.id },
       attributes: [ 'id', 'user_id', 'role_id', 'vendor_id', 'status', 'concurrency_stamp', 'created_at', 'updated_at' ],
@@ -479,13 +494,17 @@ const convertUserToRider = async ({ userId }) => {
 
     await transaction.commit();
 
-    return { doc: { message: 'User successfully converted to rider', mapping: updatedMapping } };
+    const message = isConvertingToRider
+      ? 'User successfully converted to rider'
+      : 'Rider successfully converted to user';
+
+    return { doc: { message, mapping: updatedMapping } };
   } catch (error) {
     if (transaction) {
       await transaction.rollback();
     }
 
-    return handleServiceError(error, 'Failed to convert user to rider');
+    return handleServiceError(error, `Failed to convert user to ${targetRole}`);
   }
 };
 

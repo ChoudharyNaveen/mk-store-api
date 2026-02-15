@@ -317,7 +317,7 @@ module.exports = (router) => {
    * @swagger
    * /convert-user-to-rider:
    *   post:
-   *     summary: Convert a user to rider role (Vendor Admin only)
+   *     summary: Convert user to rider or rider to user (Vendor Admin only)
    *     tags: [Users, ADMIN]
    *     security:
    *       - bearerAuth: []
@@ -329,20 +329,26 @@ module.exports = (router) => {
    *             type: object
    *             required:
    *               - userId
+   *               - targetRole
    *             properties:
    *               userId:
    *                 type: integer
-   *                 description: User ID to convert to rider
+   *                 description: User ID to convert
    *                 example: 1
+   *               targetRole:
+   *                 type: string
+   *                 enum: [RIDER, USER]
+   *                 description: "RIDER = convert user to rider; USER = convert rider back to user"
+   *                 example: "RIDER"
    *     responses:
    *       200:
-   *         description: User successfully converted to rider
+   *         description: User role converted successfully (message in body)
    *       400:
-   *         description: Validation error or user is already a rider
+   *         description: Validation error, already in target role, or rider-to-user only for riders
    *       403:
    *         description: Access denied. Vendor admin role required.
    *       404:
-   *         description: User not found
+   *         description: User or role not found
    */
   router.post(
     '/convert-user-to-rider',
