@@ -1,7 +1,6 @@
 const ROLE = {
   USER: 'USER',
   VENDOR_ADMIN: 'VENDOR_ADMIN',
-  VENDOR_USER: 'VENDOR_USER',
   RIDER: 'RIDER',
   SUPER_ADMIN: 'SUPER_ADMIN',
 };
@@ -20,7 +19,7 @@ const isValidRole = (roleName) => ROLE_ENUM.includes(roleName);
  * @param {string} roleName
  * @returns {boolean}
  */
-const isVendorRole = (roleName) => roleName === ROLE.VENDOR_ADMIN || roleName === ROLE.VENDOR_USER;
+const isVendorRole = (roleName) => roleName === ROLE.VENDOR_ADMIN;
 
 module.exports = {
   ROLE,

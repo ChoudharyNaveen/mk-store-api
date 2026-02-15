@@ -34,6 +34,7 @@ const {
   ORDER_STATUS,
   ORDER_STATUS_TRANSITIONS,
   canTransitionToStatus,
+  canTransitionByRole,
   isValidOrderStatus,
 } = require('../utils/constants/orderStatusConstants');
 const { ROLE } = require('../utils/constants/roleConstants');
@@ -977,45 +978,22 @@ const getStatsOfOrdersCompleted = async () => {
 
 // Helper: Validate order update request
 const validateOrderUpdate = async (orderId, concurrencyStamp, updatedBy, transaction) => {
-  const [ order, user ] = await Promise.all([
-    OrderModel.findOne({
-      where: { id: orderId },
-      attributes: [
-        'id',
-        'order_number',
-        'concurrency_stamp',
-        'status',
-        'vendor_id',
-        'branch_id',
-        'total_amount',
-        'discount_amount',
-        'shipping_charges',
-        'final_amount',
-      ],
-      transaction,
-    }),
-    UserModel.findOne({
-      where: { id: updatedBy },
-      attributes: [ 'id' ],
-      include: [
-        {
-          model: UserRolesMappingModel,
-          as: 'roleMappings',
-          where: { status: 'ACTIVE' },
-          required: false,
-          attributes: [ 'id', 'user_id', 'role_id', 'vendor_id', 'status' ],
-          include: [
-            {
-              model: RoleModel,
-              as: 'role',
-              attributes: [ 'id', 'name' ],
-            },
-          ],
-        },
-      ],
-      transaction,
-    }),
-  ]);
+  const order = await OrderModel.findOne({
+    where: { id: orderId },
+    attributes: [
+      'id',
+      'order_number',
+      'concurrency_stamp',
+      'status',
+      'vendor_id',
+      'branch_id',
+      'total_amount',
+      'discount_amount',
+      'shipping_charges',
+      'final_amount',
+    ],
+    transaction,
+  });
 
   if (!order) {
     throw new NotFoundError('Order not found');
@@ -1025,7 +1003,7 @@ const validateOrderUpdate = async (orderId, concurrencyStamp, updatedBy, transac
     throw new ConcurrencyError('invalid concurrency stamp');
   }
 
-  return { order, user };
+  return { order };
 };
 
 // Helper: Calculate final amount for order
@@ -1117,8 +1095,8 @@ const updateRiderStatsForOrder = async (orderId, oldStatus, newStatus, riderId, 
   return null;
 };
 
-// Helper: Handle order status change
-const handleOrderStatusChange = async (orderId, oldStatus, newStatus, updatedBy, notes, transaction) => {
+// Helper: Handle order status change (with role-wise validation)
+const handleOrderStatusChange = async (orderId, oldStatus, newStatus, updatedBy, notes, transaction, roleName) => {
   if (!newStatus || newStatus === oldStatus) {
     return null;
   }
@@ -1133,6 +1111,15 @@ const handleOrderStatusChange = async (orderId, oldStatus, newStatus, updatedBy,
     throw new ValidationError(
       `Cannot transition order status from ${oldStatus} to ${newStatus}. Allowed transitions from ${oldStatus} are: ${ORDER_STATUS_TRANSITIONS[oldStatus]?.join(', ') || 'none'}`,
     );
+  }
+
+  // Role-wise validation: user must have a role allowed for this transition
+  if (oldStatus && newStatus) {
+    if (!canTransitionByRole(oldStatus, newStatus, roleName)) {
+      throw new ValidationError(
+        `Your role does not have permission to change order status from ${oldStatus} to ${newStatus}`,
+      );
+    }
   }
 
   const statusHistoryDoc = {
@@ -1596,7 +1583,7 @@ const handleOrderUpdateNotifications = async (orderId, newStatus, oldStatus, upd
 };
 
 const updateOrder = async (data) => withTransaction(sequelize, async (transaction) => {
-  const { id, ...datas } = data;
+  const { id, loginUser, ...datas } = data;
   const {
     concurrencyStamp,
     updatedBy,
@@ -1608,7 +1595,7 @@ const updateOrder = async (data) => withTransaction(sequelize, async (transactio
   } = datas;
 
   // Validate order update and fetch order/user data
-  const { order: response, user: riderExist } = await validateOrderUpdate(
+  const { order: response } = await validateOrderUpdate(
     id,
     concurrencyStamp,
     updatedBy,
@@ -1618,13 +1605,10 @@ const updateOrder = async (data) => withTransaction(sequelize, async (transactio
   const modifiedData = { ...data };
   const oldStatus = response.status;
 
-  // Assign rider if user is a rider
-  const isRider = riderExist?.roleMappings?.some(
-    (mapping) => mapping.role?.name === ROLE.RIDER,
-  );
+  const roleName = loginUser?.roleName;
 
-  if (isRider) {
-    modifiedData.riderId = updatedBy;
+  if (roleName === ROLE.RIDER) {
+    modifiedData.riderId = loginUser?.id ?? updatedBy;
   }
 
   // Calculate final amount
@@ -1639,7 +1623,7 @@ const updateOrder = async (data) => withTransaction(sequelize, async (transactio
     modifiedData.finalAmount = calculatedFinalAmount;
   }
 
-  // Handle status change
+  // Handle status change (includes role-wise validation)
   await handleOrderStatusChange(
     id,
     oldStatus,
@@ -1647,6 +1631,7 @@ const updateOrder = async (data) => withTransaction(sequelize, async (transactio
     updatedBy,
     notes,
     transaction,
+    roleName,
   );
 
   // Update rider stats based on status change
@@ -1743,6 +1728,7 @@ const getOrderDetails = async (orderId) => {
       attributes: [
         'id',
         'order_number',
+        'rider_id',
         'total_amount',
         'discount_amount',
         'shipping_charges',
@@ -1763,6 +1749,12 @@ const getOrderDetails = async (orderId) => {
           model: UserModel,
           as: 'user',
           attributes: [ 'id', 'name', 'email', 'mobile_number' ],
+        },
+        {
+          model: UserModel,
+          as: 'riderDetails',
+          attributes: [ 'id', 'name', 'mobile_number' ],
+          required: false,
         },
         {
           model: AddressModel,
@@ -2030,6 +2022,29 @@ const getOrderDetails = async (orderId) => {
       changed_at: history.created_at,
     }));
 
+    // Rider details: only when order has rider_id
+    let riderPickupTime = null;
+
+    if (orderData.rider_id) {
+      const pickedUpHistory = (orderData.orderStatusHistory || []).find(
+        (h) => h.status === ORDER_STATUS.PICKED_UP,
+      );
+
+      if (pickedUpHistory?.created_at) {
+        riderPickupTime = typeof pickedUpHistory.created_at === 'string'
+          ? pickedUpHistory.created_at
+          : new Date(pickedUpHistory.created_at).toISOString();
+      }
+    }
+
+    const riderInformation = orderData.rider_id
+      ? {
+        rider_name: orderData.riderDetails?.name || null,
+        rider_phone_number: orderData.riderDetails?.mobile_number || null,
+        rider_pickup_time: riderPickupTime,
+      }
+      : null;
+
     // Format response to match UI structure
     const response = {
       order_id: orderData.id,
@@ -2049,6 +2064,7 @@ const getOrderDetails = async (orderId) => {
         mobile_number: orderData.user?.mobile_number || '',
       },
       delivery_address: deliveryAddress,
+      rider_information: riderInformation,
       order_information: {
         order_date: orderData.created_at,
         estimated_delivery: estimatedDeliveryDate,

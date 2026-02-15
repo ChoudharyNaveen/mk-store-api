@@ -641,7 +641,7 @@ const markAllAsRead = async (payload) => {
     // Determine recipient type based on user role
     let recipientType = 'USER';
 
-    if (userRole === ROLE.VENDOR_ADMIN || userRole === ROLE.VENDOR_USER) {
+    if (userRole === ROLE.VENDOR_ADMIN) {
       recipientType = ROLE.VENDOR_ADMIN;
     } else if (userRole === 'SUPER_ADMIN' || userRole === 'ADMIN') {
       recipientType = 'ADMIN';
@@ -702,7 +702,7 @@ const getUnreadCount = async (payload) => {
     // Determine recipient type based on user role
     let recipientType = 'USER';
 
-    if (userRole === ROLE.VENDOR_ADMIN || userRole === ROLE.VENDOR_USER) {
+    if (userRole === ROLE.VENDOR_ADMIN) {
       recipientType = ROLE.VENDOR_ADMIN;
     } else if (userRole === 'SUPER_ADMIN' || userRole === 'ADMIN') {
       recipientType = 'ADMIN';

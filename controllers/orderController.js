@@ -53,7 +53,7 @@ const getStatsOfOrdersCompleted = async (req, res) => {
 
 const updateOrder = async (req, res) => {
   try {
-    const data = { ...req.validatedData, id: req.params.id };
+    const data = { ...req.validatedData, id: req.params.id, loginUser: req.user };
 
     const {
       errors: err,
