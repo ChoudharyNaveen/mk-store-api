@@ -1,7 +1,6 @@
 const {
   rider_stats: RiderStatsModel,
   user: UserModel,
-  vendor: VendorModel,
   sequelize,
 } = require('../database');
 const {
@@ -14,11 +13,10 @@ const {
  * @param {number} vendorId - Vendor ID
  * @returns {Promise<Object>} Rider statistics
  */
-const getRiderStats = async (userId, vendorId) => {
+const getRiderStats = async (userId) => {
   try {
     const where = {
       user_id: userId,
-      vendor_id: vendorId,
     };
 
     const stats = await RiderStatsModel.findOne({
@@ -34,18 +32,6 @@ const getRiderStats = async (userId, vendorId) => {
         'rating',
         'created_at',
         'updated_at',
-      ],
-      include: [
-        {
-          model: UserModel,
-          as: 'user',
-          attributes: [ 'id', 'name', 'mobile_number', 'email' ],
-        },
-        {
-          model: VendorModel,
-          as: 'vendor',
-          attributes: [ 'id', 'name' ],
-        },
       ],
     });
 

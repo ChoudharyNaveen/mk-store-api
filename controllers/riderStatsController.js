@@ -17,15 +17,9 @@ const extractErrorMessage = (error) => {
 const getRiderStats = async (req, res) => {
   try {
     const data = req.validatedData;
-    const userId = req.user?.id;
-
-    if (!userId) {
-      return sendErrorResponse(res, 401, 'User not authenticated', 'AUTHENTICATION_FAILED');
-    }
 
     const { errors: err, doc } = await RiderStatsService.getRiderStats(
-      userId,
-      data.vendorId,
+      data.userId,
     );
 
     if (err) {

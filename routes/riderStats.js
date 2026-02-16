@@ -20,11 +20,11 @@ module.exports = (router) => {
    *       - bearerAuth: []
    *     parameters:
    *       - in: query
-   *         name: vendorId
+   *         name: userId
    *         required: true
    *         schema:
    *           type: integer
-   *         description: Vendor ID
+   *         description: User ID
      *     responses:
    *       200:
    *         description: Rider statistics retrieved successfully
@@ -55,9 +55,9 @@ module.exports = (router) => {
    *           schema:
    *             type: object
    *             required:
-   *               - vendorId
+   *               - userId
    *             properties:
-     *               vendorId:
+     *               userId:
      *                 type: integer
      *                 example: 1
      *               totalOrders:
