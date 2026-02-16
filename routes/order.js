@@ -1,6 +1,7 @@
 const {
   placeOrder,
   getOrder,
+  getOrderStats,
   getStatsOfOrdersCompleted,
   updateOrder,
   getTotalReturnsOfToday,
@@ -13,6 +14,7 @@ const {
   getOrder: getOrderSchema,
   updateOrder: updateOrderSchema,
   getOrderDetails: getOrderDetailsSchema,
+  getOrderStats: getOrderStatsSchema,
 } = require('../schemas');
 
 module.exports = (router) => {
@@ -261,6 +263,50 @@ module.exports = (router) => {
    *                   type: object
    */
   router.post('/get-order', isAuthenticated, validate(getOrderSchema), getOrder);
+
+  /**
+   * @swagger
+   * /get-order-stats:
+   *   get:
+   *     summary: Get order statistics for the authenticated user (orders where created_by = current user)
+   *     tags: [Orders, ADMIN]
+   *     security:
+   *       - bearerAuth: []
+   *     responses:
+   *       200:
+   *         description: Order statistics retrieved successfully
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 success:
+   *                   type: boolean
+   *                   example: true
+   *                 data:
+   *                   type: object
+   *                   properties:
+   *                     total_orders:
+   *                       type: integer
+   *                       example: 42
+   *                       description: Total number of orders placed by the user
+   *                     total_amount:
+   *                       type: number
+   *                       example: 12500.50
+   *                       description: Sum of final_amount for all orders
+   *                     last_order_date:
+   *                       type: string
+   *                       format: date-time
+   *                       nullable: true
+   *                       description: ISO date of the most recent order, or null if no orders
+   *                     count_by_status:
+   *                       type: object
+   *                       additionalProperties:
+   *                         type: integer
+   *                       example: { "PENDING": 2, "DELIVERED": 35, "CANCELLED": 5 }
+   *                       description: Order count per status
+   */
+  router.get('/get-order-stats', validate(getOrderStatsSchema), isAuthenticated, getOrderStats);
 
   /**
    * @swagger

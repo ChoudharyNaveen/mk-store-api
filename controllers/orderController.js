@@ -3,6 +3,17 @@ const {
   handleServerError, sendErrorResponse, extractErrorMessage, createPaginationObject,
 } = require('../utils/helper');
 
+const getOrderStats = async (req, res) => {
+  try {
+    const data = req.validatedData;
+    const { doc } = await OrderService.getOrderStats(data);
+
+    return res.status(200).json({ success: true, data: doc });
+  } catch (error) {
+    return handleServerError(error, req, res);
+  }
+};
+
 const placeOrder = async (req, res) => {
   try {
     const data = req.validatedData;
@@ -112,6 +123,7 @@ const getOrderDetails = async (req, res) => {
 module.exports = {
   placeOrder,
   getOrder,
+  getOrderStats,
   getStatsOfOrdersCompleted,
   updateOrder,
   getTotalReturnsOfToday,

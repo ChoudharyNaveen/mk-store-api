@@ -931,6 +931,60 @@ const getOrder = async (payload) => {
   return { count: 0, totalCount: 0, doc: [] };
 };
 
+const getOrderStats = async (payload) => {
+  const { createdBy } = payload;
+
+  try {
+    const [ totals, byStatus ] = await Promise.all([
+      OrderModel.findOne({
+        where: { created_by: createdBy },
+        attributes: [
+          [ fn('COUNT', col('id')), 'total_orders' ],
+          [ fn('COALESCE', fn('SUM', col('final_amount')), 0), 'total_amount' ],
+          [ fn('MAX', col('created_at')), 'last_order_date' ],
+        ],
+        raw: true,
+      }),
+      OrderModel.findAll({
+        where: { created_by: createdBy },
+        attributes: [
+          [ col('status'), 'status' ],
+          [ fn('COUNT', col('id')), 'count' ],
+        ],
+        group: [ 'status' ],
+        raw: true,
+      }),
+    ]);
+
+    const totalOrders = totals ? parseInt(totals.total_orders) : 0;
+    const totalAmount = totals ? parseFloat(totals.total_amount) : 0;
+    let lastOrderDate = null;
+
+    if (totals?.last_order_date) {
+      lastOrderDate = typeof totals.last_order_date === 'string'
+        ? totals.last_order_date
+        : new Date(totals.last_order_date).toISOString();
+    }
+
+    const countByStatus = (byStatus || []).reduce((acc, row) => {
+      acc[row.status] = parseInt(row.count);
+
+      return acc;
+    }, {});
+
+    return {
+      doc: {
+        total_orders: totalOrders,
+        total_amount: parseFloat(totalAmount.toFixed(2)),
+        last_order_date: lastOrderDate,
+        count_by_status: countByStatus,
+      },
+    };
+  } catch (error) {
+    return handleServiceError(error, 'Failed to get order stats');
+  }
+};
+
 const getStatsOfOrdersCompleted = async () => {
   try {
     const result = await OrderModel.findAll({
@@ -2087,6 +2141,7 @@ const getOrderDetails = async (orderId) => {
 module.exports = {
   placeOrder,
   getOrder,
+  getOrderStats,
   getStatsOfOrdersCompleted,
   updateOrder,
   getTotalReturnsOfToday,

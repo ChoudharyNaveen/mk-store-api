@@ -1,7 +1,6 @@
 const { v4: uuidV4 } = require('uuid');
 const {
   address: AddressModel,
-  user: UserModel,
   sequelize,
 } = require('../database');
 const {
@@ -77,6 +76,10 @@ const getAddress = async (payload) => {
   const { limit, offset } = calculatePagination(pageSize, pageNumber);
 
   const where = generateWhereCondition(filters);
+
+  if (!where?.created_by) {
+    where.created_by = userId;
+  }
   const order = sorting
     ? generateOrderCondition(sorting)
     : [ [ 'createdAt', 'DESC' ] ];
@@ -84,17 +87,10 @@ const getAddress = async (payload) => {
   const response = await findAndCountAllWithTotal(
     AddressModel,
     {
-      where: { ...where, created_by: userId },
+      where: { ...where },
       attributes: [ 'id', 'address_line_1', 'address_line_2', 'street',
         'landmark', 'city', 'state', 'country', 'pincode', 'latitude', 'longitude', 'name',
         'mobile_number', 'phone', 'email', 'status', 'created_by', 'created_at', 'updated_at', 'concurrency_stamp' ],
-      include: [
-        {
-          model: UserModel,
-          as: 'user',
-          attributes: [ 'id', 'name', 'email', 'mobile_number' ],
-        },
-      ],
       order,
       limit,
       offset,
