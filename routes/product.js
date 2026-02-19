@@ -8,6 +8,7 @@ const {
   getProductsGroupedByCategory,
   getProductDetails,
   deleteProduct,
+  getProductsSummary,
   getProductStats,
 } = require('../controllers/productController');
 const { isAuthenticated, isVendorAdmin } = require('../middleware/auth');
@@ -20,6 +21,7 @@ const {
   getProductsGroupedByCategory: getProductsGroupedByCategorySchema,
   deleteProduct: deleteProductSchema,
   getProductStats: getProductStatsSchema,
+  getProductsSummary: getProductsSummarySchema,
 } = require('../schemas');
 
 const upload = multer();
@@ -192,6 +194,14 @@ module.exports = (router) => {
    *                 type: boolean
    *                 default: false
    *                 description: When true, only products with at least one variant having a currently valid active combo discount (status ACTIVE and current date between start_date and end_date) are returned
+   *               expiredProducts:
+   *                 type: boolean
+   *                 default: false
+   *                 description: When true, only products that have at least one variant with expiry_date before today are returned
+   *               lowStockProducts:
+   *                 type: boolean
+   *                 default: false
+   *                 description: When true, only products that have at least one variant with product_status LOW_STOCK are returned
    *     responses:
    *       200:
    *         description: Products retrieved successfully
@@ -584,6 +594,72 @@ module.exports = (router) => {
    *         description: Product not found
    */
   router.get('/get-product-details/:productId', isAuthenticated, getProductDetails);
+
+  /**
+   * @swagger
+   * /get-products-summary:
+   *   post:
+   *     summary: Get products summary for a branch/vendor
+   *     description: Returns aggregate counts - total products, active/inactive products, expired variants, and low-stock variants filtered by branchId and vendorId.
+   *     tags: [Products, ADMIN]
+   *     security:
+   *       - bearerAuth: []
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             required:
+   *               - branchId
+   *               - vendorId
+   *             properties:
+   *               branchId:
+   *                 type: integer
+   *                 example: 1
+   *                 description: Branch ID to filter products
+   *               vendorId:
+   *                 type: integer
+   *                 example: 1
+   *                 description: Vendor ID to filter products
+   *     responses:
+   *       200:
+   *         description: Products summary retrieved successfully
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 success:
+   *                   type: boolean
+   *                   example: true
+   *                 doc:
+   *                   type: object
+   *                   properties:
+   *                     total_products:
+   *                       type: integer
+   *                       example: 120
+   *                       description: Total number of products for the branch/vendor
+   *                     active_products:
+   *                       type: integer
+   *                       example: 95
+   *                       description: Number of products with status ACTIVE
+   *                     inactive_products:
+   *                       type: integer
+   *                       example: 25
+   *                       description: Number of products with status INACTIVE
+   *                     expired_variants:
+   *                       type: integer
+   *                       example: 8
+   *                       description: Number of variants with expiry_date before today
+   *                     low_stock_variants:
+   *                       type: integer
+   *                       example: 12
+   *                       description: Number of variants with product_status LOW_STOCK
+   *       400:
+   *         description: Validation error (missing or invalid branchId/vendorId)
+   */
+  router.post('/get-products-summary', isAuthenticated, validate(getProductsSummarySchema), getProductsSummary);
 
   /**
    * @swagger

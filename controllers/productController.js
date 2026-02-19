@@ -219,6 +219,22 @@ const getProductDetails = async (req, res) => {
   }
 };
 
+const getProductsSummary = async (req, res) => {
+  try {
+    const { branchId, vendorId } = req.validatedData;
+
+    const { doc, error } = await ProductService.getProductsSummary(branchId, vendorId);
+
+    if (doc) {
+      return res.status(200).json({ success: true, doc });
+    }
+
+    return sendErrorResponse(res, 400, extractErrorMessage(error), 'VALIDATION_ERROR');
+  } catch (error) {
+    return handleServerError(error, req, res);
+  }
+};
+
 const getProductStats = async (req, res) => {
   try {
     const { productId } = req.validatedData;
@@ -243,5 +259,6 @@ module.exports = {
   getProductsGroupedByCategory,
   getProductDetails,
   deleteProduct,
+  getProductsSummary,
   getProductStats,
 };

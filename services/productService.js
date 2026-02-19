@@ -1407,17 +1407,81 @@ const getProductIdsWithActiveComboDiscount = async () => {
   return productIds;
 };
 
+/**
+ * Get product IDs that have at least one variant with expiry_date before today.
+ * @param {Object} productWhere - Sequelize where condition for the product table
+ * @returns {Promise<number[]>}
+ */
+const getProductIdsWithExpiredVariants = async (productWhere) => {
+  const todayStart = new Date();
+
+  todayStart.setHours(0, 0, 0, 0);
+
+  const rows = await ProductModel.findAll({
+    where: productWhere,
+    include: [
+      {
+        model: ProductVariantModel,
+        as: 'variants',
+        where: { expiry_date: { [Op.lt]: todayStart } },
+        required: true,
+        attributes: [],
+      },
+    ],
+    attributes: [ 'id' ],
+  });
+
+  return rows.map((r) => r.id);
+};
+
+/**
+ * Get product IDs that have at least one variant with product_status LOW_STOCK.
+ * @param {Object} productWhere - Sequelize where condition for the product table
+ * @returns {Promise<number[]>}
+ */
+const getProductIdsWithLowStockVariants = async (productWhere) => {
+  const rows = await ProductModel.findAll({
+    where: productWhere,
+    include: [
+      {
+        model: ProductVariantModel,
+        as: 'variants',
+        where: { product_status: 'LOW_STOCK' },
+        required: true,
+        attributes: [],
+      },
+    ],
+    attributes: [ 'id' ],
+  });
+
+  return rows.map((r) => r.id);
+};
+
 const getProduct = async (payload) => {
   const {
-    pageSize, pageNumber, filters, sorting, hasActiveComboDiscounts,
+    pageSize, pageNumber, filters, sorting, hasActiveComboDiscounts, expiredProducts, lowStockProducts,
   } = payload;
 
   const { limit, offset } = calculatePagination(pageSize, pageNumber);
 
   let where = generateWhereCondition(filters, ProductModel);
 
-  if (hasActiveComboDiscounts) {
-    const productIds = await getProductIdsWithActiveComboDiscount();
+  if (hasActiveComboDiscounts || expiredProducts || lowStockProducts) {
+    const promises = [];
+
+    if (hasActiveComboDiscounts) promises.push(getProductIdsWithActiveComboDiscount());
+    if (expiredProducts) promises.push(getProductIdsWithExpiredVariants(where));
+    if (lowStockProducts) promises.push(getProductIdsWithLowStockVariants(where));
+
+    const results = await Promise.all(promises);
+
+    let productIds = results[0] || [];
+
+    for (let i = 1; i < results.length; i += 1) {
+      const set = new Set(productIds);
+
+      productIds = (results[i] || []).filter((id) => set.has(id));
+    }
 
     if (productIds.length === 0) {
       return { count: 0, totalCount: 0, doc: [] };
@@ -1973,6 +2037,64 @@ const getProductDetails = async (productId) => {
   }
 };
 
+const getProductsSummary = async (branchId, vendorId) => {
+  try {
+    const todayStart = new Date();
+
+    todayStart.setHours(0, 0, 0, 0);
+
+    const productWhere = { branch_id: branchId, vendor_id: vendorId };
+
+    const [
+      totalProducts,
+      activeProducts,
+      inactiveProducts,
+      expiredVariants,
+      lowStockVariants,
+    ] = await Promise.all([
+      ProductModel.count({ where: productWhere }),
+      ProductModel.count({ where: { ...productWhere, status: 'ACTIVE' } }),
+      ProductModel.count({ where: { ...productWhere, status: 'INACTIVE' } }),
+      ProductVariantModel.count({
+        where: { expiry_date: { [Op.lt]: todayStart } },
+        include: [
+          {
+            model: ProductModel,
+            as: 'product',
+            where: productWhere,
+            required: true,
+            attributes: [],
+          },
+        ],
+      }),
+      ProductVariantModel.count({
+        where: { product_status: 'LOW_STOCK' },
+        include: [
+          {
+            model: ProductModel,
+            as: 'product',
+            where: productWhere,
+            required: true,
+            attributes: [],
+          },
+        ],
+      }),
+    ]);
+
+    return {
+      doc: {
+        total_products: totalProducts,
+        active_products: activeProducts,
+        inactive_products: inactiveProducts,
+        expired_variants: expiredVariants,
+        low_stock_variants: lowStockVariants,
+      },
+    };
+  } catch (error) {
+    return handleServiceError(error, 'Failed to fetch products summary');
+  }
+};
+
 const getProductStats = async (productId) => {
   try {
     // Verify product exists
@@ -2053,5 +2175,6 @@ module.exports = {
   getProductsGroupedByCategory,
   getProductDetails,
   deleteProduct,
+  getProductsSummary,
   getProductStats,
 };

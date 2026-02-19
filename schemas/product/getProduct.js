@@ -33,6 +33,10 @@ const getProduct = Joi.object({
   sorting: Joi.array().items(sortingSchema).optional(),
   hasActiveComboDiscounts: Joi.boolean().optional().default(false)
     .description('When true, only products with at least one variant having a currently valid active combo discount'),
+  expiredProducts: Joi.boolean().optional().default(false)
+    .description('When true, only products that have at least one variant with expiry_date before today'),
+  lowStockProducts: Joi.boolean().optional().default(false)
+    .description('When true, only products that have at least one variant with product_status LOW_STOCK'),
 }).unknown(false);
 
 module.exports = getProduct;
