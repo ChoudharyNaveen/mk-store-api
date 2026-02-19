@@ -1579,6 +1579,7 @@ const getProduct = async (payload) => {
       order,
       limit,
       offset,
+      distinct: true,
     },
   );
   let doc = [];
