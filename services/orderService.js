@@ -931,6 +931,70 @@ const getOrder = async (payload) => {
   return { count: 0, totalCount: 0, doc: [] };
 };
 
+/**
+ * Daily-wise order stats: total orders, total amount, pending count, delivered count.
+ * For dashboard cards and table filtered by date range.
+ * @param {Object} payload - { vendorId, branchId?, date?, startDate?, endDate? }
+ * @returns {Promise<{doc: { totalOrders, totalAmount, pendingOrders, deliveredOrders }}>}
+ */
+const getDailyOrderStats = async (payload) => {
+  const {
+    vendorId, branchId, date, startDate, endDate,
+  } = payload;
+
+  try {
+    const baseWhere = { vendor_id: vendorId };
+
+    if (branchId != null) {
+      baseWhere.branch_id = branchId;
+    }
+
+    const useRange = startDate != null && endDate != null;
+    const targetDate = date || new Date().toISOString().slice(0, 10);
+    const dateCondition = useRange
+      ? {
+        [Op.and]: [
+          sequelize.where(sequelize.fn('DATE', sequelize.col('created_at')), { [Op.gte]: startDate }),
+          sequelize.where(sequelize.fn('DATE', sequelize.col('created_at')), { [Op.lte]: endDate }),
+        ],
+      }
+      : sequelize.where(sequelize.fn('DATE', sequelize.col('created_at')), { [Op.eq]: targetDate });
+
+    const where = { ...baseWhere, [Op.and]: [ dateCondition ] };
+    const wherePending = { ...baseWhere, status: ORDER_STATUS.PENDING, [Op.and]: [ dateCondition ] };
+    const whereDelivered = { ...baseWhere, status: ORDER_STATUS.DELIVERED, [Op.and]: [ dateCondition ] };
+
+    const [ totals, deliveredSum, pendingCount, deliveredCount ] = await Promise.all([
+      OrderModel.findOne({
+        where,
+        attributes: [ [ fn('COUNT', col('id')), 'total_orders' ] ],
+        raw: true,
+      }),
+      OrderModel.findOne({
+        where: whereDelivered,
+        attributes: [ [ fn('COALESCE', fn('SUM', col('final_amount')), 0), 'total_amount' ] ],
+        raw: true,
+      }),
+      OrderModel.count({ where: wherePending }),
+      OrderModel.count({ where: whereDelivered }),
+    ]);
+
+    const totalOrders = totals ? parseInt(totals.total_orders) : 0;
+    const totalAmount = deliveredSum ? parseFloat(parseFloat(deliveredSum.total_amount).toFixed(2)) : 0;
+
+    return {
+      doc: {
+        totalOrders,
+        totalAmount,
+        pendingOrders: pendingCount || 0,
+        deliveredOrders: deliveredCount || 0,
+      },
+    };
+  } catch (error) {
+    return handleServiceError(error, 'Failed to get daily order stats');
+  }
+};
+
 const getOrderStats = async (payload) => {
   const { createdBy } = payload;
 
@@ -2142,6 +2206,7 @@ module.exports = {
   placeOrder,
   getOrder,
   getOrderStats,
+  getDailyOrderStats,
   getStatsOfOrdersCompleted,
   updateOrder,
   getTotalReturnsOfToday,

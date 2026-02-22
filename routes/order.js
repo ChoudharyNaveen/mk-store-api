@@ -2,6 +2,7 @@ const {
   placeOrder,
   getOrder,
   getOrderStats,
+  getDailyOrderStats,
   getStatsOfOrdersCompleted,
   updateOrder,
   getTotalReturnsOfToday,
@@ -15,6 +16,7 @@ const {
   updateOrder: updateOrderSchema,
   getOrderDetails: getOrderDetailsSchema,
   getOrderStats: getOrderStatsSchema,
+  getDailyOrderStats: getDailyOrderStatsSchema,
 } = require('../schemas');
 
 module.exports = (router) => {
@@ -307,6 +309,94 @@ module.exports = (router) => {
    *                       description: Order count per status
    */
   router.get('/get-order-stats', validate(getOrderStatsSchema), isAuthenticated, getOrderStats);
+
+  /**
+   * @swagger
+   * /get-daily-order-stats:
+   *   post:
+   *     summary: Daily-wise order stats (counts and amounts)
+   *     description: Returns total orders, total amount, pending count, and delivered count for a single day or date range. For dashboard cards (today) and table filtered by date range.
+   *     tags: [Orders, ADMIN]
+   *     security:
+   *       - bearerAuth: []
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             required:
+   *               - branchId
+   *             properties:
+   *               branchId:
+   *                 type: integer
+   *                 description: Branch ID (vendor from token)
+   *               date:
+   *                 type: string
+   *                 format: date
+   *                 example: "2026-02-22"
+   *                 description: Single day YYYY-MM-DD. Defaults to today if startDate/endDate not provided
+   *               startDate:
+   *                 type: string
+   *                 format: date
+   *                 example: "2026-02-01"
+   *                 description: Start of date range (use with endDate for table filter)
+   *               endDate:
+   *                 type: string
+   *                 format: date
+   *                 example: "2026-02-22"
+   *                 description: End of date range (use with startDate for table filter)
+   *           examples:
+   *             today:
+   *               summary: Stats for today (single day)
+   *               value:
+   *                 branchId: 1
+   *             singleDay:
+   *               summary: Stats for a specific date
+   *               value:
+   *                 branchId: 1
+   *                 date: "2026-02-22"
+   *             dateRange:
+   *               summary: Stats for date range (table filter)
+   *               value:
+   *                 branchId: 1
+   *                 startDate: "2026-02-01"
+   *                 endDate: "2026-02-22"
+   *     responses:
+   *       200:
+   *         description: Daily order stats
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 success:
+   *                   type: boolean
+   *                   example: true
+   *                 doc:
+   *                   type: object
+   *                   properties:
+   *                     totalOrders:
+   *                       type: integer
+   *                       description: Total number of orders (placed today or in date range)
+   *                     totalAmount:
+   *                       type: number
+   *                       description: Revenue from delivered orders only (sum of final_amount where status = DELIVERED)
+   *                     pendingOrders:
+   *                       type: integer
+   *                       description: Orders awaiting confirmation (PENDING status)
+   *                     deliveredOrders:
+   *                       type: integer
+   *                       description: Orders delivered (DELIVERED status)
+   *             example:
+   *               success: true
+   *               doc:
+   *                 totalOrders: 12
+   *                 totalAmount: 24500.50
+   *                 pendingOrders: 2
+   *                 deliveredOrders: 8
+   */
+  router.post('/get-daily-order-stats', isAuthenticated, validate(getDailyOrderStatsSchema), getDailyOrderStats);
 
   /**
    * @swagger

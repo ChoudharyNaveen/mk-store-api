@@ -14,6 +14,21 @@ const getOrderStats = async (req, res) => {
   }
 };
 
+const getDailyOrderStats = async (req, res) => {
+  try {
+    const data = req.validatedData || {};
+    const { vendorId } = req.user;
+    const { doc } = await OrderService.getDailyOrderStats({
+      ...data,
+      vendorId,
+    });
+
+    return res.status(200).json({ success: true, doc });
+  } catch (error) {
+    return handleServerError(error, req, res);
+  }
+};
+
 const placeOrder = async (req, res) => {
   try {
     const data = req.validatedData;
@@ -124,6 +139,7 @@ module.exports = {
   placeOrder,
   getOrder,
   getOrderStats,
+  getDailyOrderStats,
   getStatsOfOrdersCompleted,
   updateOrder,
   getTotalReturnsOfToday,
