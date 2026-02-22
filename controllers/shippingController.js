@@ -40,13 +40,12 @@ const findNearbyBranches = async (req, res) => {
   try {
     const data = req.validatedData || req.body;
     const {
-      latitude, longitude, maxDistance, vendorId,
+      latitude, longitude, vendorId,
     } = data;
 
     const { errors: err, doc } = await ShippingService.findNearbyBranches(
       latitude,
       longitude,
-      maxDistance,
       vendorId,
     );
 

@@ -9,10 +9,6 @@ const findNearbyBranches = Joi.object({
     'any.required': 'Parameter: longitude is required',
     'number.base': 'Parameter: longitude must be a number',
   }),
-  maxDistance: Joi.number().min(0).optional().default(10)
-    .messages({
-      'number.min': 'Parameter: maxDistance must be greater than or equal to 0',
-    }),
   vendorId: Joi.number().integer().optional().messages({
     'number.base': 'Parameter: vendorId must be a number',
   }),

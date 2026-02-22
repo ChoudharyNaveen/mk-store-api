@@ -78,7 +78,8 @@ module.exports = (router) => {
    * @swagger
    * /find-nearby-branches:
    *   post:
-   *     summary: Find nearby branches using Haversine distance
+   *     summary: Find nearby branches with distance and serviceability
+   *     description: Computes distance from user to each branch and sets serviceable flag using branch service_distance_km.
    *     tags: [Shipping, CLIENT]
    *     security:
    *       - bearerAuth: []
@@ -98,16 +99,12 @@ module.exports = (router) => {
    *               longitude:
    *                 type: number
    *                 example: 77.5946
-   *               maxDistance:
-   *                 type: number
-   *                 default: 10
-   *                 description: Maximum distance in km
    *               vendorId:
    *                 type: integer
    *                 description: Filter by vendor ID (optional)
    *     responses:
    *       200:
-   *         description: Nearby branches found
+   *         description: Nearby branches with distance and serviceable flag
    *         content:
    *           application/json:
    *             schema:
@@ -122,8 +119,16 @@ module.exports = (router) => {
    *                     properties:
    *                       branch:
    *                         type: object
+   *                         description: Branch details
    *                       distance:
    *                         type: number
+   *                         description: Distance from user to branch in km
+   *                       serviceDistanceKm:
+   *                         type: number
+   *                         description: Branch max service distance from config
+   *                       serviceable:
+   *                         type: boolean
+   *                         description: true if distance <= serviceDistanceKm
    *       400:
    *         description: Validation error
    */
@@ -263,6 +268,10 @@ module.exports = (router) => {
    *                 type: number
    *                 default: 3.0
    *                 description: Configurable distance threshold in kilometers
+   *               serviceDistanceKm:
+   *                 type: number
+   *                 default: 10.0
+   *                 description: Maximum serviceable distance from branch in kilometers
    *               withinThresholdBaseCharge:
    *                 type: number
    *                 default: 20.0

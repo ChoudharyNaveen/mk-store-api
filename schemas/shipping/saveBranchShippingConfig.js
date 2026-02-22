@@ -8,6 +8,10 @@ const saveBranchShippingConfig = Joi.object({
     .messages({
       'number.min': 'Parameter: distanceThresholdKm must be greater than or equal to 0',
     }),
+  serviceDistanceKm: Joi.number().min(0).optional().default(10.0)
+    .messages({
+      'number.min': 'Parameter: serviceDistanceKm must be greater than or equal to 0',
+    }),
   withinThresholdBaseCharge: Joi.number().min(0).optional().default(20.0)
     .messages({
       'number.min': 'Parameter: withinThresholdBaseCharge must be greater than or equal to 0',

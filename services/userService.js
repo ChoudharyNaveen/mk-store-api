@@ -717,6 +717,11 @@ const getUsers = async (payload) => {
     const { limit, offset } = calculatePagination(pageSize, pageNumber);
 
     const where = generateWhereCondition(filters);
+
+    // user table has no vendor_id or branch_id; vendor is enforced via roleMappings include
+    delete where.vendor_id;
+    delete where.branch_id;
+
     const order = sorting
       ? generateOrderCondition(sorting)
       : [ [ 'created_at', 'DESC' ] ];

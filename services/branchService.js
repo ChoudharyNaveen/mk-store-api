@@ -190,8 +190,32 @@ const getBranch = async (payload) => {
   return { count: 0, totalCount: 0, doc: [] };
 };
 
+/**
+ * Get branch contact details (phone, email) by branchId for contact-us
+ * @param {number} branchId - Branch ID
+ * @returns {Promise<{doc: { phone: string|null, email: string|null }}>}
+ */
+const getBranchContact = async (branchId) => {
+  const branch = await BranchModel.findOne({
+    where: { id: branchId, status: 'ACTIVE' },
+    attributes: [ 'id', 'phone', 'email' ],
+  });
+
+  if (!branch) {
+    throw new NotFoundError('Branch not found');
+  }
+
+  const doc = {
+    phone: branch.phone || null,
+    email: branch.email || null,
+  };
+
+  return { doc };
+};
+
 module.exports = {
   saveBranch,
   updateBranch,
   getBranch,
+  getBranchContact,
 };

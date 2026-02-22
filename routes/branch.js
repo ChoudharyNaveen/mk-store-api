@@ -2,6 +2,7 @@ const {
   saveBranch,
   getBranch,
   updateBranch,
+  contactUs,
 } = require('../controllers/branchController');
 const { isAuthenticated, isVendorAdmin } = require('../middleware/auth');
 const validate = require('../middleware/validation');
@@ -9,6 +10,7 @@ const {
   saveBranch: saveBranchSchema,
   getBranch: getBranchSchema,
   updateBranch: updateBranchSchema,
+  contactUs: contactUsSchema,
 } = require('../schemas');
 
 module.exports = (router) => {
@@ -213,6 +215,52 @@ module.exports = (router) => {
    *         description: Branches retrieved successfully
    */
   router.post('/get-branch', isAuthenticated, validate(getBranchSchema), getBranch);
+
+  /**
+   * @swagger
+   * /contact-us:
+   *   post:
+   *     summary: Get branch contact details (phone, email) by branchId
+   *     tags: [Branches]
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             required:
+   *               - branchId
+   *             properties:
+   *               branchId:
+   *                 type: integer
+   *                 example: 1
+   *                 description: Branch ID
+   *     responses:
+   *       200:
+   *         description: Branch contact details
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 success:
+   *                   type: boolean
+   *                   example: true
+   *                 doc:
+   *                   type: object
+   *                   properties:
+   *                     phone:
+   *                       type: string
+   *                       nullable: true
+   *                       description: Branch phone number
+   *                     email:
+   *                       type: string
+   *                       nullable: true
+   *                       description: Branch email
+   *       404:
+   *         description: Branch not found
+   */
+  router.post('/contact-us', validate(contactUsSchema), contactUs);
 
   /**
    * @swagger

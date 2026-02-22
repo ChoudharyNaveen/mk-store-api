@@ -2,6 +2,7 @@ const { Branch: BranchService } = require('../services');
 const {
   handleServerError, sendErrorResponse, extractErrorMessage, createPaginationObject,
 } = require('../utils/helper');
+const { NotFoundError } = require('../utils/serviceErrors');
 
 const saveBranch = async (req, res) => {
   try {
@@ -23,7 +24,7 @@ const saveBranch = async (req, res) => {
 
 const updateBranch = async (req, res) => {
   try {
-    const data = { ...req.validatedData, id: req.params.id };
+    const data = { ...req.validatedData };
 
     const {
       errors: err,
@@ -67,8 +68,25 @@ const getBranch = async (req, res) => {
   }
 };
 
+const contactUs = async (req, res) => {
+  try {
+    const { branchId } = req.validatedData;
+
+    const { doc } = await BranchService.getBranchContact(branchId);
+
+    return res.status(200).json({ success: true, doc });
+  } catch (error) {
+    if (error instanceof NotFoundError) {
+      return sendErrorResponse(res, 404, error.message, 'NOT_FOUND');
+    }
+
+    return handleServerError(error, req, res);
+  }
+};
+
 module.exports = {
   saveBranch,
   updateBranch,
   getBranch,
+  contactUs,
 };

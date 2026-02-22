@@ -20,6 +20,12 @@ module.exports = (sequelize, DataTypes) => {
         defaultValue: 3.0,
         comment: 'Configurable distance threshold in kilometers (default: 3km)',
       },
+      service_distance_km: {
+        type: DataTypes.FLOAT,
+        allowNull: false,
+        defaultValue: 10.0,
+        comment: 'Maximum serviceable distance from branch in kilometers',
+      },
       within_threshold_base_charge: {
         type: DataTypes.FLOAT,
         allowNull: false,

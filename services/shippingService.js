@@ -67,14 +67,13 @@ const checkServiceability = async (branchId, addressLat, addressLng, maxDistance
 };
 
 /**
- * Find nearby branches using Haversine distance
+ * Find nearby branches: compute distance, use branch service_distance_km for availability
  * @param {number} addressLat - Address latitude
  * @param {number} addressLng - Address longitude
- * @param {number} maxDistance - Maximum distance in km (optional, default: 10)
  * @param {number} vendorId - Vendor ID to filter branches (optional)
- * @returns {Promise<Array<{branch: object, distance: number}>>}
+ * @returns {Promise<{doc: Array<{branch: object, distance: number, serviceDistanceKm: number, serviceable: boolean}>}>}
  */
-const findNearbyBranches = async (addressLat, addressLng, maxDistance = 10, vendorId = null) => {
+const findNearbyBranches = async (addressLat, addressLng, vendorId = null) => {
   try {
     if (!addressLat || !addressLng) {
       throw new ValidationError('Address coordinates are required');
@@ -93,24 +92,46 @@ const findNearbyBranches = async (addressLat, addressLng, maxDistance = 10, vend
     const branches = await BranchModel.findAll({
       where,
       attributes: [ 'id', 'name', 'latitude', 'longitude', 'vendor_id', 'city', 'state' ],
+      include: [
+        {
+          model: BranchShippingConfigModel,
+          as: 'shippingConfig',
+          attributes: [ 'service_distance_km' ],
+          required: false,
+        },
+      ],
     });
 
-    // Calculate distance for each branch and filter by maxDistance
     const nearbyBranches = branches
       .map((branch) => {
+        const serviceDistanceKmRaw = branch.shippingConfig?.service_distance_km;
+
+        if (serviceDistanceKmRaw == null) {
+          throw new ValidationError(
+            `Branch "${branch.name}" (id: ${branch.id}) has no shipping config or service_distance_km. Please configure branch shipping.`,
+          );
+        }
+
         const distance = calculateHaversineDistance(
           branch.latitude,
           branch.longitude,
           addressLat,
           addressLng,
         );
+        const roundedDistance = Math.round(distance * 100) / 100;
+        const serviceDistanceKm = parseFloat(serviceDistanceKmRaw);
+        const serviceable = roundedDistance <= serviceDistanceKm;
+
+        const branchData = branch.get ? branch.get({ plain: true }) : branch.dataValues;
+        const { shippingConfig: _skip, ...branchValues } = branchData;
 
         return {
-          branch: convertSnakeToCamel(branch.dataValues),
-          distance: Math.round(distance * 100) / 100,
+          branch: convertSnakeToCamel(branchValues),
+          distance: roundedDistance,
+          serviceDistanceKm,
+          serviceable,
         };
       })
-      .filter((item) => item.distance <= maxDistance)
       .sort((a, b) => a.distance - b.distance);
 
     return { doc: nearbyBranches };
@@ -153,6 +174,7 @@ const calculateShippingCharges = async (branchId, addressLat, addressLng, orderA
       where: { branch_id: branchId, status: 'ACTIVE' },
       attributes: [
         'distance_threshold_km',
+        'service_distance_km',
         'within_threshold_base_charge',
         'within_threshold_free_above',
         'above_threshold_sameday_base_charge',
@@ -167,6 +189,7 @@ const calculateShippingCharges = async (branchId, addressLat, addressLng, orderA
     // Get shipping config or use defaults (all configurable)
     const shippingConfig = shippingConfigRecord || {
       distance_threshold_km: 3.0,
+      service_distance_km: 10.0,
       within_threshold_base_charge: 20.0,
       within_threshold_free_above: 199.0,
       above_threshold_sameday_base_charge: 120.0,
@@ -395,6 +418,7 @@ const getBranchShippingConfig = async (branchId) => {
         doc: {
           branch_id: branchId,
           distance_threshold_km: 3.0,
+          service_distance_km: 10.0,
           within_threshold_base_charge: 20.0,
           within_threshold_free_above: 199.0,
           above_threshold_sameday_base_charge: 120.0,

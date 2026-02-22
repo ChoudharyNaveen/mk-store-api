@@ -162,6 +162,14 @@ const getProductType = async (payload) => {
       order,
       limit,
       offset,
+      include: [
+        {
+          model: SubCategoryModel,
+          as: 'subCategory',
+          attributes: [ 'id', 'title' ],
+          required: false,
+        },
+      ],
     },
   );
   const doc = [];
