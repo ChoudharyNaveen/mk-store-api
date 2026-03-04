@@ -348,7 +348,12 @@ const createVendorAdmin = async ({ data, imageFile }) => {
 // Update User
 const updateUser = async ({ data, imageFile }) => withTransaction(sequelize, async (transaction) => {
   const { id, password, ...datas } = data;
-  const { concurrencyStamp, updatedBy } = datas;
+  const {
+    concurrencyStamp,
+    updatedBy,
+    status,
+    ...rest
+  } = datas;
 
   const response = await UserModel.findOne({
     where: { id },
@@ -368,7 +373,8 @@ const updateUser = async ({ data, imageFile }) => withTransaction(sequelize, asy
 
   const newConcurrencyStamp = uuidV4();
   const doc = {
-    ...convertCamelToSnake(datas),
+    ...convertCamelToSnake(rest),
+    ...(typeof status !== 'undefined' && { status }),
     updated_by: updatedBy,
     profile_status: 'COMPLETE',
     concurrency_stamp: newConcurrencyStamp,
@@ -393,6 +399,23 @@ const updateUser = async ({ data, imageFile }) => withTransaction(sequelize, asy
     where: { id },
     transaction,
   });
+
+  // Keep user role mappings status in sync with user status when explicitly updated
+  if (status === 'ACTIVE' || status === 'INACTIVE') {
+    const targetStatus = status;
+    const currentStatusFilter = status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
+
+    await UserRolesMappingModel.update(
+      { status: targetStatus },
+      {
+        where: {
+          user_id: id,
+          status: currentStatusFilter,
+        },
+        transaction,
+      },
+    );
+  }
 
   return { doc: { concurrencyStamp: newConcurrencyStamp } };
 }).catch((error) => handleServiceError(error, 'Transaction failed'));
