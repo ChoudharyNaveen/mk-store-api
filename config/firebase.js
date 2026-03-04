@@ -7,8 +7,22 @@ let messaging = null;
 try {
   if (config.FIREBASE?.ENABLED === false) {
     console.warn('Firebase is disabled via config. FCM notifications will be disabled.');
+  } else if (config.FIREBASE?.PROJECT_ID && config.FIREBASE?.CLIENT_EMAIL && config.FIREBASE?.PRIVATE_KEY) {
+    // Initialize using separate env vars (recommended)
+    const serviceAccount = {
+      projectId: config.FIREBASE.PROJECT_ID,
+      clientEmail: config.FIREBASE.CLIENT_EMAIL,
+      privateKey: config.FIREBASE.PRIVATE_KEY.replace(/\\n/g, '\n'),
+    };
+
+    admin.initializeApp({
+      credential: admin.credential.cert(serviceAccount),
+    });
+
+    messaging = admin.messaging();
+    console.log('Firebase Admin SDK initialized successfully with split env vars');
   } else if (config.FIREBASE?.SERVICE_ACCOUNT_KEY) {
-    // Parse service account key from environment variable (JSON string)
+    // Fallback: Parse full service account key from legacy environment variable (JSON string)
     const serviceAccount = JSON.parse(config.FIREBASE.SERVICE_ACCOUNT_KEY);
 
     admin.initializeApp({
@@ -16,7 +30,7 @@ try {
     });
 
     messaging = admin.messaging();
-    console.log('Firebase Admin SDK initialized successfully');
+    console.log('Firebase Admin SDK initialized successfully from SERVICE_ACCOUNT_KEY (legacy)');
   } else if (config.FIREBASE?.PROJECT_ID) {
     // Alternative: Initialize with project ID (uses Application Default Credentials)
     admin.initializeApp({

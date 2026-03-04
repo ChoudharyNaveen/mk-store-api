@@ -9,6 +9,7 @@ const {
   refreshToken,
   getUsers,
   logout,
+  deleteOwnAccount,
 } = require('../controllers/userController');
 
 const upload = multer();
@@ -638,4 +639,34 @@ module.exports = (router) => {
    *         description: Unauthorized - Invalid or missing token
    */
   router.post('/auth-logout', isAuthenticated, logout);
+
+  /**
+   * @swagger
+   * /delete-my-account:
+   *   post:
+   *     summary: Delete (deactivate) the currently authenticated user's account
+   *     description: Soft-deletes the current user by marking their account as INACTIVE so they cannot log in again until reactivated by an admin.
+   *     tags: [Users, BOTH]
+   *     security:
+   *       - bearerAuth: []
+   *     responses:
+   *       200:
+   *         description: Account deactivated successfully
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 success:
+   *                   type: boolean
+   *                   example: true
+   *                 message:
+   *                   type: string
+   *                   example: "Account deleted (deactivated) successfully"
+   *       401:
+   *         description: Unauthorized - Invalid or missing token
+   *       400:
+   *         description: Validation or business rule error
+   */
+  router.post('/delete-my-account', isAuthenticated, deleteOwnAccount);
 };

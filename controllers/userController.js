@@ -223,6 +223,37 @@ const logout = async (req, res) => {
   }
 };
 
+// Delete (disable) own account
+const deleteOwnAccount = async (req, res) => {
+  try {
+    const userId = req.user?.id;
+
+    if (!userId) {
+      return sendErrorResponse(res, 401, 'User ID not found in token', 'AUTHENTICATION_FAILED');
+    }
+
+    const { errors: err, doc } = await UserService.disableCurrentUser({ id: userId });
+
+    if (err) {
+      return sendErrorResponse(res, 400, extractErrorMessage(err), 'VALIDATION_ERROR');
+    }
+
+    // Disconnect all socket connections for this user after deactivation
+    const disconnectResult = disconnectUser(userId);
+
+    return res.status(200).json({
+      success: true,
+      message: 'Account deleted (deactivated) successfully',
+      doc: {
+        ...(doc || {}),
+        disconnectedSockets: disconnectResult.disconnectedCount || 0,
+      },
+    });
+  } catch (error) {
+    return handleServerError(error, req, res);
+  }
+};
+
 module.exports = {
   createSuperAdmin,
   authLogin,
@@ -233,4 +264,5 @@ module.exports = {
   refreshToken,
   getUsers,
   logout,
+  deleteOwnAccount,
 };

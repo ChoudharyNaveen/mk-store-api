@@ -7,7 +7,7 @@ const updateProduct = Joi.object({
   branchId: Joi.number().integer().optional(),
   vendorId: Joi.number().integer().optional(),
   subCategoryId: Joi.number().integer().optional(),
-  brandId: Joi.number().integer().allow(null).optional()
+  brandId: Joi.number().integer()
     .messages({
       'number.base': 'Parameter: brandId must be a number',
     }),

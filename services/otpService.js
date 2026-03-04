@@ -33,11 +33,23 @@ const sendOtpSMSForUser = async (mobileNumber, vendorId) => {
   try {
     transaction = await sequelize.transaction();
 
-    // Check if user exists, vendor exists, and user role in parallel
+    // First, check if there is any user with this mobileNumber and if they are inactive
+    const existingUserByMobile = await UserModel.findOne({
+      where: { mobile_number: mobileNumber },
+      attributes: [ 'id', 'status' ],
+      transaction,
+    });
+
+    if (existingUserByMobile && existingUserByMobile.status !== 'ACTIVE') {
+      throw new ValidationError('User account is inactive');
+    }
+
+    // Check if active user exists for this vendor, vendor exists, and user role in parallel
     const results = await Promise.all([
       UserModel.findOne({
         where: {
           mobile_number: mobileNumber,
+          status: 'ACTIVE',
         },
         include: [ {
           model: UserRolesMappingModel,
@@ -201,6 +213,10 @@ const verifyOtpSMSForUser = async (payload) => {
 
     if (!user) {
       throw new NotFoundError('User not found. Please send OTP first.');
+    }
+
+    if (user.status !== 'ACTIVE') {
+      throw new ValidationError('User account is inactive');
     }
 
     const userId = user.id;

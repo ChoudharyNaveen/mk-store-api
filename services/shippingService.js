@@ -10,12 +10,12 @@ const {
   convertCamelToSnake,
   convertSnakeToCamel,
 } = require('../utils/helper');
+const { getDistanceAndDuration, getDistancesFromOrigin } = require('../utils/googleMapsDistance');
+const { getCachedDistance, setCachedDistance } = require('../utils/distanceCache');
 const {
   calculateHaversineDistance,
   calculateBufferedHaversine,
-  getRoadDistance,
 } = require('../utils/distanceHelper');
-const { getCachedDistance, setCachedDistance } = require('../utils/distanceCache');
 const config = require('../config/index');
 const {
   NotFoundError,
@@ -24,7 +24,7 @@ const {
 } = require('../utils/serviceErrors');
 
 /**
- * Fast serviceability check using Haversine distance
+ * Fast serviceability check using Google Maps (driving distance), fallback Haversine
  * @param {number} branchId - Branch ID
  * @param {number} addressLat - Address latitude
  * @param {number} addressLng - Address longitude
@@ -50,16 +50,29 @@ const checkServiceability = async (branchId, addressLat, addressLng, maxDistance
       throw new ValidationError('Address coordinates are required');
     }
 
-    const distance = calculateHaversineDistance(
+    let distance;
+
+    const result = await getDistanceAndDuration(
       branch.latitude,
       branch.longitude,
       addressLat,
       addressLng,
     );
 
+    if (result.success) {
+      distance = Math.round(result.distance * 100) / 100;
+    } else {
+      distance = calculateHaversineDistance(
+        branch.latitude,
+        branch.longitude,
+        addressLat,
+        addressLng,
+      );
+    }
+
     return {
       serviceable: distance <= maxDistance,
-      distance: Math.round(distance * 100) / 100,
+      distance,
     };
   } catch (error) {
     return handleServiceError(error, 'Failed to check serviceability');
@@ -67,7 +80,7 @@ const checkServiceability = async (branchId, addressLat, addressLng, maxDistance
 };
 
 /**
- * Find nearby branches: compute distance, use branch service_distance_km for availability
+ * Find nearby branches: Google Maps driving distance with Haversine fallback; use branch service_distance_km for availability
  * @param {number} addressLat - Address latitude
  * @param {number} addressLng - Address longitude
  * @param {number} vendorId - Vendor ID to filter branches (optional)
@@ -102,8 +115,25 @@ const findNearbyBranches = async (addressLat, addressLng, vendorId = null) => {
       ],
     });
 
+    if (branches.length === 0) {
+      return { doc: [] };
+    }
+
+    const bufferFactor = config.GOOGLE_MAPS?.fallback?.haversineBuffer || 1.3;
+    let useHaversineFallback = false;
+    let results = null;
+
+    const destinations = branches.map((b) => ({ lat: b.latitude, lng: b.longitude }));
+    const distanceResult = await getDistancesFromOrigin(addressLat, addressLng, destinations);
+
+    if (distanceResult.success) {
+      results = distanceResult.results;
+    } else {
+      useHaversineFallback = true;
+    }
+
     const nearbyBranches = branches
-      .map((branch) => {
+      .map((branch, index) => {
         const serviceDistanceKmRaw = branch.shippingConfig?.service_distance_km;
 
         if (serviceDistanceKmRaw == null) {
@@ -112,12 +142,30 @@ const findNearbyBranches = async (addressLat, addressLng, vendorId = null) => {
           );
         }
 
-        const distance = calculateHaversineDistance(
-          branch.latitude,
-          branch.longitude,
-          addressLat,
-          addressLng,
-        );
+        let distance;
+
+        if (useHaversineFallback) {
+          distance = calculateBufferedHaversine(
+            addressLat,
+            addressLng,
+            branch.latitude,
+            branch.longitude,
+            bufferFactor,
+          );
+        } else {
+          const element = results[index];
+
+          distance = element && element.status === 'OK' && element.distance != null
+            ? element.distance
+            : calculateBufferedHaversine(
+              addressLat,
+              addressLng,
+              branch.latitude,
+              branch.longitude,
+              bufferFactor,
+            );
+        }
+
         const roundedDistance = Math.round(distance * 100) / 100;
         const serviceDistanceKm = parseFloat(serviceDistanceKmRaw);
         const serviceable = roundedDistance <= serviceDistanceKm;
@@ -204,58 +252,31 @@ const calculateShippingCharges = async (branchId, addressLat, addressLng, orderA
       ? parseFloat(shippingConfig.distance_threshold_km)
       : 3.0;
 
-    // Try to get cached road distance first
+    // Try cache first, then Google Maps, then Haversine fallback
     let distance = null;
     let eta = null;
-    let method = 'HAVERSINE_FALLBACK';
+    let method = 'GOOGLE_MAPS';
 
     const cachedResult = await getCachedDistance(branchId, addressLat, addressLng);
 
     if (cachedResult) {
-      // Use cached result
       distance = cachedResult.distance;
       eta = cachedResult.eta;
       method = cachedResult.method;
     } else {
-      // Try road-distance API (if enabled)
-      const roadDistanceApiConfig = config.ROAD_DISTANCE_API || {};
+      const result = await getDistanceAndDuration(
+        branch.latitude,
+        branch.longitude,
+        addressLat,
+        addressLng,
+      );
 
-      if (roadDistanceApiConfig.enabled !== false) {
-        const roadResult = await getRoadDistance(
-          branchId,
-          branch.latitude,
-          branch.longitude,
-          addressLat,
-          addressLng,
-        );
-
-        if (roadResult.success) {
-          // Use road distance from API
-          distance = roadResult.distance;
-          eta = roadResult.eta;
-          method = 'ROAD_API';
-
-          // Cache the result
-          await setCachedDistance(branchId, addressLat, addressLng, distance, eta, method);
-        } else {
-          // API failed, use buffered Haversine fallback
-          const bufferFactor = roadDistanceApiConfig.fallback?.haversineBuffer || 1.3;
-
-          distance = calculateBufferedHaversine(
-            branch.latitude,
-            branch.longitude,
-            addressLat,
-            addressLng,
-            bufferFactor,
-          );
-          method = 'HAVERSINE_FALLBACK';
-
-          // Cache the fallback result with shorter TTL (maybe 1 hour)
-          await setCachedDistance(branchId, addressLat, addressLng, distance, null, method, 3600);
-        }
+      if (result.success) {
+        distance = result.distance;
+        eta = result.eta;
+        await setCachedDistance(branchId, addressLat, addressLng, distance, eta, method);
       } else {
-        // Road-distance API disabled, use buffered Haversine
-        const bufferFactor = roadDistanceApiConfig.fallback?.haversineBuffer || 1.3;
+        const bufferFactor = config.GOOGLE_MAPS?.fallback?.haversineBuffer || 1.3;
 
         distance = calculateBufferedHaversine(
           branch.latitude,
@@ -265,6 +286,7 @@ const calculateShippingCharges = async (branchId, addressLat, addressLng, orderA
           bufferFactor,
         );
         method = 'HAVERSINE_FALLBACK';
+        await setCachedDistance(branchId, addressLat, addressLng, distance, null, method, 3600);
       }
     }
 

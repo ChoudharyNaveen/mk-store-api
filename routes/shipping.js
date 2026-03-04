@@ -19,7 +19,7 @@ module.exports = (router) => {
    * @swagger
    * /check-serviceability:
    *   post:
-   *     summary: Fast serviceability check using Haversine distance
+   *     summary: Serviceability check using Google Maps driving distance
    *     tags: [Shipping, CLIENT]
    *     security:
    *       - bearerAuth: []
@@ -79,7 +79,7 @@ module.exports = (router) => {
    * /find-nearby-branches:
    *   post:
    *     summary: Find nearby branches with distance and serviceability
-   *     description: Computes distance from user to each branch and sets serviceable flag using branch service_distance_km.
+   *     description: Uses Google Maps Distance Matrix API for driving distance from user to each branch; sets serviceable flag using branch service_distance_km.
    *     tags: [Shipping, CLIENT]
    *     security:
    *       - bearerAuth: []
@@ -143,8 +143,8 @@ module.exports = (router) => {
    * @swagger
    * /calculate-shipping-charges:
    *   post:
-   *     summary: Calculate shipping charges using road-distance API (cached) with Haversine fallback.
-   *     description: Use this endpoint to show shipping charges to customers before they place an order.
+   *     summary: Calculate shipping charges using Google Maps (cached) with Haversine fallback.
+   *     description: Use this endpoint to show shipping charges. Distance from Google Maps Distance Matrix API when available; falls back to Haversine if API fails. Results are cached.
    *     tags: [Shipping, CLIENT]
    *     security:
    *       - bearerAuth: []
@@ -228,9 +228,9 @@ module.exports = (router) => {
    *                       description: Estimated delivery time in minutes (from road-distance API, if available)
    *                     method:
    *                       type: string
-   *                       enum: [ROAD_API, HAVERSINE_FALLBACK]
-   *                       example: ROAD_API
-   *                       description: Method used for distance calculation
+   *                       enum: [GOOGLE_MAPS, HAVERSINE_FALLBACK]
+   *                       example: GOOGLE_MAPS
+   *                       description: Method used for distance (Google Maps or Haversine fallback)
    *       400:
    *         description: Validation error - Either addressId OR (latitude and longitude) must be provided
    *       404:

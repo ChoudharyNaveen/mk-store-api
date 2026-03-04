@@ -54,17 +54,17 @@ module.exports = (sequelize, DataTypes) => {
       distance: {
         type: DataTypes.FLOAT,
         allowNull: true,
-        comment: 'Distance in kilometers, from road-distance API or Haversine fallback',
+        comment: 'Distance in kilometers, from Google Maps Distance Matrix API',
       },
       distance_method: {
         type: DataTypes.STRING,
-        enum: [ 'ROAD_API', 'HAVERSINE_FALLBACK', 'MANUAL' ],
+        enum: [ 'GOOGLE_MAPS', 'ROAD_API', 'HAVERSINE_FALLBACK', 'MANUAL' ],
         allowNull: true,
       },
       estimated_delivery_eta: {
         type: DataTypes.INTEGER,
         allowNull: true,
-        comment: 'Estimated delivery time in minutes, from road-distance API',
+        comment: 'Estimated delivery time in minutes, from Google Maps API',
       },
       refund_amount: {
         type: DataTypes.FLOAT,

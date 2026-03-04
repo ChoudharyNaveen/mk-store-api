@@ -53,13 +53,13 @@ const getCachedDistance = async (branchId, lat, lng) => {
  * @param {number} lng - Address longitude
  * @param {number} distance - Distance in kilometers
  * @param {number} eta - Estimated delivery time in minutes (optional)
- * @param {string} method - Distance method ('ROAD_API' or 'HAVERSINE_FALLBACK')
+ * @param {string} method - Distance method ('GOOGLE_MAPS' or 'HAVERSINE_FALLBACK')
  * @param {number} ttl - Time to live in seconds (optional, defaults to config)
  * @returns {Promise<void>}
  */
 const setCachedDistance = async (branchId, lat, lng, distance, eta, method = 'ROAD_API', ttl = null) => {
   try {
-    const cacheConfig = config.ROAD_DISTANCE_API?.cache || {};
+    const cacheConfig = config.ROAD_DISTANCE_CACHE || {};
     const cacheTTL = ttl || cacheConfig.ttl || 86400; // Default: 24 hours
 
     // Round coordinates to improve cache hit rate

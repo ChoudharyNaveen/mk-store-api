@@ -526,6 +526,10 @@ const authLogin = async (payload) => {
 
     const userData = convertSnakeToCamel(user.dataValues);
 
+    if (userData.status !== 'ACTIVE') {
+      return handleServiceError(new ValidationError('User account is inactive'));
+    }
+
     // Check if user has password
     if (!userData.password) {
       return handleServiceError(new ValidationError('Invalid credentials'));
@@ -778,6 +782,41 @@ const getUsers = async (payload) => {
   }
 };
 
+// Disable (soft-delete) current user account
+const disableCurrentUser = async ({ id }) => withTransaction(sequelize, async (transaction) => {
+  const user = await UserModel.findOne({
+    where: { id },
+    attributes: [ 'id', 'status' ],
+    transaction,
+  });
+
+  if (!user) {
+    throw new NotFoundError('User not found');
+  }
+
+  if (user.status === 'INACTIVE') {
+    return { doc: { message: 'Account is already inactive' } };
+  }
+
+  await UserModel.update(
+    { status: 'INACTIVE' },
+    {
+      where: { id },
+      transaction,
+    },
+  );
+
+  await UserRolesMappingModel.update(
+    { status: 'INACTIVE' },
+    {
+      where: { user_id: id, status: 'ACTIVE' },
+      transaction,
+    },
+  );
+
+  return { doc: { message: 'Account has been deactivated successfully' } };
+}).catch((error) => handleServiceError(error, 'Failed to disable user account'));
+
 module.exports = {
   createSuperAdmin,
   findUserByEmail,
@@ -789,4 +828,5 @@ module.exports = {
   authLogin,
   refreshToken,
   getUsers,
+  disableCurrentUser,
 };

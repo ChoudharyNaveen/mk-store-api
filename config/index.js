@@ -75,17 +75,20 @@ module.exports = {
     ENABLED: process.env.FIREBASE_ENABLED !== 'false',
     SERVICE_ACCOUNT_KEY: process.env.FIREBASE_SERVICE_ACCOUNT_KEY,
     PROJECT_ID: process.env.FIREBASE_PROJECT_ID,
+    CLIENT_EMAIL: process.env.FIREBASE_CLIENT_EMAIL,
+    PRIVATE_KEY: process.env.FIREBASE_PRIVATE_KEY,
   },
-  ROAD_DISTANCE_API: {
-    url: process.env.ROAD_DISTANCE_API_URL,
-    apiKey: process.env.ROAD_DISTANCE_API_KEY,
-    timeout: parseInt(process.env.ROAD_DISTANCE_API_TIMEOUT) || 5000,
-    enabled: process.env.ROAD_DISTANCE_API_ENABLED !== 'false',
-    cache: {
-      ttl: parseInt(process.env.ROAD_DISTANCE_CACHE_TTL) || 86400, // 24 hours in seconds
-    },
+  GOOGLE_MAPS: {
+    apiKey: process.env.GOOGLE_MAPS_API_KEY,
+    timeout: parseInt(process.env.GOOGLE_MAPS_TIMEOUT) || 5000,
+    enabled: process.env.GOOGLE_MAPS_ENABLED !== 'false',
+    mode: process.env.GOOGLE_MAPS_MODE || 'driving',
+    units: process.env.GOOGLE_MAPS_UNITS || 'metric',
     fallback: {
-      haversineBuffer: parseFloat(process.env.ROAD_DISTANCE_FALLBACK_BUFFER) || 1.3,
+      haversineBuffer: parseFloat(process.env.GOOGLE_MAPS_HAVERSINE_BUFFER) || 1.3,
     },
+  },
+  ROAD_DISTANCE_CACHE: {
+    ttl: parseInt(process.env.ROAD_DISTANCE_CACHE_TTL) || 86400, // 24 hours in seconds
   },
 };
