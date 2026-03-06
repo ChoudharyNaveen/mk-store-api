@@ -11,7 +11,7 @@ const sendOtpSMSForUser = async (req, res) => {
       return res.status(200).json({ message: 'SMS sent successfully' });
     }
 
-    return sendErrorResponse(res, 400, extractErrorMessage(result?.error) || 'SMS sending failed', 'VALIDATION_ERROR');
+    return sendErrorResponse(res, 400, extractErrorMessage(result) || 'SMS sending failed', 'VALIDATION_ERROR');
   } catch (error) {
     console.log(error);
 
@@ -24,7 +24,8 @@ const verifyOtpSMSForUser = async (req, res) => {
     const { mobileNumber, otp, vendorId } = req.validatedData;
     const data = { mobileNumber, otp, vendorId };
 
-    const { errors: err, doc } = await OtpService.verifyOtpSMSForUser(data);
+    const result = await OtpService.verifyOtpSMSForUser(data);
+    const { errors: err, doc } = result;
 
     if (doc) {
       // Set token in response header
@@ -36,7 +37,7 @@ const verifyOtpSMSForUser = async (req, res) => {
       return res.status(200).json(doc);
     }
 
-    return sendErrorResponse(res, 400, extractErrorMessage(err), 'VALIDATION_ERROR');
+    return sendErrorResponse(res, 400, extractErrorMessage(err) || extractErrorMessage(result) || 'An error occurred', 'VALIDATION_ERROR');
   } catch (error) {
     return handleServerError(error, req, res);
   }

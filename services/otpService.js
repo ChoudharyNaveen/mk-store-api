@@ -9,6 +9,7 @@ const {
   sequelize,
 } = require('../database');
 const {
+  withTransaction,
   generateOTP,
   convertSnakeToCamel,
 } = require('../utils/helper');
@@ -22,16 +23,13 @@ const {
   handleServiceError,
 } = require('../utils/serviceErrors');
 
-const sendOtpSMSForUser = async (mobileNumber, vendorId) => {
-  let transaction = null;
-
-  // Use mock OTP if USE_MOCK_SMS is enabled, otherwise generate random OTP
-  const otp = config.AWS.USE_MOCK_SMS ? config.AWS.MOCK_OTP : generateOTP();
-  const message = `Your One-Time Password (OTP) for MK Online Store is ${otp}. 
-  This OTP is valid for the next 10 minutes. Please do not share this code with anyone.`;
-
-  try {
-    transaction = await sequelize.transaction();
+const sendOtpSMSForUser = async (mobileNumber, vendorId) => withTransaction(
+  sequelize,
+  async (transaction) => {
+    // Use mock OTP if USE_MOCK_SMS is enabled, otherwise generate random OTP
+    const otp = config.AWS.USE_MOCK_SMS ? config.AWS.MOCK_OTP : generateOTP();
+    const message = `Your One-Time Password (OTP) for MK Online Store is ${otp}. 
+    This OTP is valid for the next 10 minutes. Please do not share this code with anyone.`;
 
     // First, check if there is any user with this mobileNumber and if they are inactive
     const existingUserByMobile = await UserModel.findOne({
@@ -45,7 +43,7 @@ const sendOtpSMSForUser = async (mobileNumber, vendorId) => {
     }
 
     // Check if active user exists for this vendor, vendor exists, and user role in parallel
-    const results = await Promise.all([
+    const [ existingUser, vendor, userRole ] = await Promise.all([
       UserModel.findOne({
         where: {
           mobile_number: mobileNumber,
@@ -73,9 +71,8 @@ const sendOtpSMSForUser = async (mobileNumber, vendorId) => {
         transaction,
       }),
     ]);
-    let user = results[0];
-    const vendor = results[1];
-    const userRole = results[2];
+
+    let user = existingUser;
 
     if (!vendor) {
       throw new NotFoundError('Vendor not found');
@@ -169,24 +166,15 @@ const sendOtpSMSForUser = async (mobileNumber, vendorId) => {
       await OTPModel.create(otpData, { transaction });
     }
 
-    await transaction.commit();
-
     return { messageId: smsResult.messageId, success: true };
-  } catch (error) {
-    if (transaction) {
-      await transaction.rollback();
-    }
+  },
+).catch((error) => handleServiceError(error, 'Failed to send OTP'));
 
-    return handleServiceError(error, 'Failed to send OTP');
-  }
-};
+const verifyOtpSMSForUser = async (payload) => withTransaction(
+  sequelize,
+  async (transaction) => {
+    const { mobileNumber, otp, vendorId } = payload;
 
-const verifyOtpSMSForUser = async (payload) => {
-  const { mobileNumber, otp, vendorId } = payload;
-
-  const transaction = await sequelize.transaction();
-
-  try {
     const user = await UserModel.findOne({
       where: {
         mobile_number: mobileNumber,
@@ -209,6 +197,7 @@ const verifyOtpSMSForUser = async (payload) => {
           } ],
         },
       ],
+      transaction,
     });
 
     if (!user) {
@@ -244,8 +233,6 @@ const verifyOtpSMSForUser = async (payload) => {
       { where: { user_id: userId }, transaction },
     );
 
-    await transaction.commit();
-
     // Extract only required fields and role name from user_roles_mappings
     const userData = convertSnakeToCamel(user.dataValues);
     const roleMapping = user.dataValues.roleMappings && user.dataValues.roleMappings[0];
@@ -265,7 +252,6 @@ const verifyOtpSMSForUser = async (payload) => {
     };
 
     // Generate JWT token
-    // Use password if available, otherwise use concurrency_stamp for token secret
     const tokenSecret = config.jwt.token_secret;
 
     const token = jwt.sign(userResponse, tokenSecret, {
@@ -279,12 +265,8 @@ const verifyOtpSMSForUser = async (payload) => {
         token,
       },
     };
-  } catch (error) {
-    await transaction.rollback();
-
-    return handleServiceError(error, 'Transaction failed');
-  }
-};
+  },
+).catch((error) => handleServiceError(error, 'Transaction failed'));
 
 module.exports = {
   sendOtpSMSForUser,

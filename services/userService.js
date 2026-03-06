@@ -756,7 +756,6 @@ const getUsers = async (payload) => {
     // Build mapping where clause to filter by vendor and role
     const mappingWhere = {
       vendor_id: vendorId,
-      status: 'ACTIVE',
     };
 
     if (role) {
