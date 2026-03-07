@@ -296,7 +296,9 @@ const calculateOrderAmount = async (cartItems, transaction) => {
   const errorResult = validationResults.find((result) => result?.errors);
 
   if (errorResult) {
-    throw new ValidationError(errorResult?.errors?.message);
+    const message = errorResult?.errors?.message || 'One or more cart items are invalid (e.g. quantity exceeded or variant mismatch). Please refresh your cart and try again.';
+
+    throw new ValidationError(message);
   }
 
   const orderItemsData = validationResults.map((result) => result?.orderItem);

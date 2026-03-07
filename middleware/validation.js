@@ -1,5 +1,5 @@
 const Validator = require('../utils/validator');
-const { sendErrorResponse } = require('../utils/helper');
+const { sendErrorResponse, extractErrorMessage } = require('../utils/helper');
 
 const validate = (schema) => (req, res, next) => {
   try {
@@ -16,12 +16,26 @@ const validate = (schema) => (req, res, next) => {
     if (errors) {
       console.log('Validation errors:', JSON.stringify(errors, null, 2));
 
-      // Ensure Content-Type is set
+      // Build human-readable message from first error (or combined)
+      const message = Array.isArray(errors) && errors.length > 0
+        ? errors
+          .map((e) => {
+            if (!e) return null;
+            const msg = e.message || (typeof e === 'string' ? e : null);
+
+            if (!msg) return null;
+
+            return e.name ? `${e.name}: ${msg}` : msg;
+          })
+          .filter(Boolean)
+          .join('. ') || 'Validation failed'
+        : 'Validation failed';
+
       res.setHeader('Content-Type', 'application/json');
 
       return res.status(400).json({
         success: false,
-        errors: { message: 'Validation failed', code: 'VALIDATION_ERROR' },
+        errors: { message, code: 'VALIDATION_ERROR' },
         message: 'field-validation',
         validationErrors: errors,
       });
@@ -35,7 +49,7 @@ const validate = (schema) => (req, res, next) => {
     console.error('Validation middleware error:', error);
     res.setHeader('Content-Type', 'application/json');
 
-    return sendErrorResponse(res, 500, 'Validation error', 'INTERNAL_SERVER_ERROR', error);
+    return sendErrorResponse(res, 500, extractErrorMessage(error), 'INTERNAL_SERVER_ERROR', error);
   }
 };
 

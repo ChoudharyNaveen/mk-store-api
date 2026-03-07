@@ -33,7 +33,8 @@ const placeOrder = async (req, res) => {
   try {
     const data = req.validatedData;
 
-    const { doc, errors } = await OrderService.placeOrder({ ...data, createdBy: req.user.id });
+    const result = await OrderService.placeOrder({ ...data, createdBy: req.user.id });
+    const { doc, errors } = result;
 
     if (doc) {
       return res.status(201).json({
@@ -42,7 +43,12 @@ const placeOrder = async (req, res) => {
       });
     }
 
-    return sendErrorResponse(res, 400, extractErrorMessage(errors), 'VALIDATION_ERROR');
+    return sendErrorResponse(
+      res,
+      400,
+      extractErrorMessage(errors) || extractErrorMessage(result) || 'Unable to place order. Please check your request and try again.',
+      'VALIDATION_ERROR',
+    );
   } catch (error) {
     return handleServerError(error, req, res);
   }
