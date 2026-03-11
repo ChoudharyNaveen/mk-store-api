@@ -8,6 +8,13 @@ const getRiderStats = Joi.object({
       'number.positive': 'User ID must be positive',
       'any.required': 'User ID is required',
     }),
-});
+  startDate: Joi.date().optional().messages({
+    'date.base': 'startDate must be a valid date',
+  }),
+  endDate: Joi.date().optional().messages({
+    'date.base': 'endDate must be a valid date',
+  }),
+}).with('startDate', 'endDate')
+  .with('endDate', 'startDate');
 
 module.exports = getRiderStats;

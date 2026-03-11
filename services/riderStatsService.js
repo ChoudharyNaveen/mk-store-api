@@ -1,19 +1,28 @@
 const {
   rider_stats: RiderStatsModel,
   user: UserModel,
+  order: OrderModel,
   sequelize,
+  Sequelize: {
+    Op,
+    fn,
+    col,
+  },
 } = require('../database');
 const {
   handleServiceError,
 } = require('../utils/serviceErrors');
+const { PAYMENT_STATUS } = require('../utils/constants/paymentStatusConstants');
+const { ORDER_STATUS } = require('../utils/constants/orderStatusConstants');
 
 /**
  * Get rider statistics
  * @param {number} userId - User ID
- * @param {number} vendorId - Vendor ID
- * @returns {Promise<Object>} Rider statistics
+ * @param {string|Date} [startDate] - Optional start date (inclusive, by created_at)
+ * @param {string|Date} [endDate] - Optional end date (inclusive, by created_at)
+ * @returns {Promise<Object>} Rider statistics with optional revenue stats
  */
-const getRiderStats = async (userId) => {
+const getRiderStats = async (userId, startDate, endDate) => {
   try {
     const where = {
       user_id: userId,
@@ -35,11 +44,47 @@ const getRiderStats = async (userId) => {
       ],
     });
 
-    if (!stats) {
-      return { doc: null };
+    // Compute revenue/order stats for this rider (DELIVERED & PAID orders)
+    const orderWhere = {
+      rider_id: userId,
+      status: ORDER_STATUS.DELIVERED,
+      payment_status: PAYMENT_STATUS.PAID,
+    };
+
+    if (startDate && endDate) {
+      orderWhere[Op.and] = [
+        sequelize.where(fn('DATE', col('created_at')), { [Op.gte]: startDate }),
+        sequelize.where(fn('DATE', col('created_at')), { [Op.lte]: endDate }),
+      ];
     }
 
-    return { doc: stats };
+    const totals = await OrderModel.findOne({
+      where: orderWhere,
+      attributes: [
+        [ fn('COUNT', col('id')), 'total_orders' ],
+        [ fn('COALESCE', fn('SUM', col('final_amount')), 0), 'total_amount' ],
+      ],
+      raw: true,
+    });
+
+    const totalOrders = totals ? Number(totals.total_orders) : 0;
+    const totalAmount = totals ? parseFloat(parseFloat(totals.total_amount).toFixed(2)) : 0;
+
+    const revenueStats = {
+      total_orders: totalOrders,
+      total_revenue: totalAmount,
+      has_date_filter: !!(startDate && endDate),
+      start_date: startDate || null,
+      end_date: endDate || null,
+    };
+
+    if (!stats) {
+      return { doc: { revenueStats } };
+    }
+
+    const statsData = stats.get({ plain: true });
+
+    return { doc: { ...statsData, revenueStats } };
   } catch (error) {
     return handleServiceError(error, 'Failed to get rider stats');
   }

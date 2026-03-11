@@ -18,8 +18,16 @@ const getRiderStats = async (req, res) => {
   try {
     const data = req.validatedData;
 
+    const {
+      userId,
+      startDate,
+      endDate,
+    } = data;
+
     const { errors: err, doc } = await RiderStatsService.getRiderStats(
-      data.userId,
+      userId,
+      startDate,
+      endDate,
     );
 
     if (err) {
