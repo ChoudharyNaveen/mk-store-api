@@ -1,7 +1,8 @@
 const Joi = require('joi');
 
-// Reuse same phone validation as sendOTPToSMS
-const PHONE_REGEX = /^(?:\+[1-9]\d{7,14}|[6-9]\d{9})$/;
+// India mobile only: +91 followed by 10 digits starting with 6-9
+// Example: +919876543210
+const PHONE_REGEX = /^\+91[6-9]\d{9}$/;
 
 const verifyOTPBySMS = Joi.object({
   mobileNumber: Joi.string()
@@ -10,7 +11,7 @@ const verifyOTPBySMS = Joi.object({
     .messages({
       'any.required': 'Parameter: mobileNumber is required in the body.',
       'string.empty': 'Parameter: mobileNumber cannot be empty.',
-      'string.pattern.base': 'Parameter: mobileNumber should be a valid phone number in E.164 format (e.g., +14155552671) or a 10-digit mobile starting with 6–9 (e.g., 9876543210).',
+      'string.pattern.base': 'Parameter: mobileNumber should be in Indian format: +91 followed by a valid 10-digit mobile number (e.g., +919876543210).',
     }),
   otp: Joi.string().required().messages({
     'any.required': 'Parameter: otp is required in the body.',
