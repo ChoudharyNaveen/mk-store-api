@@ -27,7 +27,9 @@ const sendOtpSMSForUser = async (mobileNumber, vendorId) => withTransaction(
   sequelize,
   async (transaction) => {
     // Use mock OTP if USE_MOCK_SMS is enabled, otherwise generate random OTP
-    const otp = config.AWS.USE_MOCK_SMS ? config.AWS.MOCK_OTP : generateOTP();
+    const useMockSms = config.SMS?.USE_MOCK_SMS;
+    const mockOtp = config.SMS?.MOCK_OTP;
+    const otp = useMockSms ? mockOtp : generateOTP();
     const message = `Your One-Time Password (OTP) for MK Online Store is ${otp}. 
     This OTP is valid for the next 10 minutes. Please do not share this code with anyone.`;
 

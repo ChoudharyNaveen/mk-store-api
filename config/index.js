@@ -68,8 +68,16 @@ module.exports = {
     SNS: {
       SMS_TYPE: process.env.AWS_SNS_SMS_TYPE || 'Transactional',
     },
+  },
+  SMS: {
+    PROVIDER: process.env.SMS_PROVIDER || 'TWILIO',
     USE_MOCK_SMS: process.env.USE_MOCK_SMS === 'true' || false,
     MOCK_OTP: process.env.MOCK_OTP || '654321',
+    TWILIO: {
+      ACCOUNT_SID: process.env.TWILIO_ACCOUNT_SID,
+      AUTH_TOKEN: process.env.TWILIO_AUTH_TOKEN,
+      FROM_NUMBER: process.env.TWILIO_FROM_NUMBER,
+    },
   },
   FIREBASE: {
     ENABLED: process.env.FIREBASE_ENABLED !== 'false',

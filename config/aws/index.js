@@ -1,9 +1,9 @@
 // ============================================================================
 // AWS CONFIGURATION - INDEX
 // ============================================================================
-// This file exports all AWS-related functionality (SNS and S3)
+// This file exports cloud provider functionality (SMS and S3)
 
-const sns = require('./sns');
+const sms = require('../twilio');
 const s3 = require('./s3');
 
 // ============================================================================
@@ -11,9 +11,9 @@ const s3 = require('./s3');
 // ============================================================================
 
 module.exports = {
-  // SNS
-  sendSMS: sns.sendSMS,
-  snsClient: sns.snsClient,
+  // SMS (Twilio)
+  sendSMS: sms.sendSMS,
+  twilioClient: sms.twilioClient,
 
   // S3 Clients
   s3Client: s3.s3Client,
