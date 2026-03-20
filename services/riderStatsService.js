@@ -61,17 +61,15 @@ const getRiderStats = async (userId, startDate, endDate) => {
     const totals = await OrderModel.findOne({
       where: orderWhere,
       attributes: [
-        [ fn('COUNT', col('id')), 'total_orders' ],
         [ fn('COALESCE', fn('SUM', col('final_amount')), 0), 'total_amount' ],
       ],
       raw: true,
     });
 
-    const totalOrders = totals ? Number(totals.total_orders) : 0;
     const totalAmount = totals ? parseFloat(parseFloat(totals.total_amount).toFixed(2)) : 0;
 
     const revenueStats = {
-      total_orders: totalOrders,
+      total_orders: stats.total_orders,
       total_revenue: totalAmount,
       has_date_filter: !!(startDate && endDate),
       start_date: startDate || null,

@@ -1754,6 +1754,11 @@ const updateOrder = async (data) => withTransaction(sequelize, async (transactio
     roleName,
   );
 
+  // Keep payment status aligned with delivery completion.
+  if (newStatus === ORDER_STATUS.DELIVERED && oldStatus !== ORDER_STATUS.DELIVERED) {
+    modifiedData.paymentStatus = PAYMENT_STATUS.PAID;
+  }
+
   // Update rider stats based on status change
   // Get rider_id from modifiedData (may be set if user is a rider) or from response
   const riderId = modifiedData.riderId || response.rider_id;
