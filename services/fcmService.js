@@ -1,6 +1,10 @@
 const { sendFCMNotification, sendFCMNotificationToMultiple, validateFCMToken } = require('../config/firebase');
 const { handleServiceError } = require('../utils/serviceErrors');
-const RiderStatsService = require('./riderStatsService');
+const {
+  user_roles_mappings: UserRolesMappingModel,
+  role: RoleModel,
+} = require('../database');
+const { ROLE } = require('../utils/constants/roleConstants');
 const UserFcmTokenService = require('./userFcmTokenService');
 /**
  * Send FCM notification to a single device
@@ -133,10 +137,25 @@ const sendFCMNotificationToUsers = async (userIds, title, body, data = {}) => {
  */
 const sendFCMNotificationToRiders = async (vendorId, branchId, title, body, data = {}) => {
   try {
-    // Get all riders for the vendor
-    const { doc: riders } = await RiderStatsService.getRidersByVendor(vendorId);
+    // Get all active rider mappings for the vendor
+    const riderMappings = await UserRolesMappingModel.findAll({
+      where: {
+        vendor_id: vendorId,
+        status: 'ACTIVE',
+      },
+      attributes: [ 'user_id' ],
+      include: [
+        {
+          model: RoleModel,
+          as: 'role',
+          where: { name: ROLE.RIDER },
+          attributes: [ 'id', 'name' ],
+          required: true,
+        },
+      ],
+    });
 
-    if (!riders || riders.length === 0) {
+    if (!riderMappings || riderMappings.length === 0) {
       return {
         success: false,
         error: 'No riders found for vendor/branch',
@@ -144,8 +163,8 @@ const sendFCMNotificationToRiders = async (vendorId, branchId, title, body, data
       };
     }
 
-    // Get user IDs from riders
-    const userIds = riders.map((rider) => rider.user_id).filter(Boolean);
+    // Get unique rider user IDs
+    const userIds = [ ...new Set(riderMappings.map((mapping) => mapping.user_id).filter(Boolean)) ];
 
     if (userIds.length === 0) {
       return {
