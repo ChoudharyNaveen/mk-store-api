@@ -1573,6 +1573,11 @@ const handleOrderUpdateNotifications = async (orderId, newStatus, oldStatus, upd
       notifyVendorAdmin = true; // return request -> vendor admin only
     }
 
+    // Prevent self notifications when a vendor admin updates an order.
+    if (isVendorAdmin) {
+      notifyVendorAdmin = false;
+    }
+
     // Create standard order update notification (respect notification targets)
     await createOrderUpdatedNotification({
       orderId: updatedOrder.id,
