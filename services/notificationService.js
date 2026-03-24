@@ -238,35 +238,6 @@ const createOrderUpdatedNotification = async (orderData, options = {}) => {
     await createNotification(vendorNotification, skipSocket);
   }
 
-  // Notify vendor admin if order is delivered
-  if (notifyVendorAdmin && status === 'DELIVERED' && vendorId) {
-    const vendorAdminNotificationData = {
-      type: NOTIFICATION_TYPE.ORDER_DELIVERED,
-      title: 'Order Delivered',
-      message: `Order ${orderNumber} has been successfully delivered`,
-      recipient_type: ROLE.VENDOR_ADMIN,
-      recipient_id: null,
-      vendor_id: vendorId,
-      branch_id: branchId,
-      entity_type: ENTITY_TYPE.ORDER,
-      entity_id: orderId,
-      priority: NOTIFICATION_PRIORITY.MEDIUM,
-      action_url: `/orders/detail/${orderId}`,
-      icon: 'check-circle',
-      metadata: {
-        order_id: orderId,
-        order_number: orderNumber,
-        status,
-        user_id: userId,
-        vendor_id: vendorId,
-        branch_id: branchId,
-        updated_by: updatedBy,
-      },
-    };
-
-    await createNotification(vendorAdminNotificationData, skipSocket);
-  }
-
   return { doc: null };
 };
 
