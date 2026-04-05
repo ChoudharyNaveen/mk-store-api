@@ -23,13 +23,43 @@ const {
   handleServiceError,
 } = require('../utils/serviceErrors');
 
+/** Last 10 digits for comparing Indian mobiles (+91XXXXXXXXXX or plain 10 digits). */
+const last10MobileDigits = (value) => {
+  if (value == null || value === '') {
+    return '';
+  }
+
+  const digits = String(value).replace(/\D/g, '');
+
+  if (digits.length < 10) {
+    return '';
+  }
+
+  return digits.slice(-10);
+};
+
+const isDefaultOtpMobile = (mobileNumber) => {
+  const configured = config.SMS?.DEFAULT_OTP_MOBILE_NUMBER;
+
+  if (!configured || String(configured).trim() === '') {
+    return false;
+  }
+
+  return last10MobileDigits(mobileNumber) === last10MobileDigits(configured);
+};
+
+const resolveOtpForSend = (mobileNumber) => {
+  if (isDefaultOtpMobile(mobileNumber)) {
+    return String(config.SMS.DEFAULT_OTP);
+  }
+
+  return generateOTP();
+};
+
 const sendOtpSMSForUser = async (mobileNumber, vendorId) => withTransaction(
   sequelize,
   async (transaction) => {
-    // Use mock OTP if USE_MOCK_SMS is enabled, otherwise generate random OTP
-    const useMockSms = config.SMS?.USE_MOCK_SMS;
-    const mockOtp = config.SMS?.MOCK_OTP;
-    const otp = useMockSms ? mockOtp : generateOTP();
+    const otp = resolveOtpForSend(mobileNumber);
     const message = `Your One-Time Password (OTP) for MK Online Store is ${otp}. 
     This OTP is valid for the next 10 minutes. Please do not share this code with anyone.`;
 
@@ -212,28 +242,37 @@ const verifyOtpSMSForUser = async (payload) => withTransaction(
 
     const userId = user.id;
 
-    const otpResult = await OTPModel.findOne({
-      where: { user_id: userId },
-      attributes: [ 'id', 'user_id', 'otp', 'status', 'mobile_number' ],
-      lock: transaction.LOCK.UPDATE,
-      transaction,
-    });
+    const defaultOtp = config.SMS?.DEFAULT_OTP;
+    const useDefaultOtpBypass = isDefaultOtpMobile(mobileNumber) && String(otp) === String(defaultOtp);
 
-    if (!otpResult || otpResult.dataValues.status === 'INACTIVE') {
-      throw new ValidationError('OTP not valid. Please try again');
+    if (useDefaultOtpBypass) {
+      await OTPModel.update(
+        { status: 'INACTIVE' },
+        { where: { user_id: userId }, transaction },
+      );
+    } else {
+      const otpResult = await OTPModel.findOne({
+        where: { user_id: userId },
+        attributes: [ 'id', 'user_id', 'otp', 'status', 'mobile_number' ],
+        lock: transaction.LOCK.UPDATE,
+        transaction,
+      });
+
+      if (!otpResult || otpResult.dataValues.status === 'INACTIVE') {
+        throw new ValidationError('OTP not valid. Please try again');
+      }
+
+      const { otp: otpResponse } = otpResult;
+
+      if (otpResponse !== otp) {
+        throw new ValidationError('Invalid OTP.');
+      }
+
+      await OTPModel.update(
+        { status: 'INACTIVE' },
+        { where: { user_id: userId }, transaction },
+      );
     }
-
-    const { otp: otpResponse } = otpResult;
-
-    if (otpResponse !== otp) {
-      throw new ValidationError('Invalid OTP.');
-    }
-
-    // Mark OTP as inactive
-    await OTPModel.update(
-      { status: 'INACTIVE' },
-      { where: { user_id: userId }, transaction },
-    );
 
     // Extract only required fields and role name from user_roles_mappings
     const userData = convertSnakeToCamel(user.dataValues);

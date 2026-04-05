@@ -72,7 +72,9 @@ module.exports = {
   SMS: {
     PROVIDER: process.env.SMS_PROVIDER || 'TWILIO',
     USE_MOCK_SMS: process.env.USE_MOCK_SMS === 'true' || false,
-    MOCK_OTP: process.env.MOCK_OTP || '654321',
+    /** Fixed OTP for DEFAULT_OTP_MOBILE_NUMBER only (last 10 digits matched). Leave mobile empty to disable. */
+    DEFAULT_OTP: process.env.DEFAULT_OTP,
+    DEFAULT_OTP_MOBILE_NUMBER: process.env.DEFAULT_OTP_MOBILE_NUMBER || '',
     TWILIO: {
       ACCOUNT_SID: process.env.TWILIO_ACCOUNT_SID,
       AUTH_TOKEN: process.env.TWILIO_AUTH_TOKEN,
