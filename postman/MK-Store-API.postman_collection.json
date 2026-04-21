@@ -1083,7 +1083,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"branchId\": 1,\n  \"addressId\": 1,\n  \"items\": [\n    {\n      \"productId\": 1,\n      \"quantity\": 2,\n      \"priceAtPurchase\": 9999\n    }\n  ]\n}"
+							"raw": "{\n  \"vendorId\": 1,\n  \"branchId\": 1,\n  \"addressId\": 1,\n  \"shippingCharges\": 50,\n  \"distance\": 5.2,\n  \"items\": [\n    {\n      \"productId\": 1,\n      \"quantity\": 2,\n      \"priceAtPurchase\": 9999\n    }\n  ]\n}"
 						},
 						"url": {
 							"raw": "{{baseUrl}}/api/place-order",
@@ -1214,7 +1214,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"house_no\": \"123\",\n  \"streetDetails\": \"Main Street\",\n  \"landmark\": \"Near Park\",\n  \"name\": \"John Doe\",\n  \"mobileNumber\": \"+1234567890\"\n}"
+							"raw": "{\n  \"addressLine1\": \"123 Main Street\",\n  \"street\": \"Main Street\",\n  \"landmark\": \"Near Park\",\n  \"name\": \"John Doe\",\n  \"mobileNumber\": \"+1234567890\"\n}"
 						},
 						"url": {
 							"raw": "{{baseUrl}}/api/save-address",
@@ -1262,7 +1262,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"id\": 1,\n  \"house_no\": \"456\",\n  \"updatedBy\": 1,\n  \"concurrencyStamp\": \"{{concurrencyStamp}}\"\n}"
+							"raw": "{\n  \"id\": 1,\n  \"addressLine1\": \"456 Updated Street\",\n  \"updatedBy\": 1,\n  \"concurrencyStamp\": \"{{concurrencyStamp}}\"\n}"
 						},
 						"url": {
 							"raw": "{{baseUrl}}/api/update-address/:id",

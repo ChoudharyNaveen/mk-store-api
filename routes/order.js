@@ -37,6 +37,8 @@ module.exports = (router) => {
    *             required:
    *               - vendorId
    *               - branchId
+   *               - shippingCharges
+   *               - distance
    *             properties:
    *               vendorId:
    *                 type: integer
@@ -54,18 +56,58 @@ module.exports = (router) => {
    *                 type: integer
    *                 example: 1
    *                 description: Existing address ID (optional - if not provided, address fields must be provided)
-   *               houseNo:
+ *               addressLine1:
    *                 type: string
-   *                 example: "123"
-   *                 description: House number for new address (optional - required if addressId not provided)
-   *               streetDetails:
+ *                 example: "123 Main Street"
+ *                 description: Address line 1 for new address (optional - required if addressId not provided)
+ *               addressLine2:
+ *                 type: string
+ *                 example: "Apartment 4B"
+ *                 description: Address line 2 for new address (optional)
+ *               street:
    *                 type: string
    *                 example: "Main Street"
-   *                 description: Street details for new address (optional - required if addressId not provided)
-   *               landmark:
-   *                 type: string
-   *                 example: "Near Park"
-   *                 description: Landmark for new address (optional - required if addressId not provided)
+ *                 description: Street details for new address (optional)
+ *               landmark:
+ *                 type: string
+ *                 example: "Near Park"
+ *                 description: Landmark for new address (optional)
+ *               city:
+ *                 type: string
+ *                 example: "Bengaluru"
+ *                 description: City for new address (optional)
+ *               state:
+ *                 type: string
+ *                 example: "Karnataka"
+ *                 description: State for new address (optional)
+ *               country:
+ *                 type: string
+ *                 example: "India"
+ *                 description: Country for new address (optional, defaults to India)
+ *               pincode:
+ *                 type: string
+ *                 example: "560001"
+ *                 description: Pincode for new address (optional)
+ *               latitude:
+ *                 type: number
+ *                 example: 12.9716
+ *                 description: Latitude for address (optional)
+ *               longitude:
+ *                 type: number
+ *                 example: 77.5946
+ *                 description: Longitude for address (optional)
+ *               phone:
+ *                 type: string
+ *                 example: "08012345678"
+ *                 description: Alternate phone for address (optional)
+ *               email:
+ *                 type: string
+ *                 example: "john@example.com"
+ *                 description: Email for address (optional)
+ *               postalCode:
+ *                 type: string
+ *                 example: "560001"
+ *                 description: Deprecated alias for pincode (supported for backward compatibility)
    *               name:
    *                 type: string
    *                 example: "John Doe"
@@ -92,11 +134,24 @@ module.exports = (router) => {
    *                 type: integer
    *                 example: 60
    *                 description: Estimated delivery time in minutes (optional)
+ *               deliveryTimeFrom:
+ *                 type: string
+ *                 format: date-time
+ *                 example: "2026-04-22T10:00:00Z"
+ *                 description: Preferred delivery window start date-time in ISO format (optional, must be sent with deliveryTimeTo)
+ *               deliveryTimeTo:
+ *                 type: string
+ *                 format: date-time
+ *                 example: "2026-04-22T12:00:00Z"
+ *                 description: Preferred delivery window end date-time in ISO format (optional, must be sent with deliveryTimeFrom)
    *               shippingCharges:
    *                 type: number
    *                 example: 50.00
-   *                 default: 0
-   *                 description: Shipping/delivery charges (optional, defaults to 0)
+   *                 description: Shipping/delivery charges (required)
+   *               distance:
+   *                 type: number
+   *                 example: 5.2
+   *                 description: Delivery distance in kilometers (required)
    *     responses:
    *       201:
    *         description: Order placed successfully

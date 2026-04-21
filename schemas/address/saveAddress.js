@@ -25,14 +25,12 @@ const saveAddress = Joi.object({
   pincode: Joi.string().optional().allow('').messages({
     'string.empty': 'Parameter: pincode cannot be empty',
   }),
-  latitude: Joi.number().min(-90).max(90).optional()
-    .allow(null)
+  latitude: Joi.number().min(-90).max(90).required()
     .messages({
       'number.min': 'Parameter: latitude must be between -90 and 90',
       'number.max': 'Parameter: latitude must be between -90 and 90',
     }),
-  longitude: Joi.number().min(-180).max(180).optional()
-    .allow(null)
+  longitude: Joi.number().min(-180).max(180).required()
     .messages({
       'number.min': 'Parameter: longitude must be between -180 and 180',
       'number.max': 'Parameter: longitude must be between -180 and 180',

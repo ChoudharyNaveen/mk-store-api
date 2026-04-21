@@ -49,6 +49,14 @@ const isDefaultOtpMobile = (mobileNumber) => {
 };
 
 const resolveOtpForSend = (mobileNumber) => {
+  const useMockSms = config.SMS?.USE_MOCK_SMS;
+  const defaultOtp = config.SMS?.DEFAULT_OTP;
+
+  // In mock mode, always use fixed OTP for predictable local/dev testing.
+  if (useMockSms && defaultOtp) {
+    return String(defaultOtp);
+  }
+
   if (isDefaultOtpMobile(mobileNumber)) {
     return String(config.SMS.DEFAULT_OTP);
   }
@@ -243,7 +251,11 @@ const verifyOtpSMSForUser = async (payload) => withTransaction(
     const userId = user.id;
 
     const defaultOtp = config.SMS?.DEFAULT_OTP;
-    const useDefaultOtpBypass = isDefaultOtpMobile(mobileNumber) && String(otp) === String(defaultOtp);
+    const useMockSms = config.SMS?.USE_MOCK_SMS;
+    const useDefaultOtpBypass = (
+      (useMockSms && defaultOtp && String(otp) === String(defaultOtp))
+      || (isDefaultOtpMobile(mobileNumber) && String(otp) === String(defaultOtp))
+    );
 
     if (useDefaultOtpBypass) {
       await OTPModel.update(

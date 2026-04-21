@@ -4852,7 +4852,9 @@
                 "type": "object",
                 "required": [
                   "vendorId",
-                  "branchId"
+                  "branchId",
+                  "shippingCharges",
+                  "distance"
                 ],
                 "properties": {
                   "vendorId": {
@@ -4874,16 +4876,6 @@
                     "type": "integer",
                     "example": 1,
                     "description": "Existing address ID (optional - if not provided, address fields must be provided)"
-                  },
-                  "houseNo": {
-                    "type": "string",
-                    "example": "123",
-                    "description": "House number for new address (optional - required if addressId not provided)"
-                  },
-                  "streetDetails": {
-                    "type": "string",
-                    "example": "Main Street",
-                    "description": "Street details for new address (optional - required if addressId not provided)"
                   },
                   "landmark": {
                     "type": "string",
@@ -4929,8 +4921,12 @@
                   "shippingCharges": {
                     "type": "number",
                     "example": 50,
-                    "default": 0,
-                    "description": "Shipping/delivery charges (optional, defaults to 0)"
+                    "description": "Shipping/delivery charges (required)"
+                  },
+                  "distance": {
+                    "type": "number",
+                    "example": 5.2,
+                    "description": "Delivery distance in kilometers (required)"
                   }
                 }
               }

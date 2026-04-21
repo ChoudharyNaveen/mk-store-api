@@ -51,6 +51,16 @@ module.exports = (sequelize, DataTypes) => {
         allowNull: true,
         comment: 'Estimated delivery time in minutes',
       },
+      delivery_time_from: {
+        type: DataTypes.DATE,
+        allowNull: true,
+        comment: 'Preferred delivery start date-time',
+      },
+      delivery_time_to: {
+        type: DataTypes.DATE,
+        allowNull: true,
+        comment: 'Preferred delivery end date-time',
+      },
       distance: {
         type: DataTypes.FLOAT,
         allowNull: true,
@@ -60,11 +70,6 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.STRING,
         enum: [ 'GOOGLE_MAPS', 'ROAD_API', 'HAVERSINE_FALLBACK', 'MANUAL' ],
         allowNull: true,
-      },
-      estimated_delivery_eta: {
-        type: DataTypes.INTEGER,
-        allowNull: true,
-        comment: 'Estimated delivery time in minutes, from Google Maps API',
       },
       refund_amount: {
         type: DataTypes.FLOAT,

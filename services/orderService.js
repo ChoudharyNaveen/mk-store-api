@@ -117,7 +117,7 @@ const generateOrderNumber = async (transaction) => {
 // Helper: Validate place order input
 const validatePlaceOrderInput = (data) => {
   const {
-    branchId, vendorId, offerCode, promocodeId,
+    branchId, vendorId, offerCode, promocodeId, deliveryTimeFrom, deliveryTimeTo,
   } = data;
 
   if (!branchId) {
@@ -130,6 +130,26 @@ const validatePlaceOrderInput = (data) => {
 
   if (offerCode && promocodeId) {
     throw new ValidationError('Cannot apply both offer code and promo code. Please choose one.');
+  }
+
+  const isFromNil = deliveryTimeFrom === null || deliveryTimeFrom === undefined;
+  const isToNil = deliveryTimeTo === null || deliveryTimeTo === undefined;
+
+  if (isFromNil !== isToNil) {
+    throw new ValidationError('Please provide both delivery start and end date-time, or leave both empty.');
+  }
+
+  if (!isFromNil && !isToNil) {
+    const fromDateTime = new Date(deliveryTimeFrom);
+    const toDateTime = new Date(deliveryTimeTo);
+
+    if (Number.isNaN(fromDateTime.getTime()) || Number.isNaN(toDateTime.getTime())) {
+      throw new ValidationError('deliveryTimeFrom and deliveryTimeTo must be valid date-time values');
+    }
+
+    if (fromDateTime >= toDateTime) {
+      throw new ValidationError('deliveryTimeFrom must be earlier than deliveryTimeTo');
+    }
   }
 };
 
@@ -311,7 +331,20 @@ const calculateOrderAmount = async (cartItems, transaction) => {
 // Helper: Handle address creation or validation
 const handleOrderAddress = async (data, createdBy, transaction) => {
   const {
-    addressId, addressLine1, addressLine2, street, landmark, city, state, country, pincode, name, mobileNumber, phone, email,
+    addressId,
+    addressLine1,
+    addressLine2,
+    street,
+    landmark,
+    city,
+    state,
+    country,
+    pincode,
+    name,
+    mobileNumber,
+    phone,
+    email,
+    postalCode,
   } = data;
 
   if (addressId) {
@@ -330,19 +363,25 @@ const handleOrderAddress = async (data, createdBy, transaction) => {
 
   if (name && mobileNumber) {
     const addressConcurrencyStamp = uuidV4();
+    const normalizedAddressLine1 = addressLine1 || null;
+    const normalizedStreet = street || null;
+    const normalizedPincode = pincode || postalCode || null;
+    const normalizedCity = city || null;
+    const normalizedState = state || null;
+    const normalizedCountry = country || 'India';
 
     const doc = {
       concurrencyStamp: addressConcurrencyStamp,
-      address_line_1: addressLine1 || null,
+      address_line_1: normalizedAddressLine1,
       latitude: data.latitude || null,
       longitude: data.longitude || null,
       address_line_2: addressLine2 || null,
-      street: street || null,
+      street: normalizedStreet,
       landmark: landmark || null,
-      city: city || null,
-      state: state || null,
-      country: country || 'India',
-      pincode: pincode || null,
+      city: normalizedCity,
+      state: normalizedState,
+      country: normalizedCountry,
+      pincode: normalizedPincode,
       name,
       mobileNumber,
       phone: phone || null,
@@ -436,14 +475,23 @@ const applyPromocodeDiscount = async (promocodeId, branchId, totalAmount, transa
 
 // Helper: Calculate shipping charges
 // If shippingCharges is provided in request, use it; otherwise calculate using shipping service
-const calculateOrderShipping = async (branchId, addressId, orderPriority, providedShippingCharges, totalAmount, transaction) => {
+const calculateOrderShipping = async (
+  branchId,
+  addressId,
+  orderPriority,
+  providedShippingCharges,
+  providedDistance,
+  providedDistanceMethod,
+  totalAmount,
+  transaction,
+) => {
   // If shipping charges are explicitly provided, use them
   if (providedShippingCharges !== undefined && providedShippingCharges !== null) {
     return {
       shippingCharges: providedShippingCharges,
-      distance: null,
-      distanceMethod: 'MANUAL',
-      estimatedDeliveryETA: null,
+      distance: providedDistance ?? null,
+      distanceMethod: providedDistanceMethod || 'MANUAL',
+      shippingEstimatedMinutes: null,
     };
   }
 
@@ -478,7 +526,7 @@ const calculateOrderShipping = async (branchId, addressId, orderPriority, provid
           shippingCharges: shippingResult.doc.shippingCharges || 0,
           distance: shippingResult.doc.distance || null,
           distanceMethod: shippingResult.doc.method || 'MANUAL',
-          estimatedDeliveryETA: shippingResult.doc.eta || null,
+          shippingEstimatedMinutes: shippingResult.doc.eta || null,
         };
       }
     } catch (error) {
@@ -491,7 +539,7 @@ const calculateOrderShipping = async (branchId, addressId, orderPriority, provid
     shippingCharges: 0,
     distance: null,
     distanceMethod: 'MANUAL',
-    estimatedDeliveryETA: null,
+    shippingEstimatedMinutes: null,
   };
 };
 
@@ -639,7 +687,11 @@ const placeOrder = async (data) => withTransaction(sequelize, async (transaction
     promocodeId,
     orderPriority,
     estimatedDeliveryTime,
+    deliveryTimeFrom,
+    deliveryTimeTo,
     shippingCharges,
+    distance,
+    distanceMethod,
   } = data;
 
   // Validate input
@@ -702,12 +754,16 @@ const placeOrder = async (data) => withTransaction(sequelize, async (transaction
     address.id,
     orderPriority,
     shippingCharges,
+    distance,
+    distanceMethod,
     discountedTotal,
     transaction,
   );
 
   // Calculate final amount: discountedTotal + shippingCharges
   const finalAmount = discountedTotal + shippingResult.shippingCharges;
+
+  const resolvedEstimatedDeliveryMinutes = estimatedDeliveryTime ?? shippingResult.shippingEstimatedMinutes ?? null;
 
   // Create order
   const orderConcurrencyStamp = uuidV4();
@@ -722,10 +778,11 @@ const placeOrder = async (data) => withTransaction(sequelize, async (transaction
     branchId,
     orderNumber,
     orderPriority: orderPriority || 'NORMAL',
-    estimatedDeliveryTime: estimatedDeliveryTime || null,
+    estimatedDeliveryTime: resolvedEstimatedDeliveryMinutes,
+    deliveryTimeFrom: deliveryTimeFrom || null,
+    deliveryTimeTo: deliveryTimeTo || null,
     distance: shippingResult.distance,
     distanceMethod: shippingResult.distanceMethod,
-    estimatedDeliveryETA: shippingResult.estimatedDeliveryETA,
     refundAmount: 0,
     refundStatus: REFUND_STATUS.NONE,
     status: ORDER_STATUS.PENDING,
@@ -841,9 +898,10 @@ const placeOrder = async (data) => withTransaction(sequelize, async (transaction
       final_amount: newOrder.final_amount,
       order_priority: newOrder.order_priority,
       estimated_delivery_time: newOrder.estimated_delivery_time,
+      delivery_time_from: newOrder.delivery_time_from,
+      delivery_time_to: newOrder.delivery_time_to,
       distance: newOrder.distance,
       distance_method: newOrder.distance_method,
-      estimated_delivery_eta: newOrder.estimated_delivery_eta,
       item_count: orderItemsData.length,
     },
   };
@@ -873,9 +931,10 @@ const getOrder = async (payload) => {
         'final_amount',
         'order_priority',
         'estimated_delivery_time',
+        'delivery_time_from',
+        'delivery_time_to',
         'distance',
         'distance_method',
-        'estimated_delivery_eta',
         'refund_amount',
         'refund_status',
         'status',
@@ -1865,9 +1924,10 @@ const getOrderDetails = async (orderId) => {
         'final_amount',
         'order_priority',
         'estimated_delivery_time',
+        'delivery_time_from',
+        'delivery_time_to',
         'distance',
         'distance_method',
-        'estimated_delivery_eta',
         'status',
         'payment_status',
         'created_at',
@@ -2198,6 +2258,11 @@ const getOrderDetails = async (orderId) => {
       order_information: {
         order_date: orderData.created_at,
         estimated_delivery: estimatedDeliveryDate,
+        delivery_time_from: orderData.delivery_time_from || null,
+        delivery_time_to: orderData.delivery_time_to || null,
+        distance: orderData.distance != null
+          ? parseFloat(Number(orderData.distance).toFixed(2))
+          : null,
         priority: orderData.order_priority,
         payment_status: orderData.payment_status,
         order_status: orderData.status,
