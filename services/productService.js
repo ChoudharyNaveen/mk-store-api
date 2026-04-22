@@ -14,6 +14,7 @@ const {
   productVariant: ProductVariantModel,
   productImage: ProductImageModel,
   variantComboDiscount: VariantComboDiscountModel,
+  inventoryMovement: InventoryMovementModel,
   productType: ProductTypeModel,
   sequelize,
   Sequelize: { Op },
@@ -1887,29 +1888,113 @@ const getProductsGroupedByCategory = async (payload) => {
   return { count: 0, totalCount: 0, doc: [] };
 };
 
-const deleteProduct = async (productId) => withTransaction(sequelize, async (transaction) => {
-  // Delete all related records in parallel
+const deleteSingleProductInTransaction = async (productId, transaction) => {
+  const product = await ProductModel.findOne({
+    where: { id: productId },
+    attributes: [ 'id' ],
+    transaction,
+  });
+
+  if (!product) {
+    throw new NotFoundError('Product not found');
+  }
+
+  const variants = await ProductVariantModel.findAll({
+    where: { product_id: productId },
+    attributes: [ 'id' ],
+    raw: true,
+    transaction,
+  });
+
+  const variantIds = variants.map((variant) => variant.id);
+  const productOrVariantWhere = variantIds.length > 0
+    ? {
+      [Op.or]: [
+        { product_id: productId },
+        { variant_id: { [Op.in]: variantIds } },
+      ],
+    }
+    : { product_id: productId };
+
+  if (variantIds.length > 0) {
+    await Promise.all([
+      VariantComboDiscountModel.destroy({
+        where: { variant_id: { [Op.in]: variantIds } },
+        transaction,
+      }),
+    ]);
+  }
+
+  // Delete inventory movement first to satisfy FK(product_id -> product.id)
+  await InventoryMovementModel.destroy({
+    where: { product_id: productId },
+    transaction,
+  });
+
+  if (variantIds.length > 0) {
+    await InventoryMovementModel.destroy({
+      where: { variant_id: { [Op.in]: variantIds } },
+      transaction,
+    });
+  }
+
   await Promise.all([
     CartModel.destroy({
-      where: { product_id: productId },
+      where: productOrVariantWhere,
       transaction,
     }),
     OrderItemModel.destroy({
-      where: { product_id: productId },
+      where: productOrVariantWhere,
       transaction,
     }),
     WishlistModel.destroy({
       where: { product_id: productId },
       transaction,
     }),
-    ProductModel.destroy({
-      where: { id: productId },
+    ProductImageModel.destroy({
+      where: productOrVariantWhere,
       transaction,
     }),
   ]);
 
-  return { doc: { message: 'successfully deleted product' } };
-}).catch((error) => handleServiceError(error, 'Failed to delete product'));
+  if (variantIds.length > 0) {
+    await ProductVariantModel.destroy({
+      where: { id: { [Op.in]: variantIds } },
+      transaction,
+    });
+  }
+
+  await ProductModel.destroy({
+    where: { id: productId },
+    transaction,
+  });
+};
+
+const deleteProduct = async (productIds) => withTransaction(sequelize, async (transaction) => {
+  const ids = Array.isArray(productIds) ? productIds : [ productIds ];
+  const uniqueIds = [ ...new Set(ids.map((id) => Number(id)).filter((id) => Number.isInteger(id) && id > 0)) ];
+  const chunkSize = 10;
+
+  if (uniqueIds.length === 0) {
+    throw new ValidationError('At least one valid product ID is required');
+  }
+
+  for (let i = 0; i < uniqueIds.length; i += chunkSize) {
+    const chunk = uniqueIds.slice(i, i + chunkSize);
+
+    // Process each chunk in parallel with bounded concurrency to reduce DB pressure.
+    // eslint-disable-next-line no-await-in-loop
+    await Promise.all(chunk.map((productId) => deleteSingleProductInTransaction(productId, transaction)));
+  }
+
+  return {
+    doc: {
+      message: uniqueIds.length === 1 ? 'successfully deleted product' : 'successfully deleted products',
+      deletedCount: uniqueIds.length,
+      productIds: uniqueIds,
+    },
+  };
+}).catch((error) => handleServiceError(error, 'Failed to delete product(s)'));
 
 const getProductDetails = async (productId) => {
   try {

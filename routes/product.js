@@ -499,21 +499,29 @@ module.exports = (router) => {
   /**
    * @swagger
    * /delete-product:
-   *   delete:
-   *     summary: Delete a product
+   *   post:
+   *     summary: Delete products (single or bulk)
    *     tags: [Products, ADMIN]
    *     security:
    *       - bearerAuth: []
-   *     parameters:
-   *       - in: query
-   *         name: productId
-   *         required: true
-   *         schema:
-   *           type: string
-   *         description: Product ID to delete
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             required:
+   *               - productIds
+   *             properties:
+   *               productIds:
+   *                 type: array
+   *                 items:
+   *                   type: integer
+   *                 example: [1, 2, 3]
+   *                 description: Array of product IDs to delete. Use single-item array for single delete, e.g. [1].
    *     responses:
    *       200:
-   *         description: Product deleted successfully
+   *         description: Product(s) deleted successfully
    *         headers:
    *           message:
    *             schema:
@@ -723,5 +731,5 @@ module.exports = (router) => {
    */
   router.post('/get-product-stats', isAuthenticated, validate(getProductStatsSchema), getProductStats);
 
-  router.delete('/delete-product', isAuthenticated, validate(deleteProductSchema), deleteProduct);
+  router.post('/delete-product', isAuthenticated, validate(deleteProductSchema), deleteProduct);
 };

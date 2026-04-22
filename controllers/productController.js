@@ -187,14 +187,19 @@ const getProductsGroupedByCategory = async (req, res) => {
 
 const deleteProduct = async (req, res) => {
   try {
-    const { productId } = req.validatedData;
+    const { productIds } = req.validatedData;
+    const idsToDelete = productIds;
 
-    const { errors, doc } = await ProductService.deleteProduct(productId);
+    const { errors, doc } = await ProductService.deleteProduct(idsToDelete);
 
     if (doc) {
-      res.setHeader('message', 'successfully deleted');
+      res.setHeader('message', doc.message || 'successfully deleted');
 
-      return res.status(200).json({ success: true, message: 'successfully deleted' });
+      return res.status(200).json({
+        success: true,
+        message: doc.message || 'successfully deleted',
+        doc,
+      });
     }
 
     return sendErrorResponse(res, 400, extractErrorMessage(errors), 'VALIDATION_ERROR');
