@@ -21,6 +21,7 @@ const { convertImageFieldsToCloudFront } = require('../utils/s3Helper');
 const {
   NotFoundError,
   ConcurrencyError,
+  ValidationError,
   handleServiceError,
 } = require('../utils/serviceErrors');
 
@@ -279,9 +280,47 @@ const getCategoryDetails = async (categoryId) => {
   }
 };
 
+const deleteCategory = async (categoryId) => withTransaction(sequelize, async (transaction) => {
+  const category = await CategoryModel.findOne({
+    where: { id: categoryId },
+    attributes: [ 'id' ],
+    transaction,
+  });
+
+  if (!category) {
+    throw new NotFoundError('Category not found');
+  }
+
+  const subCount = await SubCategoryModel.count({
+    where: { category_id: categoryId },
+    transaction,
+  });
+
+  if (subCount > 0) {
+    throw new ValidationError('Cannot delete category with subcategories');
+  }
+
+  const productCount = await ProductModel.count({
+    where: { category_id: categoryId },
+    transaction,
+  });
+
+  if (productCount > 0) {
+    throw new ValidationError('Cannot delete category with associated products');
+  }
+
+  await CategoryModel.destroy({
+    where: { id: categoryId },
+    transaction,
+  });
+
+  return { doc: { message: 'successfully deleted category' } };
+}).catch((error) => handleServiceError(error, 'Failed to delete category'));
+
 module.exports = {
   saveCategory,
   updateCategory,
   getCategory,
   getCategoryDetails,
+  deleteCategory,
 };

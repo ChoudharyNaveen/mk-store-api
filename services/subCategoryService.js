@@ -4,6 +4,8 @@ const {
   subCategory: SubCategoryModel,
   category: CategoryModel,
   product: ProductModel,
+  productType: ProductTypeModel,
+  banner: BannerModel,
   productVariant: ProductVariantModel,
   orderItem: OrderItemModel,
   order: OrderModel,
@@ -27,6 +29,7 @@ const { convertImageFieldsToCloudFront } = require('../utils/s3Helper');
 const {
   NotFoundError,
   ConcurrencyError,
+  ValidationError,
   handleServiceError,
 } = require('../utils/serviceErrors');
 const { ORDER_STATUS } = require('../utils/constants/orderStatusConstants');
@@ -565,6 +568,52 @@ const getSubCategoryStats = async (payload) => {
   }
 };
 
+const deleteSubCategory = async (subCategoryId) => withTransaction(sequelize, async (transaction) => {
+  const sub = await SubCategoryModel.findOne({
+    where: { id: subCategoryId },
+    attributes: [ 'id' ],
+    transaction,
+  });
+
+  if (!sub) {
+    throw new NotFoundError('SubCategory not found');
+  }
+
+  const productCount = await ProductModel.count({
+    where: { sub_category_id: subCategoryId },
+    transaction,
+  });
+
+  if (productCount > 0) {
+    throw new ValidationError('Cannot delete subcategory with associated products');
+  }
+
+  const productTypeCount = await ProductTypeModel.count({
+    where: { sub_category_id: subCategoryId },
+    transaction,
+  });
+
+  if (productTypeCount > 0) {
+    throw new ValidationError('Cannot delete subcategory with associated product types');
+  }
+
+  const bannerCount = await BannerModel.count({
+    where: { sub_category_id: subCategoryId },
+    transaction,
+  });
+
+  if (bannerCount > 0) {
+    throw new ValidationError('Cannot delete subcategory with associated banners');
+  }
+
+  await SubCategoryModel.destroy({
+    where: { id: subCategoryId },
+    transaction,
+  });
+
+  return { doc: { message: 'successfully deleted subcategory' } };
+}).catch((error) => handleServiceError(error, 'Failed to delete subcategory'));
+
 module.exports = {
   saveSubCategory,
   updateSubCategory,
@@ -572,4 +621,5 @@ module.exports = {
   getSubCategoriesByCategoryId,
   getSubCategoryDetails,
   getSubCategoryStats,
+  deleteSubCategory,
 };

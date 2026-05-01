@@ -69,7 +69,7 @@ const getBrand = async (req, res) => {
 
 const deleteBrand = async (req, res) => {
   try {
-    const { brandId } = req.validatedData;
+    const brandId = req.validatedData.id ?? req.validatedData.brandId;
 
     const { errors, doc } = await BrandService.deleteBrand(brandId);
 

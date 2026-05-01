@@ -6,6 +6,7 @@ const {
   updateSubCategory,
   getSubCategoryDetails,
   getSubCategoryStats,
+  deleteSubCategory,
 } = require('../controllers/subCategoryController');
 const { isAuthenticated, isVendorAdmin } = require('../middleware/auth');
 const validate = require('../middleware/validation');
@@ -15,6 +16,7 @@ const {
   getSubCategoriesByCategoryId: getSubCategoriesByCategoryIdSchema,
   getSubCategoryStats: getSubCategoryStatsSchema,
   updateSubCategory: updateSubCategorySchema,
+  deleteSubCategoryById: deleteSubCategoryByIdSchema,
 } = require('../schemas');
 
 const upload = multer();
@@ -570,6 +572,37 @@ module.exports = (router) => {
    *         description: SubCategory not found
    */
   router.post('/get-sub-category-stats', isAuthenticated, validate(getSubCategoryStatsSchema), getSubCategoryStats);
+
+  /**
+   * @swagger
+   * /sub-category/{id}:
+   *   delete:
+   *     summary: Delete a subcategory by id
+   *     tags: [SubCategories, ADMIN]
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: path
+   *         name: id
+   *         required: true
+   *         schema:
+   *           type: integer
+   *         description: Subcategory ID
+   *     responses:
+   *       200:
+   *         description: Subcategory deleted successfully
+   *       400:
+   *         description: Validation error or subcategory has linked products, types, or banners
+   *       404:
+   *         description: Subcategory not found
+   */
+  router.delete(
+    '/sub-categories/:id',
+    isAuthenticated,
+    isVendorAdmin,
+    validate(deleteSubCategoryByIdSchema),
+    deleteSubCategory,
+  );
 
   router.patch(
     '/update-sub-category/:id',

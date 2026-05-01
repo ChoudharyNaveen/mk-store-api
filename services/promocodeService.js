@@ -16,6 +16,7 @@ const {
 const {
   NotFoundError,
   ConcurrencyError,
+  ValidationError,
   handleServiceError,
 } = require('../utils/serviceErrors');
 
@@ -148,9 +149,38 @@ const getPromocodeSummary = async ({ id }) => {
   };
 };
 
+const deletePromocode = async (promocodeId) => withTransaction(sequelize, async (transaction) => {
+  const promocode = await PromocodeModel.findOne({
+    where: { id: promocodeId },
+    attributes: [ 'id' ],
+    transaction,
+  });
+
+  if (!promocode) {
+    throw new NotFoundError('Promocode not found');
+  }
+
+  const redemptionCount = await OrderDiscountModel.count({
+    where: { promocode_id: promocodeId, discount_type: 'PROMOCODE' },
+    transaction,
+  });
+
+  if (redemptionCount > 0) {
+    throw new ValidationError('Cannot delete promocode with order redemptions');
+  }
+
+  await PromocodeModel.destroy({
+    where: { id: promocodeId },
+    transaction,
+  });
+
+  return { doc: { message: 'successfully deleted promocode' } };
+}).catch((error) => handleServiceError(error, 'Failed to delete promocode'));
+
 module.exports = {
   savePromocode,
   updatePromocode,
   getPromocode,
   getPromocodeSummary,
+  deletePromocode,
 };

@@ -3,6 +3,7 @@ const {
   getPromocode,
   getPromocodeSummary,
   updatePromocode,
+  deletePromocode,
 } = require('../controllers/promocodeController');
 const { isAuthenticated } = require('../middleware/auth');
 const validate = require('../middleware/validation');
@@ -11,6 +12,7 @@ const {
   getPromocode: getPromocodeSchema,
   getPromocodeSummary: getPromocodeSummarySchema,
   updatePromocode: updatePromocodeSchema,
+  deletePromocodeById: deletePromocodeByIdSchema,
 } = require('../schemas');
 
 module.exports = (router) => {
@@ -291,5 +293,35 @@ module.exports = (router) => {
    *                   type: boolean
    *                   example: true
    */
+  /**
+   * @swagger
+   * /promocode/{id}:
+   *   delete:
+   *     summary: Delete a promocode by id
+   *     tags: [Promocodes, ADMIN]
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: path
+   *         name: id
+   *         required: true
+   *         schema:
+   *           type: integer
+   *         description: Promocode ID
+   *     responses:
+   *       200:
+   *         description: Promocode deleted successfully
+   *       400:
+   *         description: Validation error or promocode has order redemptions
+   *       404:
+   *         description: Promocode not found
+   */
+  router.delete(
+    '/promocode/:id',
+    isAuthenticated,
+    validate(deletePromocodeByIdSchema),
+    deletePromocode,
+  );
+
   router.patch('/update-Promocode/:id', isAuthenticated, validate(updatePromocodeSchema), updatePromocode);
 };

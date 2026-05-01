@@ -15,6 +15,7 @@ const {
   getBrandSummary: getBrandSummarySchema,
   updateBrand: updateBrandSchema,
   deleteBrand: deleteBrandSchema,
+  deleteBrandById: deleteBrandByIdSchema,
   getRelatedBrands: getRelatedBrandsSchema,
 } = require('../schemas');
 
@@ -363,6 +364,34 @@ module.exports = (router) => {
    *         description: Error deleting brand
    */
   router.delete('/delete-brand', isAuthenticated, validate(deleteBrandSchema), deleteBrand);
+
+  /**
+   * @swagger
+   * /brand/{id}:
+   *   delete:
+   *     summary: Delete a brand by id
+   *     tags: [Brands, ADMIN]
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: path
+   *         name: id
+   *         required: true
+   *         schema:
+   *           type: integer
+   *         description: Brand ID
+   *     responses:
+   *       200:
+   *         description: Brand deleted successfully
+   *       400:
+   *         description: Validation error or brand has associated products
+   */
+  router.delete(
+    '/brands/:id',
+    isAuthenticated,
+    validate(deleteBrandByIdSchema),
+    deleteBrand,
+  );
 
   /**
    * @swagger

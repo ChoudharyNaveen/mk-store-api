@@ -20,6 +20,7 @@ const { convertImageFieldsToCloudFront } = require('../utils/s3Helper');
 const {
   NotFoundError,
   ConcurrencyError,
+  ValidationError,
   handleServiceError,
 } = require('../utils/serviceErrors');
 
@@ -179,6 +180,34 @@ const getOfferSummary = async ({ id }) => {
   };
 };
 
+const deleteOffer = async (offerId) => withTransaction(sequelize, async (transaction) => {
+  const offer = await OfferModel.findOne({
+    where: { id: offerId },
+    attributes: [ 'id' ],
+    transaction,
+  });
+
+  if (!offer) {
+    throw new NotFoundError('Offer not found');
+  }
+
+  const redemptionCount = await OrderDiscountModel.count({
+    where: { offer_id: offerId, discount_type: 'OFFER' },
+    transaction,
+  });
+
+  if (redemptionCount > 0) {
+    throw new ValidationError('Cannot delete offer with order redemptions');
+  }
+
+  await OfferModel.destroy({
+    where: { id: offerId },
+    transaction,
+  });
+
+  return { doc: { message: 'successfully deleted offer' } };
+}).catch((error) => handleServiceError(error, 'Failed to delete offer'));
+
 async function cronJobForUpdatingOfferStatus() {
   cron.schedule('0 0 * * *', async () => {
     try {
@@ -222,5 +251,6 @@ module.exports = {
   updateOffer,
   getOffer,
   getOfferSummary,
+  deleteOffer,
   cronJobForUpdatingOfferStatus,
 };

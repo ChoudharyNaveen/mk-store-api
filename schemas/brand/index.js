@@ -3,6 +3,7 @@ const getBrandSummary = require('./getBrandSummary');
 const saveBrand = require('./saveBrand');
 const updateBrand = require('./updateBrand');
 const deleteBrand = require('./deleteBrand');
+const deleteBrandById = require('../deleteByIdParam');
 
 module.exports = {
   getBrand,
@@ -10,4 +11,5 @@ module.exports = {
   saveBrand,
   updateBrand,
   deleteBrand,
+  deleteBrandById,
 };

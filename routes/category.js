@@ -4,6 +4,7 @@ const {
   getCategory,
   updateCategory,
   getCategoryDetails,
+  deleteCategory,
 } = require('../controllers/categoryController');
 const { isAuthenticated, isVendorAdmin } = require('../middleware/auth');
 const validate = require('../middleware/validation');
@@ -11,6 +12,7 @@ const {
   saveCategory: saveCategorySchema,
   getCategory: getCategorySchema,
   updateCategory: updateCategorySchema,
+  deleteCategoryById: deleteCategoryByIdSchema,
 } = require('../schemas');
 
 const upload = multer();
@@ -330,6 +332,37 @@ module.exports = (router) => {
    *         description: Category not found
    */
   router.get('/get-category-details/:categoryId', isAuthenticated, getCategoryDetails);
+
+  /**
+   * @swagger
+   * /category/{id}:
+   *   delete:
+   *     summary: Delete a category by id
+   *     tags: [Categories, ADMIN]
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: path
+   *         name: id
+   *         required: true
+   *         schema:
+   *           type: integer
+   *         description: Category ID
+   *     responses:
+   *       200:
+   *         description: Category deleted successfully
+   *       400:
+   *         description: Validation error or category has subcategories/products
+   *       404:
+   *         description: Category not found
+   */
+  router.delete(
+    '/categories/:id',
+    isAuthenticated,
+    isVendorAdmin,
+    validate(deleteCategoryByIdSchema),
+    deleteCategory,
+  );
 
   router.patch(
     '/update-category/:id',

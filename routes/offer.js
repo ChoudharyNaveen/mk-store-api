@@ -4,6 +4,7 @@ const {
   getOffer,
   getOfferSummary,
   updateOffer,
+  deleteOffer,
 } = require('../controllers/offerController');
 const { isAuthenticated } = require('../middleware/auth');
 const validate = require('../middleware/validation');
@@ -12,6 +13,7 @@ const {
   getOffer: getOfferSchema,
   getOfferSummary: getOfferSummarySchema,
   updateOffer: updateOfferSchema,
+  deleteOfferById: deleteOfferByIdSchema,
 } = require('../schemas');
 
 const upload = multer();
@@ -298,6 +300,36 @@ module.exports = (router) => {
    *                   type: boolean
    *                   example: true
    */
+  /**
+   * @swagger
+   * /offer/{id}:
+   *   delete:
+   *     summary: Delete an offer by id
+   *     tags: [Offers, ADMIN]
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: path
+   *         name: id
+   *         required: true
+   *         schema:
+   *           type: integer
+   *         description: Offer ID
+   *     responses:
+   *       200:
+   *         description: Offer deleted successfully
+   *       400:
+   *         description: Validation error or offer has order redemptions
+   *       404:
+   *         description: Offer not found
+   */
+  router.delete(
+    '/offer/:id',
+    isAuthenticated,
+    validate(deleteOfferByIdSchema),
+    deleteOffer,
+  );
+
   router.patch(
     '/update-offer/:id',
     isAuthenticated,
