@@ -2,6 +2,7 @@ const {
   saveProductType,
   getProductType,
   updateProductType,
+  deleteProductType,
 } = require('../controllers/productTypeController');
 const { isAuthenticated, isVendorAdmin } = require('../middleware/auth');
 const validate = require('../middleware/validation');
@@ -9,6 +10,7 @@ const {
   saveProductType: saveProductTypeSchema,
   getProductType: getProductTypeSchema,
   updateProductType: updateProductTypeSchema,
+  deleteProductTypeById: deleteProductTypeByIdSchema,
 } = require('../schemas');
 
 module.exports = (router) => {
@@ -150,4 +152,35 @@ module.exports = (router) => {
    *         description: Concurrency conflict
    */
   router.patch('/update-product-type/:id', isAuthenticated, isVendorAdmin, validate(updateProductTypeSchema), updateProductType);
+
+  /**
+   * @swagger
+   * /product-type/{id}:
+   *   delete:
+   *     summary: Delete a product type by id
+   *     tags: [Product Types, ADMIN]
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: path
+   *         name: id
+   *         required: true
+   *         schema:
+   *           type: integer
+   *         description: Product type ID
+   *     responses:
+   *       200:
+   *         description: Product type deleted successfully
+   *       400:
+   *         description: Validation error or product type has associated products
+   *       404:
+   *         description: Product type not found
+   */
+  router.delete(
+    '/product-type/:id',
+    isAuthenticated,
+    isVendorAdmin,
+    validate(deleteProductTypeByIdSchema),
+    deleteProductType,
+  );
 };

@@ -66,8 +66,27 @@ const getProductType = async (req, res) => {
   }
 };
 
+const deleteProductType = async (req, res) => {
+  try {
+    const { id } = req.validatedData;
+
+    const { errors, doc } = await ProductTypeService.deleteProductType(id);
+
+    if (doc) {
+      res.setHeader('message', 'successfully deleted');
+
+      return res.status(200).json({ success: true, message: 'successfully deleted' });
+    }
+
+    return sendErrorResponse(res, 400, extractErrorMessage(errors), 'VALIDATION_ERROR');
+  } catch (error) {
+    return handleServerError(error, req, res);
+  }
+};
+
 module.exports = {
   saveProductType,
   updateProductType,
   getProductType,
+  deleteProductType,
 };

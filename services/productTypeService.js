@@ -2,6 +2,7 @@ const { v4: uuidV4 } = require('uuid');
 const {
   productType: ProductTypeModel,
   subCategory: SubCategoryModel,
+  product: ProductModel,
   sequelize,
   Sequelize: { Op },
 } = require('../database');
@@ -15,6 +16,7 @@ const {
 } = require('../utils/helper');
 const {
   NotFoundError,
+  ValidationError,
   ConflictError,
   ConcurrencyError,
   handleServiceError,
@@ -185,8 +187,37 @@ const getProductType = async (payload) => {
   return { count: 0, totalCount: 0, doc: [] };
 };
 
+const deleteProductType = async (productTypeId) => withTransaction(sequelize, async (transaction) => {
+  const productType = await ProductTypeModel.findOne({
+    where: { id: productTypeId },
+    attributes: [ 'id' ],
+    transaction,
+  });
+
+  if (!productType) {
+    throw new NotFoundError('Product type not found');
+  }
+
+  const productCount = await ProductModel.count({
+    where: { product_type_id: productTypeId },
+    transaction,
+  });
+
+  if (productCount > 0) {
+    throw new ValidationError('Cannot delete product type with associated products');
+  }
+
+  await ProductTypeModel.destroy({
+    where: { id: productTypeId },
+    transaction,
+  });
+
+  return { doc: { message: 'successfully deleted product type' } };
+}).catch((error) => handleServiceError(error, 'Failed to delete product type'));
+
 module.exports = {
   saveProductType,
   updateProductType,
   getProductType,
+  deleteProductType,
 };
