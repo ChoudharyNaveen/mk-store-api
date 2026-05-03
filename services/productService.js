@@ -43,6 +43,17 @@ const {
   handleServiceError,
 } = require('../utils/serviceErrors');
 
+const normalizeVariantMaxOrderQuantity = (raw) => {
+  if (raw == null) return null;
+  const n = Number(raw);
+
+  if (!Number.isInteger(n) || n < 0) {
+    throw new ValidationError('Variant: maxOrderQuantity must be a non-negative integer when provided');
+  }
+
+  return n;
+};
+
 // Helper function to batch validate combo discount concurrency stamps
 const validateComboDiscountConcurrencyStampsBatch = async (comboDiscountsToUpdate, transaction) => {
   if (!comboDiscountsToUpdate || comboDiscountsToUpdate.length === 0) {
@@ -374,6 +385,7 @@ const saveProduct = async ({ data, imageFiles }) => withTransaction(sequelize, a
       const variantConcurrencyStamp = uuidV4();
       const initialQuantity = quantity || 0;
       const initialThresholdStock = thresholdStock || 0;
+      const maxOrderQty = normalizeVariantMaxOrderQuantity(variantData.maxOrderQuantity);
 
       const variantDoc = {
         productId: cat.id,
@@ -389,6 +401,7 @@ const saveProduct = async ({ data, imageFiles }) => withTransaction(sequelize, a
         itemUnit: itemUnit || null,
         expiryDate,
         thresholdStock: initialThresholdStock,
+        maxOrderQuantity: maxOrderQty,
         productStatus: getProductStatusFromQuantity(initialQuantity, initialThresholdStock),
         status: variantStatus || 'ACTIVE',
         concurrencyStamp: variantConcurrencyStamp,
@@ -616,7 +629,9 @@ const updateProduct = async ({ data, imageFiles }) => withTransaction(sequelize,
     // Get existing variants for this product
     const existingVariants = await ProductVariantModel.findAll({
       where: { product_id: id, status: 'ACTIVE' },
-      attributes: [ 'id', 'variant_name', 'concurrency_stamp', 'quantity', 'threshold_stock' ],
+      attributes: [
+        'id', 'variant_name', 'concurrency_stamp', 'quantity', 'threshold_stock', 'max_order_quantity',
+      ],
       transaction,
     });
 
@@ -774,6 +789,9 @@ const updateProduct = async ({ data, imageFiles }) => withTransaction(sequelize,
         itemUnit: itemUnit || null,
         expiryDate,
         thresholdStock: newThresholdStock,
+        maxOrderQuantity: variantData.maxOrderQuantity !== undefined
+          ? normalizeVariantMaxOrderQuantity(variantData.maxOrderQuantity)
+          : existingVariant.max_order_quantity,
         productStatus: getProductStatusFromQuantity(newVariantQuantity, newThresholdStock),
         status: variantStatus || 'ACTIVE',
         concurrencyStamp: variantConcurrencyStampNew,
@@ -835,6 +853,7 @@ const updateProduct = async ({ data, imageFiles }) => withTransaction(sequelize,
       } = variantData;
 
       const variantConcurrencyStampNew = uuidV4();
+      const maxOrderQtyNew = normalizeVariantMaxOrderQuantity(variantData.maxOrderQuantity);
 
       const variantDoc = {
         productId: id,
@@ -849,6 +868,7 @@ const updateProduct = async ({ data, imageFiles }) => withTransaction(sequelize,
         itemQuantity: itemQuantity || null,
         itemUnit: itemUnit || null,
         expiryDate,
+        maxOrderQuantity: maxOrderQtyNew,
         productStatus: getProductStatusFromQuantity(quantity),
         status: variantStatus || 'ACTIVE',
         concurrencyStamp: variantConcurrencyStampNew,
@@ -1187,9 +1207,8 @@ const updateProduct = async ({ data, imageFiles }) => withTransaction(sequelize,
     updatedImages.push(...createdImagesResults);
   }
 
-  // Handle pre-uploaded image URLs (from imagesData array)
+  // Handle pre-uploaded image URLs (from imagesData array) — product images only (no variant_id)
   if (imagesData && Array.isArray(imagesData) && imagesData.length > 0) {
-    // Get existing images once
     const existingImages = await ProductImageModel.findAll({
       where: { product_id: id, variant_id: null, status: 'ACTIVE' },
       attributes: [ 'id', 'is_default', 'display_order', 'concurrency_stamp' ],
@@ -1210,10 +1229,7 @@ const updateProduct = async ({ data, imageFiles }) => withTransaction(sequelize,
     const imagesToUpdate = validImagesData.filter((imgData) => imgData.id);
     const imagesToCreate = validImagesData.filter((imgData) => !imgData.id && imgData.imageUrl);
 
-    // Check total images won't exceed 3
-    const totalAfterCreate = existingImages.length - imagesToUpdate.length + imagesToCreate.length;
-
-    if (totalAfterCreate > 3) {
+    if (existingImages.length + imagesToCreate.length > 3) {
       throw new ValidationError(`Cannot add ${imagesToCreate.length} images. Maximum is 3 images per product.`);
     }
 
@@ -1239,7 +1255,7 @@ const updateProduct = async ({ data, imageFiles }) => withTransaction(sequelize,
     // Process all updates in parallel
     const updatePromises = imagesToUpdate.map(async (imgData) => {
       const {
-        id: imageId, imageUrl, isDefault, displayOrder, variantId, status: imageStatus,
+        id: imageId, imageUrl, isDefault, displayOrder, status: imageStatus,
         concurrencyStamp: imageConcurrencyStamp,
       } = imgData;
 
@@ -1259,7 +1275,6 @@ const updateProduct = async ({ data, imageFiles }) => withTransaction(sequelize,
         ...(imageUrl && { imageUrl }),
         ...(isDefault !== undefined && { isDefault }),
         ...(displayOrder !== undefined && { displayOrder }),
-        ...(variantId !== undefined && { variantId: variantId || null }),
         ...(imageStatus !== undefined && { status: imageStatus }),
         concurrencyStamp: imageConcurrencyStampNew,
         updatedBy,
@@ -1278,10 +1293,11 @@ const updateProduct = async ({ data, imageFiles }) => withTransaction(sequelize,
     updatedImages.push(...updatedImageResults);
 
     // Process all creates in parallel - simplified
-    const hasDefault = existingImages.some((img) => img.is_default) || imagesToUpdate.some((img) => img.isDefault === true);
+    const hasDefault = existingImages.some((img) => img.is_default)
+      || imagesToUpdate.some((img) => img.isDefault === true);
     const createPromises = imagesToCreate.map(async (imgData, i) => {
       const {
-        imageUrl, isDefault, displayOrder, variantId,
+        imageUrl, isDefault, displayOrder,
       } = imgData;
 
       const imageConcurrencyStampNew = uuidV4();
@@ -1290,7 +1306,7 @@ const updateProduct = async ({ data, imageFiles }) => withTransaction(sequelize,
 
       const imageDoc = {
         productId: id,
-        variantId: variantId || null,
+        variantId: null,
         imageUrl,
         isDefault: isDefaultValue,
         displayOrder: displayOrderValue,
@@ -1533,6 +1549,7 @@ const getProduct = async (payload) => {
             'price',
             'selling_price',
             'quantity',
+            'max_order_quantity',
             'item_quantity',
             'item_unit',
             'items_per_unit',
@@ -1716,6 +1733,7 @@ const searchProducts = async (payload) => {
             'price',
             'selling_price',
             'quantity',
+            'max_order_quantity',
             'item_quantity',
             'item_unit',
             'items_per_unit',
@@ -1846,6 +1864,7 @@ const getProductsGroupedByCategory = async (payload) => {
                 'price',
                 'selling_price',
                 'quantity',
+                'max_order_quantity',
                 'item_quantity',
                 'item_unit',
                 'expiry_date',
@@ -2038,6 +2057,7 @@ const getProductDetails = async (productId) => {
             'price',
             'selling_price',
             'quantity',
+            'max_order_quantity',
             'items_per_unit',
             'units',
             'item_quantity',

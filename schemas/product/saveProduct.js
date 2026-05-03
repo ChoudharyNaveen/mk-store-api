@@ -50,6 +50,13 @@ const saveProduct = Joi.object({
             'any.required': 'Variant: quantity is required',
             'number.min': 'Variant: quantity must be greater than or equal to 0',
           }),
+        maxOrderQuantity: Joi.number().integer().min(0)
+          .optional()
+          .allow(null)
+          .messages({
+            'number.base': 'Variant: maxOrderQuantity must be a number',
+            'number.min': 'Variant: maxOrderQuantity must be greater than or equal to 0 when set',
+          }),
         itemsPerUnit: Joi.number().integer().min(1).optional()
           .messages({
             'number.min': 'Variant: itemsPerUnit must be greater than or equal to 1',

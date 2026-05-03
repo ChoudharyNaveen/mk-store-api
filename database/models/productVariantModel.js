@@ -38,6 +38,12 @@ module.exports = (sequelize, DataTypes) => {
         allowNull: false,
         defaultValue: 0,
       },
+      max_order_quantity: {
+        type: DataTypes.INTEGER,
+        allowNull: true,
+        comment:
+          'Max units per order line (cart row qty / combo sets). Null or 0 = no cap; enforce only when > 0.',
+      },
       threshold_stock: {
         type: DataTypes.INTEGER,
         allowNull: true,

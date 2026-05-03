@@ -56,6 +56,7 @@ const {
   ConcurrencyError,
   handleServiceError,
 } = require('../utils/serviceErrors');
+const { overMaxOrderMessage } = require('../utils/variantMaxOrderQuantity');
 
 // ============================================================================
 // Helper Methods for Order Operations
@@ -182,7 +183,15 @@ const fetchAndValidateCartItems = async (createdBy, vendorId, branchId, transact
       {
         model: ProductVariantModel,
         as: 'variant',
-        attributes: [ 'id', 'variant_name', 'product_id', 'selling_price', 'quantity', 'concurrency_stamp' ],
+        attributes: [
+          'id',
+          'variant_name',
+          'product_id',
+          'selling_price',
+          'quantity',
+          'concurrency_stamp',
+          'max_order_quantity',
+        ],
         required: true,
         include: [
           {
@@ -247,6 +256,12 @@ const calculateOrderAmount = async (cartItems, transaction) => {
     }
 
     const itemTitle = variant.variant_name;
+    const maxMsg = overMaxOrderMessage(cartQuantity, variant.max_order_quantity, itemTitle);
+
+    if (maxMsg) {
+      return { errors: { message: maxMsg } };
+    }
+
     const currentQuantity = variant.quantity;
     const itemConcurrencyStamp = variant.concurrency_stamp;
     const itemProductId = variant.product_id;

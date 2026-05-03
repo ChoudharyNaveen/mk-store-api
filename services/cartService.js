@@ -23,6 +23,7 @@ const {
 } = require('../utils/serviceErrors');
 const { COMBO_DISCOUNT_TYPE } = require('../utils/constants/comboDiscountTypeConstants');
 const { variantComboDiscount: VariantComboDiscountModel, Sequelize: { Op } } = require('../database');
+const { assertWithinMaxOrderQuantity } = require('../utils/variantMaxOrderQuantity');
 
 // Helper: Get combo discount by ID and validate it belongs to variant
 const getComboDiscountById = async (comboId, variantId, transaction = null) => {
@@ -96,7 +97,7 @@ const saveCart = async (data) => withTransaction(sequelize, async (transaction) 
   // Get variant and validate it belongs to the product
   const variant = await ProductVariantModel.findOne({
     where: { id: variantId, product_id: productId },
-    attributes: [ 'id', 'product_id', 'selling_price' ],
+    attributes: [ 'id', 'product_id', 'selling_price', 'variant_name', 'max_order_quantity' ],
     include: [
       {
         model: ProductModel,
@@ -141,6 +142,12 @@ const saveCart = async (data) => withTransaction(sequelize, async (transaction) 
   if (!branch) {
     throw new ValidationError('Branch not found or does not belong to vendor');
   }
+
+  assertWithinMaxOrderQuantity(
+    quantity,
+    variant.max_order_quantity,
+    variant.variant_name || 'this variant',
+  );
 
   // Calculate price based on comboId
   let unitPrice;
@@ -243,7 +250,9 @@ const getCartOfUser = async (payload) => {
         {
           model: ProductVariantModel,
           as: 'variant',
-          attributes: [ 'id', 'variant_name', 'selling_price', 'quantity', 'product_status' ],
+          attributes: [
+            'id', 'variant_name', 'selling_price', 'quantity', 'product_status', 'max_order_quantity',
+          ],
           required: false,
           include: [
             {
@@ -310,7 +319,7 @@ const updateCart = async (data) => withTransaction(sequelize, async (transaction
       {
         model: ProductVariantModel,
         as: 'variant',
-        attributes: [ 'id', 'selling_price' ],
+        attributes: [ 'id', 'selling_price', 'variant_name', 'max_order_quantity' ],
       },
     ],
     transaction,
@@ -361,6 +370,12 @@ const updateCart = async (data) => withTransaction(sequelize, async (transaction
 
   const newQuantity = quantity !== undefined ? quantity : response.quantity;
   const sellingPrice = variant.selling_price;
+
+  assertWithinMaxOrderQuantity(
+    newQuantity,
+    variant.max_order_quantity,
+    variant.variant_name || 'this variant',
+  );
 
   let unitPrice;
   let totalPrice;
