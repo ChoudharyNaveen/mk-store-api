@@ -1,14 +1,10 @@
 const { v4: uuidV4 } = require('uuid');
-const { Op } = require('sequelize');
 const {
   subCategory: SubCategoryModel,
   category: CategoryModel,
   product: ProductModel,
   productType: ProductTypeModel,
   banner: BannerModel,
-  productVariant: ProductVariantModel,
-  orderItem: OrderItemModel,
-  order: OrderModel,
   brand: BrandModel,
   branch: BranchModel,
   vendor: VendorModel,
@@ -215,8 +211,8 @@ const getSubCategory = async (payload) => {
       },
     }));
 
-    // Convert image URLs to CloudFront URLs (automatically handles nested objects/arrays)
-    doc = convertImageFieldsToCloudFront(items);
+    // Serialize dates before CloudFront conversion (Date objects are otherwise spread to {})
+    doc = convertImageFieldsToCloudFront(JSON.parse(JSON.stringify(items)));
 
     return { count, totalCount, doc };
   }
@@ -432,7 +428,7 @@ const getSubCategoryStats = async (payload) => {
     const { subCategoryId, startDate, endDate } = payload;
 
     // Verify sub-category exists and get all stats in parallel
-    const [subCategory, productStats, revenueResult, stockStats] = await Promise.all([
+    const [ subCategory, productStats, revenueResult, stockStats ] = await Promise.all([
       // 1. Verify sub-category exists
       SubCategoryModel.findOne({
         where: { id: subCategoryId },
@@ -451,7 +447,7 @@ const getSubCategoryStats = async (payload) => {
         `;
 
         const result = await sequelize.query(productStatsQuery, {
-          replacements: [subCategoryId],
+          replacements: [ subCategoryId ],
           type: sequelize.QueryTypes.SELECT,
         });
 
@@ -460,12 +456,13 @@ const getSubCategoryStats = async (payload) => {
 
       // 3. Calculate total revenue using SQL aggregation (much faster than fetching all records)
       (async () => {
-        const replacements = [subCategoryId, ORDER_STATUS.DELIVERED];
+        const replacements = [ subCategoryId, ORDER_STATUS.DELIVERED ];
         let dateConditions = '';
 
         if (startDate || endDate) {
           if (startDate && endDate) {
             const endDateTime = new Date(endDate);
+
             endDateTime.setHours(23, 59, 59, 999);
             dateConditions = 'AND orderitem.created_at >= ? AND orderitem.created_at <= ?';
             replacements.push(new Date(startDate), endDateTime);
@@ -474,6 +471,7 @@ const getSubCategoryStats = async (payload) => {
             replacements.push(new Date(startDate));
           } else if (endDate) {
             const endDateTime = new Date(endDate);
+
             endDateTime.setHours(23, 59, 59, 999);
             dateConditions = 'AND orderitem.created_at <= ?';
             replacements.push(endDateTime);
@@ -527,7 +525,7 @@ const getSubCategoryStats = async (payload) => {
         `;
 
         const result = await sequelize.query(stockQuery, {
-          replacements: [LOW_STOCK_THRESHOLD, LOW_STOCK_THRESHOLD, subCategoryId],
+          replacements: [ LOW_STOCK_THRESHOLD, LOW_STOCK_THRESHOLD, subCategoryId ],
           type: sequelize.QueryTypes.SELECT,
         });
 
