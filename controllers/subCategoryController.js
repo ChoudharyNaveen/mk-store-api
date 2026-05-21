@@ -71,6 +71,21 @@ const getSubCategory = async (req, res) => {
   }
 };
 
+const getSubCategoryV2 = async (req, res) => {
+  try {
+    const data = req.validatedData;
+    const { pageSize, pageNumber } = data;
+
+    const { totalCount, doc } = await SubCategoryService.getSubCategoryV2(data);
+
+    const pagination = createPaginationObject(pageSize, pageNumber, totalCount);
+
+    return res.status(200).json({ success: true, doc, pagination });
+  } catch (error) {
+    return handleServerError(error, req, res);
+  }
+};
+
 const getSubCategoriesByCategoryId = async (req, res) => {
   try {
     const data = req.validatedData;
@@ -140,6 +155,7 @@ module.exports = {
   saveSubCategory,
   updateSubCategory,
   getSubCategory,
+  getSubCategoryV2,
   getSubCategoriesByCategoryId,
   getSubCategoryDetails,
   getSubCategoryStats,

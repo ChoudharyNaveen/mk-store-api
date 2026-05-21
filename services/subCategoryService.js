@@ -120,7 +120,7 @@ const updateSubCategory = async ({ data, imageFile }) => withTransaction(sequeli
   return { doc: { concurrencyStamp: newConcurrencyStamp } };
 }).catch((error) => handleServiceError(error, 'Transaction failed'));
 
-const getSubCategory = async (payload) => {
+const querySubCategoryList = async (payload) => {
   const {
     pageSize, pageNumber, filters, sorting,
   } = payload;
@@ -189,35 +189,62 @@ const getSubCategory = async (payload) => {
     replacements,
   );
 
-  let doc = [];
-
-  if (response) {
-    const { count, totalCount, rows } = response;
-
-    // Transform rows to match the expected format (with nested category object)
-    const items = rows.map((row) => ({
-      id: row.id,
-      title: row.title,
-      description: row.description,
-      image: row.image,
-      status: row.status,
-      concurrency_stamp: row.concurrency_stamp,
-      created_at: row.created_at,
-      updated_at: row.updated_at,
-      category: {
-        id: row.category_id,
-        title: row.category_title,
-        image: row.category_image,
-      },
-    }));
-
-    // Serialize dates before CloudFront conversion (Date objects are otherwise spread to {})
-    doc = convertImageFieldsToCloudFront(JSON.parse(JSON.stringify(items)));
-
-    return { count, totalCount, doc };
+  if (!response) {
+    return null;
   }
 
-  return { count: 0, totalCount: 0, doc: [] };
+  const { count, totalCount, rows } = response;
+
+  const items = rows.map((row) => ({
+    id: row.id,
+    title: row.title,
+    description: row.description,
+    image: row.image,
+    status: row.status,
+    concurrency_stamp: row.concurrency_stamp,
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+    category: {
+      id: row.category_id,
+      title: row.category_title,
+      image: row.category_image,
+    },
+  }));
+
+  return { count, totalCount, items };
+};
+
+const getSubCategory = async (payload) => {
+  const result = await querySubCategoryList(payload);
+
+  if (!result) {
+    return { count: 0, totalCount: 0, doc: [] };
+  }
+
+  const { count, totalCount, items } = result;
+
+  return {
+    count,
+    totalCount,
+    doc: convertImageFieldsToCloudFront(items),
+  };
+};
+
+const getSubCategoryV2 = async (payload) => {
+  const result = await querySubCategoryList(payload);
+
+  if (!result) {
+    return { count: 0, totalCount: 0, doc: [] };
+  }
+
+  const { count, totalCount, items } = result;
+
+  // Serialize dates before CloudFront conversion (Date objects are otherwise spread to {})
+  return {
+    count,
+    totalCount,
+    doc: convertImageFieldsToCloudFront(JSON.parse(JSON.stringify(items))),
+  };
 };
 
 const getSubCategoriesByCategoryId = async (payload) => {
@@ -616,6 +643,7 @@ module.exports = {
   saveSubCategory,
   updateSubCategory,
   getSubCategory,
+  getSubCategoryV2,
   getSubCategoriesByCategoryId,
   getSubCategoryDetails,
   getSubCategoryStats,

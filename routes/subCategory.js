@@ -2,6 +2,7 @@ const multer = require('multer');
 const {
   saveSubCategory,
   getSubCategory,
+  getSubCategoryV2,
   getSubCategoriesByCategoryId,
   updateSubCategory,
   getSubCategoryDetails,
@@ -192,6 +193,43 @@ module.exports = (router) => {
    *                   type: integer
    */
   router.post('/get-sub-category', isAuthenticated, validate(getSubCategorySchema), getSubCategory);
+
+  /**
+   * @swagger
+   * /v2/get-sub-category:
+   *   post:
+   *     summary: Get subcategories with pagination (v2 — correct created_at/updated_at)
+   *     tags: [SubCategories, BOTH]
+   *     security:
+   *       - bearerAuth: []
+   *     requestBody:
+   *       required: false
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             properties:
+   *               pageSize:
+   *                 type: integer
+   *                 enum: [1, 5, 10, 20, 30, 40, 50, 100, 500]
+   *                 default: 10
+   *               pageNumber:
+   *                 type: integer
+   *                 minimum: 1
+   *                 default: 1
+   *               filters:
+   *                 type: array
+   *                 items:
+   *                   type: object
+   *               sorting:
+   *                 type: array
+   *                 items:
+   *                   type: object
+   *     responses:
+   *       200:
+   *         description: Subcategories retrieved successfully
+   */
+  router.post('/v2/get-sub-category', isAuthenticated, validate(getSubCategorySchema), getSubCategoryV2);
 
   /**
    * @swagger
